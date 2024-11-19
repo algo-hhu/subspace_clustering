@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "subspaceclustering"
+version = "0.1.0"
+description = ""
+authors = ["Johanna Hillebrand <Johanna.Hillebrand@hhu.de>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+tqdm = "^4.67.0"
+loguru = "^0.7.2"
+xarray = "^2024.10.0"
+netcdf4 = "^1.7.2"
+scipy = "^1.14.1"
+matplotlib = "^3.9.2"
+cartopy = "^0.24.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
