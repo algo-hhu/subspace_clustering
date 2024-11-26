@@ -4,9 +4,17 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d39a10a8-8466-406c-962c-2d4bd8147b18" name="Changes" comment="adding gitignore">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+    <list default="true" id="d39a10a8-8466-406c-962c-2d4bd8147b18" name="Changes" comment="updating gitignore">
+      <change afterPath="$PROJECT_DIR$/.idea/dataSources.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/cluster.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/cluster_grid_point_relationship.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/grid_point.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/sea_level_differences.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/preprocessing.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/preprocessing.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -40,9 +48,12 @@
   </component>
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
+    &quot;ASKED_MARK_IGNORED_FILES_AS_EXCLUDED&quot;: &quot;true&quot;,
+    &quot;Docker.compose.yaml: Compose Deployment.executor&quot;: &quot;Run&quot;,
     &quot;Python.main.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;last_opened_file_path&quot;: &quot;/home/johanna/Dokumente/SubspaceClustering/src/preprocessing.py&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
@@ -51,6 +62,11 @@
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
     &quot;settings.editor.selected.configurable&quot;: &quot;actions.on.save&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  },
+  &quot;keyToStringList&quot;: {
+    &quot;DatabaseDriversLRU&quot;: [
+      &quot;postgresql&quot;
+    ]
   }
 }</component>
   <component name="RecentsManager">
@@ -58,7 +74,7 @@
       <recent name="$PROJECT_DIR$" />
     </key>
   </component>
-  <component name="RunManager">
+  <component name="RunManager" selected="Python.main">
     <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="SubspaceClustering" />
       <option name="ENV_FILES" value="" />
@@ -82,9 +98,25 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration default="true" type="docker-deploy" factoryName="docker-compose.yml" temporary="true">
+      <deployment type="docker-compose.yml">
+        <settings />
+      </deployment>
+      <method v="2" />
+    </configuration>
+    <configuration name="compose.yaml: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" temporary="true" server-name="Docker">
+      <deployment type="docker-compose.yml">
+        <settings>
+          <option name="envFilePath" value="" />
+          <option name="sourceFilePath" value="compose.yaml" />
+        </settings>
+      </deployment>
+      <method v="2" />
+    </configuration>
     <recent_temporary>
       <list>
         <item itemvalue="Python.main" />
+        <item itemvalue="Docker.compose.yaml: Compose Deployment" />
       </list>
     </recent_temporary>
   </component>
@@ -110,7 +142,15 @@
       <workItem from="1731594069859" duration="24000" />
       <workItem from="1731594100124" duration="150000" />
       <workItem from="1731927524581" duration="6081000" />
-      <workItem from="1731942645358" duration="1385000" />
+      <workItem from="1731942645358" duration="2986000" />
+      <workItem from="1732008770085" duration="2274000" />
+      <workItem from="1732026366517" duration="1251000" />
+      <workItem from="1732035495914" duration="2826000" />
+      <workItem from="1732205867551" duration="3057000" />
+      <workItem from="1732218916311" duration="24000" />
+      <workItem from="1732219083233" duration="3667000" />
+      <workItem from="1732266968369" duration="1847000" />
+      <workItem from="1732610935945" duration="6142000" />
     </task>
     <task id="LOCAL-00001" summary="calculating start clustering using matrices">
       <option name="closed" value="true" />
@@ -128,7 +168,23 @@
       <option name="project" value="LOCAL" />
       <updated>1732006562109</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="updating gitignore">
+      <option name="closed" value="true" />
+      <created>1732006696268</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1732006696268</updated>
+    </task>
+    <task id="LOCAL-00004" summary="updating gitignore">
+      <option name="closed" value="true" />
+      <created>1732218743139</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1732218743139</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -137,9 +193,10 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="calculating start clustering using matrices" />
     <MESSAGE value="adding gitignore" />
-    <option name="LAST_COMMIT_MESSAGE" value="adding gitignore" />
+    <MESSAGE value="updating gitignore" />
+    <option name="LAST_COMMIT_MESSAGE" value="updating gitignore" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/SubspaceClustering$main.coverage" NAME="main Coverage Results" MODIFIED="1731942111980" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
+    <SUITE FILE_PATH="coverage/SubspaceClustering$main.coverage" NAME="main Coverage Results" MODIFIED="1732632826872" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
   </component>
 </project>

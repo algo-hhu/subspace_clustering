@@ -1,13 +1,16 @@
 import math
 import os
 import time
+import uuid
 
+import geopandas
 import numpy as np
 import tqdm
 import xarray as xr
 from loguru import logger
 from scipy.ndimage import gaussian_filter
 
+from src.grid_point import GridPoint
 from src.plotting import plot_sla_for_point_in_time
 
 
@@ -148,3 +151,24 @@ def distance_function(pair, data_array, spatial_coords, a):
     d = np.linalg.norm(spatial_coords[i] - spatial_coords[j])
 
     return 1 - np.exp(-d / (2 * a ** 2)) * r
+
+
+def generate_grid_points(sea_level_anomaly_data: xr.Dataset):
+    """
+    Generate grid points for each grid point
+    :param sea_level_anomaly_data:
+    :return:
+    """
+    # iterate over all grid points and generate a GridPoint object for each grid point and save it to the database
+    # this should be done in parallel using joblib
+    # maybe only do this for a certain radius around the point (e.g. 3000 km
+    for i in range(sea_level_anomaly_data["latitude"].shape[0]):
+        for j in range(sea_level_anomaly_data["longitude"].shape[0]):
+            GridPoint(id=uuid.uuid4(), latitude=sea_level_anomaly_data["latitude"][i].item(),
+                      longitude=sea_level_anomaly_data["longitude"][j].item(),
+                      sea_level_anomaly_values=sea_level_anomaly_data["sla"][:, i, j].values)
+            # save to database
+
+    geopandas.GeoDataFrame()
+
+    pass

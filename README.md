@@ -21,8 +21,7 @@
 - calculate distances between each pair of grid points
 - hierarchical clustering
     - average linkage: distance between two clusters is average distance between data points in the first cluster and
-      data
-      points in the second cluster
+      data points in the second cluster
     - at each stage combine the two clusters with the smallest average linkage distance
 
 ## Alternative way of finding start-clusters?

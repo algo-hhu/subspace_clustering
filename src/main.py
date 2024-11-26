@@ -1,18 +1,22 @@
 import math
 import os
 import time
-from itertools import combinations
 
-import numpy as np
-import pandas as pd
 import xarray as xr
 from loguru import logger
-from matplotlib import pyplot as plt
-from scipy.cluster.hierarchy import dendrogram, linkage
+from sqlalchemy import create_engine, URL
 
-from src.preprocessing import read_satellite_data, filtering, distance_function
+from src import preprocessing
+from src.grid_point import Base
+from src.preprocessing import read_satellite_data
 
 if __name__ == '__main__':
+    # database engine
+    url = URL.create("postgresql", username="postgres", password="postgres", host="localhost", port=5432,
+                     database="postgres")
+    engine = create_engine(url)
+    Base.metadata.create_all(engine)
+    exit(0)
     out_dir = "../output/Preprocessing/"
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
@@ -34,57 +38,20 @@ if __name__ == '__main__':
         time_2 = time.time()
         logger.info(f"Time taken to read data: {time_2 - time_1}")
 
-    filtered_data = filtering(sea_level_anomaly_data, time_2, out_dir)
+    # filter spatially with a symmetric Gaussian filter of half-width 500 km
+    # leave filtering for now and decide later if it is necessary
+    # filtered_data = filtering(sea_level_anomaly_data, time_2, out_dir)
     # Apply a convolution low-pass filter passing 90% of the amplitude at 24 months to each time series.
 
-    time_3 = time.time()
-    # flatten the data to have a shape of (365, 1,036,800)
-    # select which data to use (either 0.25 or 5 degree grid, additionally filtered or not)
-    data = filtered_data['filtered_sla']
-    flattened_data = data.stack(spatial=('latitude', 'longitude'))
-    flattened_data = flattened_data.dropna(dim='spatial', how='any')
-    data_array = flattened_data.values
-    time_4 = time.time()
-    logger.info(f"Time taken to prepare data for distance calculation: {time_4 - time_3}")
+    # generate grid_point objects for each grid point
+    preprocessing.generate_grid_points(sea_level_anomaly_data)
 
-    # get spatial coordinates
-    spatial_coords = np.array(flattened_data.spatial.values.tolist())
-
-    # Normalize the data
-    mean = np.mean(data_array, axis=0)
-    std_dev = np.std(data_array, axis=0)
-    normalized_data = (data_array - mean) / std_dev
-
-    time_5 = time.time()
-    logger.info(f"Time taken to normalize data: {time_5 - time_4}")
-
-    num_points = spatial_coords.shape[0]
-    pairs = list(combinations(range(num_points), 2))  # pairs of indices (i,j) where i != j
     # distance function
     # D(x_i, x_j) = 1 - exp(- d(x_i, x_j)/2a^2) r(x_i, x_j)
     # d is Euclidean distance, r is temporal correlation coefficient, a is constant such that the value of the
     # exponential is 0.5, when d=3000 km
     # calculate distances between each pair of grid points
     a = math.sqrt(- (1500 / (math.log(0.5))))
-
-    # compute pairwise distances
-    distances = np.array([distance_function(pair, normalized_data, spatial_coords, a) for pair in pairs])
-
-    time_5 = time.time()
-    logger.info(f"Time taken to calculate distances: {time_5 - time_4}")
-
-    spatial_indices = flattened_data['spatial'].values  # Coordinates of the grid points
-    pairwise_distances = pd.DataFrame(
-        {'point1': [spatial_indices[pair[0]] for pair in pairs], 'point2': [spatial_indices[pair[1]] for pair in pairs],
-         'distance': distances})
-
-    pairwise_distances.to_pickle("../data/pairwise_distances.pkl")
-
-    # hierarchical clustering
-    linkage_matrix = linkage(distances, method='average')
-
-    dendrogram(linkage_matrix)
-    plt.show()
 
 # TODO: filter spatially with a symmetric Gaussian filter of half-width 500 km
 # TODO: interpolate to 5 degree grid
