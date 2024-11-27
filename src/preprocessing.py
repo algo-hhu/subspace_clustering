@@ -10,7 +10,6 @@ import xarray as xr
 from loguru import logger
 from scipy.ndimage import gaussian_filter
 
-from src.grid_point import GridPoint
 from src.plotting import plot_sla_for_point_in_time
 
 

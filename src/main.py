@@ -1,28 +1,22 @@
+import asyncio
 import math
 import os
 import time
 
 import xarray as xr
 from loguru import logger
-from sqlalchemy import create_engine, URL
+from prisma import Prisma
 
-from src import preprocessing
-from src.grid_point import Base
+from src import populate_database
 from src.preprocessing import read_satellite_data
 
-# Import all models to ensure they are registered with SQLAlchemy
-from src.cluster import Cluster
-from src.grid_point import GridPoint
-from src.sea_level_differences import Difference
-from src.merge_history import MergeHistory
-from src.cluster_grid_point_relationship import cluster_grid_points
+db = Prisma()
 
-if __name__ == '__main__':
-    # database engine
-    url = URL.create("postgresql", username="postgres", password="postgres", host="localhost", port=5432,
-                     database="postgres")
-    engine = create_engine(url)
-    Base.metadata.create_all(engine)
+
+async def main():
+    # create database tables
+    logger.info(f"Establish connection to database and create tables")
+    await db.connect()
     logger.info("Database tables created")
     out_dir = "../output/Preprocessing/"
     if not os.path.exists(out_dir):
@@ -59,8 +53,9 @@ if __name__ == '__main__':
     # calculate distances between each pair of grid points
     a = math.sqrt(- (1500 / (math.log(0.5))))
     # generate grid_point objects for each grid point
-    preprocessing.generate_grid_points(sea_level_anomaly_data)
+    await (populate_database.generate_grid_points(sea_level_anomaly_data, db))
     logger.info(f"Start hierarchical clustering")
+
 
 # TODO: filter spatially with a symmetric Gaussian filter of half-width 500 km
 # TODO: interpolate to 5 degree grid
@@ -69,3 +64,6 @@ if __name__ == '__main__':
 # TODO: d is Euclidean distance, r is temporal correlation coefficient, a is constant such that the value of the exponential is 0.5, when d=3000 km
 # TODO: calculate distances between each pair of grid points
 # TODO: hierarchical clustering
+
+if __name__ == "__main__":
+    asyncio.run(main())

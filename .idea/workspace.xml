@@ -4,19 +4,19 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d39a10a8-8466-406c-962c-2d4bd8147b18" name="Changes" comment="include docker compose file">
-      <change afterPath="$PROJECT_DIR$/schema.prisma" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/base.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/merge_history.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/populate_database.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/dataSources.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dataSources.xml" afterDir="false" />
+    <list default="true" id="d39a10a8-8466-406c-962c-2d4bd8147b18" name="Changes" comment="adding schema.prisma to switch to prisma as an ORM">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/cluster.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/cluster.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/cluster_grid_point_relationship.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/cluster_grid_point_relationship.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/grid_point.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/grid_point.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/schema.prisma" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/base.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/cluster.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/cluster_grid_point_relationship.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/grid_point.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/merge_history.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/populate_database.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/populate_database.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/preprocessing.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/preprocessing.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/sea_level_differences.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/sea_level_differences.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/sea_level_differences.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -38,6 +38,9 @@
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="OptimizeOnSaveOptions">
+    <option name="myRunOnSave" value="true" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 3
@@ -156,7 +159,7 @@
       <workItem from="1732266968369" duration="1847000" />
       <workItem from="1732610935945" duration="8528000" />
       <workItem from="1732657664763" duration="5064000" />
-      <workItem from="1732709003687" duration="2671000" />
+      <workItem from="1732709003687" duration="13553000" />
     </task>
     <task id="LOCAL-00001" summary="calculating start clustering using matrices">
       <option name="closed" value="true" />
@@ -206,7 +209,15 @@
       <option name="project" value="LOCAL" />
       <updated>1732639174415</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="adding schema.prisma to switch to prisma as an ORM">
+      <option name="closed" value="true" />
+      <created>1732714342940</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1732714342940</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -218,9 +229,10 @@
     <MESSAGE value="updating gitignore" />
     <MESSAGE value="include database and classes for entities and relationships" />
     <MESSAGE value="include docker compose file" />
-    <option name="LAST_COMMIT_MESSAGE" value="include docker compose file" />
+    <MESSAGE value="adding schema.prisma to switch to prisma as an ORM" />
+    <option name="LAST_COMMIT_MESSAGE" value="adding schema.prisma to switch to prisma as an ORM" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/SubspaceClustering$main.coverage" NAME="main Coverage Results" MODIFIED="1732658350799" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
+    <SUITE FILE_PATH="coverage/SubspaceClustering$main.coverage" NAME="main Coverage Results" MODIFIED="1732745109965" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
   </component>
 </project>

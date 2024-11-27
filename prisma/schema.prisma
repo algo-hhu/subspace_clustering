@@ -1,0 +1,64 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider             = "prisma-client-py"
+  interface            = "asyncio"
+  recursive_type_depth = 5
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://postgres:postgres@localhost:5432/postgres"
+}
+
+model GridPoint {
+  id         String    @id @default(cuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  latitude   Float
+  longitude  Float
+  timeseries Float[]
+  clusters   Cluster[] @relation("ClusterGridPoint") // Many-to-many relation
+}
+
+model Cluster {
+  id           String         @id @default(cuid())
+  created_at   DateTime       @default(now())
+  updated_at   DateTime       @updatedAt
+  gridpoints   GridPoint[]    @relation("ClusterGridPoint")
+  differences1 Difference[]   @relation("ClusterDifference1")
+  differences2 Difference[]   @relation("ClusterDifference2")
+  merges1      MergeHistory[] @relation("MergeCluster1")
+  merges2      MergeHistory[] @relation("MergeCluster2")
+  merges       MergeHistory[] @relation("MergeClusterMerged")
+}
+
+model Difference {
+  id         String   @id @default(cuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  cluster1   Cluster  @relation("ClusterDifference1", fields: [cluster1Id], references: [id])
+  cluster1Id String
+  cluster2   Cluster  @relation("ClusterDifference2", fields: [cluster2Id], references: [id])
+  cluster2Id String
+  difference Float
+  // Composite unique constraint to avoid duplicate entries for a pair
+  @@unique([cluster1Id, cluster2Id])
+}
+
+model MergeHistory {
+  id         String   @id @default(cuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  iteration  Int
+  cluster1   Cluster  @relation("MergeCluster1", fields: [cluster1Id], references: [id])
+  cluster1Id String
+  cluster2   Cluster  @relation("MergeCluster2", fields: [cluster2Id], references: [id])
+  cluster2Id String
+  merged     Cluster  @relation("MergeClusterMerged", fields: [mergedId], references: [id])
+  mergedId   String
+}
