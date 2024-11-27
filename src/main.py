@@ -10,13 +10,20 @@ from src import preprocessing
 from src.grid_point import Base
 from src.preprocessing import read_satellite_data
 
+# Import all models to ensure they are registered with SQLAlchemy
+from src.cluster import Cluster
+from src.grid_point import GridPoint
+from src.sea_level_differences import Difference
+from src.merge_history import MergeHistory
+from src.cluster_grid_point_relationship import cluster_grid_points
+
 if __name__ == '__main__':
     # database engine
     url = URL.create("postgresql", username="postgres", password="postgres", host="localhost", port=5432,
                      database="postgres")
     engine = create_engine(url)
     Base.metadata.create_all(engine)
-    exit(0)
+    logger.info("Database tables created")
     out_dir = "../output/Preprocessing/"
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
@@ -37,14 +44,13 @@ if __name__ == '__main__':
         sea_level_anomaly_data = xr.open_dataset("../data/sea_level_anomaly_data.nc")
         time_2 = time.time()
         logger.info(f"Time taken to read data: {time_2 - time_1}")
-
+    logger.info(f"Preprocessing done")
     # filter spatially with a symmetric Gaussian filter of half-width 500 km
     # leave filtering for now and decide later if it is necessary
     # filtered_data = filtering(sea_level_anomaly_data, time_2, out_dir)
     # Apply a convolution low-pass filter passing 90% of the amplitude at 24 months to each time series.
 
-    # generate grid_point objects for each grid point
-    preprocessing.generate_grid_points(sea_level_anomaly_data)
+    logger.info(f"Initially populating database with grid points, differences, clusters and merge history")
 
     # distance function
     # D(x_i, x_j) = 1 - exp(- d(x_i, x_j)/2a^2) r(x_i, x_j)
@@ -52,6 +58,9 @@ if __name__ == '__main__':
     # exponential is 0.5, when d=3000 km
     # calculate distances between each pair of grid points
     a = math.sqrt(- (1500 / (math.log(0.5))))
+    # generate grid_point objects for each grid point
+    preprocessing.generate_grid_points(sea_level_anomaly_data)
+    logger.info(f"Start hierarchical clustering")
 
 # TODO: filter spatially with a symmetric Gaussian filter of half-width 500 km
 # TODO: interpolate to 5 degree grid

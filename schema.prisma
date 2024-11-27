@@ -1,0 +1,46 @@
+datasource db {
+  provider = "postgresql"
+  url      = postgresql://postgres:postgres@localhost:5423/postgres
+}
+
+generator db {
+  provider             = "prisma-client-py"
+  interface            = "asyncio"
+  recursive_type_depth = 5
+}
+
+model GridPoint {
+  id         String   @id @default(cuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  latitude   Float
+  longitude  Float
+  timeseries [Float]
+  clusters   Cluster[] @relation("ClusterGridPoint") // Many-to-many relation
+}
+
+model Cluster {
+  id         String   @id @default(cuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  gridpoints GridPoint[] @relation("ClusterGridPoint") // Many-to-many relation
+}
+
+model Difference{
+  id         String   @id @default(cuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  cluster1   Cluster  @relation("ClusterDifference1", fields: [cluster1Id], references: [id])
+  cluster1Id String
+  cluster2   Cluster  @relation("ClusterDifference2", fields: [cluster2Id], references: [id])
+  cluster2Id String
+  difference Float
+}
+
+model Merge_history{
+  id String @id @default(cuid())
+  iteration Int
+  cluster1 Cluster
+  cluster2 Cluster
+  merged Cluster
+}
