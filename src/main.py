@@ -1,5 +1,4 @@
 import asyncio
-import math
 import os
 import time
 
@@ -51,9 +50,11 @@ async def main():
     # d is Euclidean distance, r is temporal correlation coefficient, a is constant such that the value of the
     # exponential is 0.5, when d=3000 km
     # calculate distances between each pair of grid points
-    a = math.sqrt(- (1500 / (math.log(0.5))))
-    # generate grid_point objects for each grid point
-    await (populate_database.generate_grid_points(sea_level_anomaly_data, db))
+    # generate grid_point objects for each grid point - only needs to be done once
+    # await (populate_database.generate_grid_points(sea_level_anomaly_data, db))
+    
+    # calculate initial differences between grid points
+    await populate_database.calculate_initial_differences(db)
     logger.info(f"Start hierarchical clustering")
 
 

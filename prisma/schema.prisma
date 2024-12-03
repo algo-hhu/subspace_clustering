@@ -23,6 +23,8 @@ model GridPoint {
   longitude  Float
   timeseries Float[]
   clusters   Cluster[] @relation("ClusterGridPoint") // Many-to-many relation
+
+  @@unique([latitude, longitude])
 }
 
 model Cluster {
@@ -46,6 +48,7 @@ model Difference {
   cluster2   Cluster  @relation("ClusterDifference2", fields: [cluster2Id], references: [id])
   cluster2Id String
   difference Float
+
   // Composite unique constraint to avoid duplicate entries for a pair
   @@unique([cluster1Id, cluster2Id])
 }
