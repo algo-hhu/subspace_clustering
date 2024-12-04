@@ -50,7 +50,7 @@ model Difference {
   difference Float
 
   // Composite unique constraint to avoid duplicate entries for a pair
-  @@unique([cluster1Id, cluster2Id])
+  @@unique([cluster1Id, cluster2Id], map: "unique_cluster_pair")
 }
 
 model MergeHistory {
