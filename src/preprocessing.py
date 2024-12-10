@@ -1,9 +1,7 @@
 import math
 import os
 import time
-import uuid
 
-import geopandas
 import numpy as np
 import tqdm
 import xarray as xr
@@ -133,20 +131,29 @@ def filtering(sea_level_anomaly_data: xr.Dataset, time_2: float, out_dir: str):
     return sea_level_anomaly_data_5_degree_grid
 
 
-def distance_function(pair, data_array, spatial_coords, a):
+def distance_function(lat1: float, long1: float, timeseries1: [float], lat2: float, long2: float, timeseries2: float):
     """
     Calculate the distance function between two points D(x_i, x_j) = 1 - exp(- d(x_i, x_j)/2a^2) r(x_i, x_j)
-    :param a:
-    :param spatial_coords:
-    :param data_array:
-    :param pair:
+    :param timeseries2:
+    :param long2:
+    :param lat2:
+    :param timeseries1:
+    :param long1:
+    :param lat1:
     :return:
     """
-    i, j = pair
+    a = math.sqrt(- (1500 / (math.log(0.5))))
+    earth_radius = 6371  # km
+    lat1, lat2, long1, long2 = map(np.radians, [lat1, lat2, long1, long2])
+    delta_phi = lat2 - lat1
+    delta_lambda = long2 - long1
+    haversine_distance = 2 * earth_radius * np.arcsin(
+        np.sqrt(np.sin(delta_phi / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(delta_lambda / 2) ** 2)
+    )
 
-    # Pearson correlation coefficient
-    r = np.corrcoef(data_array[:, i], data_array[:, j])[0, 1]
-    # Euclidean distance
-    d = np.linalg.norm(spatial_coords[i] - spatial_coords[j])
+    # Pearsons correlation coefficient
+    r = np.corrcoef(timeseries1, timeseries2)[0, 1]
 
-    return 1 - np.exp(-d / (2 * a ** 2)) * r
+    # calculate difference
+    difference = 1 - np.exp(-haversine_distance / (2 * a ** 2)) * r
+    return difference

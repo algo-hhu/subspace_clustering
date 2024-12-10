@@ -38,6 +38,7 @@ async def main():
         time_2 = time.time()
         logger.info(f"Time taken to read data: {time_2 - time_1}")
     logger.info(f"Preprocessing done")
+
     # filter spatially with a symmetric Gaussian filter of half-width 500 km
     # leave filtering for now and decide later if it is necessary
     # filtered_data = filtering(sea_level_anomaly_data, time_2, out_dir)
@@ -48,13 +49,17 @@ async def main():
     # distance function
     # D(x_i, x_j) = 1 - exp(- d(x_i, x_j)/2a^2) r(x_i, x_j)
     # d is Euclidean distance, r is temporal correlation coefficient, a is constant such that the value of the
-    # exponential is 0.5, when d=3000 km
-    # calculate distances between each pair of grid points
+    # exponential is 0.5, when d=3000 km -> can be found in
+
     # generate grid_point objects for each grid point - only needs to be done once
-    # await (populate_database.generate_grid_points(sea_level_anomaly_data, db))
-    
+    calculating_initial_grid_points = True
+    if calculating_initial_grid_points:
+        await (populate_database.generate_grid_points_and_initial_clusters(sea_level_anomaly_data, db))
+
     # calculate initial differences between grid points
-    await populate_database.calculate_initial_differences(db)
+    calculate_initial_differences = False
+    if calculate_initial_differences:
+        await populate_database.calculate_initial_differences(db)
     logger.info(f"Start hierarchical clustering")
 
 

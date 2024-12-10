@@ -22,21 +22,20 @@ model GridPoint {
   latitude   Float
   longitude  Float
   timeseries Float[]
-  clusters   Cluster[] @relation("ClusterGridPoint") // Many-to-many relation
+  Cluster    Cluster[] @relation("ClusterGridPoint")
 
   @@unique([latitude, longitude])
 }
 
 model Cluster {
-  id           String         @id @default(cuid())
-  created_at   DateTime       @default(now())
-  updated_at   DateTime       @updatedAt
-  gridpoints   GridPoint[]    @relation("ClusterGridPoint")
-  differences1 Difference[]   @relation("ClusterDifference1")
-  differences2 Difference[]   @relation("ClusterDifference2")
-  merges1      MergeHistory[] @relation("MergeCluster1")
-  merges2      MergeHistory[] @relation("MergeCluster2")
-  merges       MergeHistory[] @relation("MergeClusterMerged")
+  id           String       @id @default(cuid())
+  created_at   DateTime     @default(now())
+  updated_at   DateTime     @updatedAt
+  grid_points  GridPoint[]  @relation("ClusterGridPoint")
+  differences1 Difference[] @relation("ClusterDifference1")
+  differences2 Difference[] @relation("ClusterDifference2")
+
+  neighbor_ids String[]
 }
 
 model Difference {
@@ -51,17 +50,4 @@ model Difference {
 
   // Composite unique constraint to avoid duplicate entries for a pair
   @@unique([cluster1Id, cluster2Id], map: "unique_cluster_pair")
-}
-
-model MergeHistory {
-  id         String   @id @default(cuid())
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  iteration  Int
-  cluster1   Cluster  @relation("MergeCluster1", fields: [cluster1Id], references: [id])
-  cluster1Id String
-  cluster2   Cluster  @relation("MergeCluster2", fields: [cluster2Id], references: [id])
-  cluster2Id String
-  merged     Cluster  @relation("MergeClusterMerged", fields: [mergedId], references: [id])
-  mergedId   String
 }
