@@ -6,8 +6,9 @@ import xarray as xr
 from loguru import logger
 from prisma import Prisma
 
-from src import populate_database, hierarchical_clustering
-from src.preprocessing import read_satellite_data
+import hierarchical_clustering
+import populate_database
+from preprocessing import read_satellite_data
 
 db = Prisma()
 

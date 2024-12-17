@@ -8,7 +8,7 @@ import xarray as xr
 from loguru import logger
 from scipy.ndimage import gaussian_filter
 
-from src.plotting import plot_sla_for_point_in_time
+from plotting import plot_sla_for_point_in_time
 
 
 def calculate_sigma_per_latitude(half_width: int, latitude: float, grid_cell_size: float):
