@@ -6,7 +6,7 @@ import xarray as xr
 from loguru import logger
 from prisma import Prisma
 
-from src import populate_database
+from src import populate_database, hierarchical_clustering
 from src.preprocessing import read_satellite_data
 
 db = Prisma()
@@ -57,10 +57,12 @@ async def main():
         await (populate_database.generate_grid_points_and_initial_clusters(sea_level_anomaly_data, db))
 
     # calculate initial differences between grid points
-    calculate_initial_differences = False
+    calculate_initial_differences = True
     if calculate_initial_differences:
         await populate_database.calculate_initial_differences(db)
     logger.info(f"Start hierarchical clustering")
+    # start clustering
+    await hierarchical_clustering.start_clustering(db, [100, 10, 12, 8], sea_level_anomaly_data)
 
 
 # TODO: filter spatially with a symmetric Gaussian filter of half-width 500 km

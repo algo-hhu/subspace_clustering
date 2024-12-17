@@ -1,5 +1,17 @@
 # User Guide
 
+## Run the code
+
+- install docker
+- install python
+- install pip
+- Open a terminal and run docker-compose up
+- install poetry
+- run `poetry install`
+- run `prisma generate`
+- run `prisma db push`
+- run `poetry run`
+
 # Workflow:
 
 ## Reproducing Thompson et al. 2014

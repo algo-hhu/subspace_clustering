@@ -24,11 +24,12 @@ async def generate_grid_points_and_initial_clusters(sea_level_anomaly_data: xr.D
     # Filter the dataset to keep only valid grid points
     filtered_sea_level = sea_level_anomaly_data.where(valid_points, drop=True)
     # iterate over all grid points and generate a GridPoint object for each grid point and save it to the database
-
+    counter = 0
     # create a nan array of the same shape as the sea level data
     ids = {}
     neighbors = {}
     for i in tqdm(range(filtered_sea_level["latitude"].shape[0])):
+        counter += 1
         for j in range(filtered_sea_level["longitude"].shape[0]):
             if filtered_sea_level["sla"][:, i, j].isnull().values.any():
                 continue
@@ -36,17 +37,20 @@ async def generate_grid_points_and_initial_clusters(sea_level_anomaly_data: xr.D
             longitude = float(filtered_sea_level["longitude"].values[j])
             timeseries = filtered_sea_level["sla"][:, i, j].values.tolist()
             current_neighbor_ids = []
-            current_cluster = await db.cluster.create(
-                data={
-                    "grid_points": {
-                        "create": [
-                            {"latitude": float(filtered_sea_level["latitude"].values[i]),
-                             "longitude": float(filtered_sea_level["longitude"].values[j]),
-                             "timeseries": filtered_sea_level["sla"][:, i, j].values.tolist()}
-                        ]
-                    }, "neighbor_ids": []
-                }
-            )
+            try:
+                current_cluster = await db.cluster.create(
+                    data={
+                        "grid_points": {
+                            "create": [
+                                {"latitude": float(filtered_sea_level["latitude"].values[i]),
+                                 "longitude": float(filtered_sea_level["longitude"].values[j]),
+                                 "timeseries": filtered_sea_level["sla"][:, i, j].values.tolist()}
+                            ]
+                        }, "neighbor_ids": []
+                    }
+                )
+            except:
+                continue
             ids[(i, j)] = current_cluster.id
             if i > 0:
                 if filtered_sea_level["latitude"].values[i - 1] - latitude <= 0.3:
@@ -63,10 +67,11 @@ async def generate_grid_points_and_initial_clusters(sea_level_anomaly_data: xr.D
                     except KeyError:
                         pass
             neighbors[current_cluster.id] = current_neighbor_ids
-    logger.info(f"Generated {len(ids)} grid points")
-    logger.info(f"Generating initial clusters")
+    logger.info(f"Generated {await db.gridpoint.count()} grid points and {await db.cluster.count()} clusters")
+    logger.info(f"Establishing neighbor relationships between clusters")
     for cluster_id in neighbors.keys():  # Add neighbors to each cluster
-        await db.cluster.update({"where": {"id": cluster_id}, "data": {"neighbor_ids": neighbors[cluster_id]}})
+        if neighbors[cluster_id]:
+            await db.cluster.update(where={"id": cluster_id}, data={"neighbor_ids": neighbors[cluster_id]})
     return
 
 
@@ -84,7 +89,7 @@ async def fetch_cluster_pairs_in_batches(db: Prisma, batch_size: int, last_id: s
         take=batch_size,
         where={"id": {"gt": last_id}} if last_id else {},
         order={"id": "asc"},
-        include={"grid_points": True, "neighbor_ids": True}
+        include={"grid_points": True}
     )
     if not clusters:
         logger.info(f"No cluster found")
@@ -93,7 +98,7 @@ async def fetch_cluster_pairs_in_batches(db: Prisma, batch_size: int, last_id: s
     for cluster in clusters:
         current_neighbors = cluster.neighbor_ids
         for second_cluster_id in current_neighbors:
-            second_cluster = await db.cluster.find_first(where={"id": second_cluster_id})
+            second_cluster = await db.cluster.find_first(where={"id": second_cluster_id}, include={"grid_points": True})
             cluster_pairs.append((cluster, second_cluster))
     return cluster_pairs
 
@@ -195,20 +200,24 @@ async def calculate_initial_differences(db: Prisma):
     last_id = None
     batch_size = 500
     cluster_pairs = await fetch_cluster_pairs_in_batches(db, batch_size, last_id)
-    counter = 0
+    logger.info(f"Calculating differences for {len(cluster_pairs)} cluster pairs")
+    counter = 1
     time_1 = time.time()
     a = math.sqrt(- (1500 / (math.log(0.5))))
     while cluster_pairs:
-        logger.info(f"Calculated differences for batch {counter}")
-        print(f"Took time {time.time() - time_1}")
         # calculate differences for all pairs of clusters in current_cluster_batch
         results = Parallel(n_jobs=-2)(
             delayed(calculate_difference)(cluster1, cluster2, a) for
             (cluster1, cluster2) in cluster_pairs)
         # Remove None values from the results
         results = [result for result in results if result is not None]
+        if not results:
+            logger.info(f"No differences calculated for batch {counter}")
         # Save the result to the database
         await write_difference_to_db(db, results)
-        last_id = cluster_pairs[-1][0][0].id
+        logger.info(f"Wrote {await db.difference.count()} differences to the database")
+        logger.info(f"Calculated differences for batch {counter}")
+        print(f"Took time {time.time() - time_1}")
+        last_id = cluster_pairs[-1][0].id
         cluster_pairs = await fetch_cluster_pairs_in_batches(db, batch_size, last_id)
         counter += 1
