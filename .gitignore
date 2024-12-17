@@ -3,7 +3,7 @@
 
 # netcdf files and generated images
 output/*.nc
-data/SEALEVEL_GLO_PHY_L4_MY_008_047/*.nc
+*.nc
 *.png
 *.jpg
 *.jpeg
