@@ -4,10 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d39a10a8-8466-406c-962c-2d4bd8147b18" name="Changes" comment="Updated poetry">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/preprocessing.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/preprocessing.py" afterDir="false" />
+    <list default="true" id="d39a10a8-8466-406c-962c-2d4bd8147b18" name="Changes" comment="Correcting imports">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -166,7 +164,7 @@
       <workItem from="1733906516163" duration="560000" />
       <workItem from="1733907192754" duration="16024000" />
       <workItem from="1733929473082" duration="1906000" />
-      <workItem from="1734430082556" duration="2938000" />
+      <workItem from="1734430082556" duration="3153000" />
     </task>
     <task id="LOCAL-00001" summary="calculating start clustering using matrices">
       <option name="closed" value="true" />
@@ -280,7 +278,15 @@
       <option name="project" value="LOCAL" />
       <updated>1734431143874</updated>
     </task>
-    <option name="localTasksCounter" value="15" />
+    <task id="LOCAL-00015" summary="Correcting imports">
+      <option name="closed" value="true" />
+      <created>1734446853452</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1734446853452</updated>
+    </task>
+    <option name="localTasksCounter" value="16" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -299,7 +305,8 @@
     <MESSAGE value="including neighborhood calculations" />
     <MESSAGE value="including script to reset db, clustering done" />
     <MESSAGE value="Updated poetry" />
-    <option name="LAST_COMMIT_MESSAGE" value="Updated poetry" />
+    <MESSAGE value="Correcting imports" />
+    <option name="LAST_COMMIT_MESSAGE" value="Correcting imports" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/SubspaceClustering$main.coverage" NAME="main Coverage Results" MODIFIED="1733929562666" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
