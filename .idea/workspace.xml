@@ -5,7 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d39a10a8-8466-406c-962c-2d4bd8147b18" name="Changes" comment="Updating gitignore">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/populate_database.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/populate_database.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -166,6 +167,7 @@
       <workItem from="1733907192754" duration="16024000" />
       <workItem from="1733929473082" duration="1906000" />
       <workItem from="1734430082556" duration="3211000" />
+      <workItem from="1734531765645" duration="225000" />
     </task>
     <task id="LOCAL-00001" summary="calculating start clustering using matrices">
       <option name="closed" value="true" />
@@ -300,6 +302,17 @@
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="calculating start clustering using matrices" />

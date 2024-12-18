@@ -198,7 +198,7 @@ async def calculate_initial_differences(db: Prisma):
     # fetch the clusters in 500-element-chunks from the database and calculate differences between them
     logger.info("Calculating initial differences between grid points")
     last_id = None
-    batch_size = 500
+    batch_size = 100
     cluster_pairs = await fetch_cluster_pairs_in_batches(db, batch_size, last_id)
     logger.info(f"Calculating differences for {len(cluster_pairs)} cluster pairs")
     counter = 1
