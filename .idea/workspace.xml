@@ -4,12 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d39a10a8-8466-406c-962c-2d4bd8147b18" name="Changes" comment="reducing batch-size">
+    <list default="true" id="d39a10a8-8466-406c-962c-2d4bd8147b18" name="Changes" comment="repaired neighborhood-updating">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/hierarchical_clustering.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/hierarchical_clustering.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/plotting.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/plotting.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/populate_database.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/populate_database.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -172,7 +169,7 @@
       <workItem from="1734430082556" duration="3211000" />
       <workItem from="1734531765645" duration="2852000" />
       <workItem from="1735912680724" duration="29008000" />
-      <workItem from="1736102178453" duration="8218000" />
+      <workItem from="1736102178453" duration="8413000" />
     </task>
     <task id="LOCAL-00001" summary="calculating start clustering using matrices">
       <option name="closed" value="true" />
@@ -310,7 +307,15 @@
       <option name="project" value="LOCAL" />
       <updated>1734532009705</updated>
     </task>
-    <option name="localTasksCounter" value="18" />
+    <task id="LOCAL-00018" summary="repaired neighborhood-updating">
+      <option name="closed" value="true" />
+      <created>1736247572824</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1736247572824</updated>
+    </task>
+    <option name="localTasksCounter" value="19" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -343,9 +348,10 @@
     <MESSAGE value="Correcting imports" />
     <MESSAGE value="Updating gitignore" />
     <MESSAGE value="reducing batch-size" />
-    <option name="LAST_COMMIT_MESSAGE" value="reducing batch-size" />
+    <MESSAGE value="repaired neighborhood-updating" />
+    <option name="LAST_COMMIT_MESSAGE" value="repaired neighborhood-updating" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/SubspaceClustering$main.coverage" NAME="main Coverage Results" MODIFIED="1736110832472" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
+    <SUITE FILE_PATH="coverage/SubspaceClustering$main.coverage" NAME="main Coverage Results" MODIFIED="1736247601598" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
   </component>
 </project>

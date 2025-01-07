@@ -5,13 +5,16 @@ import time
 import xarray as xr
 from loguru import logger
 from prisma import Prisma
+from prisma.engine import http
 
 import hierarchical_clustering
 import populate_database
 from preprocessing import read_satellite_data
 from src import plotting
 
-db = Prisma(http_timeout=60.0)
+# Configure the timeout globally for all Prisma HTTP requests
+http.DEFAULT_TIMEOUT = 60.0  # 60 seconds
+db = Prisma()
 
 
 async def main():
