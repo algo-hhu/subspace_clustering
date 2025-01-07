@@ -9,6 +9,8 @@ output/*.nc
 *.jpeg
 *.gif
 *.svg
+output
+data
 
 # Ignore database files
 database/data/
