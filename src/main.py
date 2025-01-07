@@ -9,8 +9,9 @@ from prisma import Prisma
 import hierarchical_clustering
 import populate_database
 from preprocessing import read_satellite_data
+from src import plotting
 
-db = Prisma()
+db = Prisma(http_timeout=60.0)
 
 
 async def main():
@@ -39,7 +40,18 @@ async def main():
         time_2 = time.time()
         logger.info(f"Time taken to read data: {time_2 - time_1}")
     logger.info(f"Preprocessing done")
+    # plot
+    variable_to_plot = "sla"
+    plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="025_degree")
 
+    # interpolate to 5 degree grid
+    sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 1),
+                                                           longitude=range(-180, 180, 1))
+    # save netCDF file
+    sea_level_anomaly_data.to_netcdf("../data/sea_level_anomaly_data_5_degree.nc")
+    # plot
+    variable_to_plot = "sla"
+    plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="1_degree")
     # filter spatially with a symmetric Gaussian filter of half-width 500 km
     # leave filtering for now and decide later if it is necessary
     # filtered_data = filtering(sea_level_anomaly_data, time_2, out_dir)
@@ -63,7 +75,7 @@ async def main():
         await populate_database.calculate_initial_differences(db)
     logger.info(f"Start hierarchical clustering")
     # start clustering
-    await hierarchical_clustering.start_clustering(db, [100, 10, 12, 8], sea_level_anomaly_data)
+    await hierarchical_clustering.start_clustering(db, [100, 25, 20, 15, 10], sea_level_anomaly_data)
 
 
 # TODO: filter spatially with a symmetric Gaussian filter of half-width 500 km

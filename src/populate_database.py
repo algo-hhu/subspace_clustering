@@ -52,23 +52,30 @@ async def generate_grid_points_and_initial_clusters(sea_level_anomaly_data: xr.D
             except:
                 continue
             ids[(i, j)] = current_cluster.id
-            if i > 0:
-                if filtered_sea_level["latitude"].values[i - 1] - latitude <= 0.3:
-                    try:
-                        current_neighbor_ids.append(ids[(i - 1, j)])
-                        neighbors[ids[(i - 1, j)]].append(current_cluster.id)
-                    except KeyError:
-                        pass
-            if j > 0:
-                if filtered_sea_level["longitude"].values[j - 1] - longitude <= 0.3:
-                    try:
-                        current_neighbor_ids.append(ids[(i, j - 1)])
-                        neighbors[ids[(i, j - 1)]].append(current_cluster.id)
-                    except KeyError:
-                        pass
+            if (i - 1, j) in ids and abs(filtered_sea_level["latitude"].values[i - 1] - latitude <= 20):
+                if ids[(i - 1, j)] not in neighbors:
+                    neighbors[ids[(i - 1, j)]] = []
+                neighbors[ids[(i - 1, j)]].append(current_cluster.id)
+                current_neighbor_ids.append(ids[(i - 1, j)])
+            if (i, j - 1) in ids and abs(filtered_sea_level["longitude"].values[j - 1] - longitude <= 20):
+                if ids[(i, j - 1)] not in neighbors:
+                    neighbors[ids[(i, j - 1)]] = []
+                neighbors[ids[(i, j - 1)]].append(current_cluster.id)
+                current_neighbor_ids.append(ids[(i, j - 1)])
             neighbors[current_cluster.id] = current_neighbor_ids
     logger.info(f"Generated {await db.gridpoint.count()} grid points and {await db.cluster.count()} clusters")
     logger.info(f"Establishing neighbor relationships between clusters")
+    # check if neighbor-relationships are symmetric
+    # check for duplicates
+    counter = 0
+    for neighbor_id1 in neighbors:
+        neighbors[neighbor_id1] = list(set(neighbors[neighbor_id1]))
+        for neighbor_id2 in neighbors[neighbor_id1]:
+            if neighbor_id1 not in neighbors[neighbor_id2]:
+                neighbors[neighbor_id2].append(neighbor_id1)
+                counter += 1
+    logger.info(f"Added {counter} missing neighbor relationships")
+
     for cluster_id in neighbors.keys():  # Add neighbors to each cluster
         if neighbors[cluster_id]:
             await db.cluster.update(where={"id": cluster_id}, data={"neighbor_ids": neighbors[cluster_id]})
@@ -198,7 +205,7 @@ async def calculate_initial_differences(db: Prisma):
     # fetch the clusters in 500-element-chunks from the database and calculate differences between them
     logger.info("Calculating initial differences between grid points")
     last_id = None
-    batch_size = 100
+    batch_size = 500
     cluster_pairs = await fetch_cluster_pairs_in_batches(db, batch_size, last_id)
     logger.info(f"Calculating differences for {len(cluster_pairs)} cluster pairs")
     counter = 1

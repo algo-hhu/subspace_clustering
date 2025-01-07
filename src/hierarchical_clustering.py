@@ -1,14 +1,51 @@
 import math
 
-import cartopy.crs as ccrs
 import numpy as np
 import xarray as xr
 from loguru import logger
-from matplotlib import pyplot as plt
 from prisma import Prisma
 
+from src.plotting import save_and_plot_clusters
 
-async def recalculate_difference(db: Prisma, new_cluster, cluster1, cluster2, new_grid_points, grid_points1,
+NO_DIFF_COUNTER_BOTH_NEIGHBORS = 0
+NO_DIFF_COUNTER = 0
+DIFF_COUNTER = 0
+
+
+async def ensure_bidirectional_neighbors(db: Prisma, cluster_id: int, neighbor_id: int):
+    """
+    Ensure that two clusters are properly set up as neighbors of each other
+    """
+    # Get both clusters
+    cluster = await db.cluster.find_first(where={"id": cluster_id})
+    neighbor = await db.cluster.find_first(where={"id": neighbor_id})
+
+    if not cluster or not neighbor:
+        return False
+
+    # Update neighbor relationships in both directions
+    cluster_neighbors = list(set(cluster.neighbor_ids))  # Remove any existing duplicates
+    neighbor_neighbors = list(set(neighbor.neighbor_ids))
+
+    # Add bidirectional relationship if it doesn't exist
+    if neighbor_id not in cluster_neighbors:
+        cluster_neighbors.append(neighbor_id)
+    if cluster_id not in neighbor_neighbors:
+        neighbor_neighbors.append(cluster_id)
+
+    # Update both clusters
+    await db.cluster.update(
+        where={"id": cluster_id},
+        data={"neighbor_ids": cluster_neighbors}
+    )
+    await db.cluster.update(
+        where={"id": neighbor_id},
+        data={"neighbor_ids": neighbor_neighbors}
+    )
+    return True
+
+
+async def recalculate_difference(db: Prisma, new_cluster, cluster1, cluster2, grid_points1,
                                  grid_points2):
     """
     Recalculate differences between new cluster and its neighbors
@@ -21,12 +58,19 @@ async def recalculate_difference(db: Prisma, new_cluster, cluster1, cluster2, ne
     :param new_grid_points:
     :return:
     """
+    # TODO: check if the differences are calculated correctly and are saved to the database
+    global NO_DIFF_COUNTER
+    global NO_DIFF_COUNTER_BOTH_NEIGHBORS
     all_neighbors = new_cluster.neighbor_ids
     neighbors_1 = cluster1.neighbor_ids
     neighbors_2 = cluster2.neighbor_ids
+    new_difference = None
     for neighbor_id in all_neighbors:
+        # find first cluster which has the neighbor_id
         current_neighbor = await db.cluster.find_first(where={"id": neighbor_id}, include={"grid_points": True})
+        # check if the currently considered neighbor is a neighbor of both clusters that are being merged
         if neighbor_id in neighbors_1 and neighbor_id in neighbors_2:
+            # fetch difference between cluster1 and neighbor (the order of the clusters in the difference table is not certain, so we need to check both)
             difference1 = await db.difference.find_first(
                 where={"cluster1Id": cluster1.id, "cluster2Id": neighbor_id}
             )
@@ -34,6 +78,7 @@ async def recalculate_difference(db: Prisma, new_cluster, cluster1, cluster2, ne
                 difference1 = await db.difference.find_first(
                     where={"cluster1Id": neighbor_id, "cluster2Id": cluster1.id}
                 )
+            # fetch difference between cluster2 and neighbor (the order of the clusters in the difference table is not certain, so we need to check both)
             difference2 = await db.difference.find_first(
                 where={"cluster1Id": cluster2.id, "cluster2Id": neighbor_id}
             )
@@ -42,19 +87,71 @@ async def recalculate_difference(db: Prisma, new_cluster, cluster1, cluster2, ne
                     where={"cluster1Id": neighbor_id, "cluster2Id": cluster2.id}
                 )
             if not difference1 or not difference2:
+                NO_DIFF_COUNTER_BOTH_NEIGHBORS += 1
+                logger.error("Difference not found")
+                logger.info(f"Clusters remaining {await db.cluster.count()}")
+                exit()
                 continue
             new_difference = (difference1.difference * len(grid_points1) + difference2.difference * len(
                 grid_points2)) / (len(grid_points1) + len(grid_points2))
             await db.difference.delete(where={"id": difference1.id})
             await db.difference.delete(where={"id": difference2.id})
-        elif neighbor_id in neighbors_1:
+            # update neighbor_ids of the neighbor_cluster to be the new merged cluster and remove the old clusters
+            neighbor_neighbors = current_neighbor.neighbor_ids
+            neighbor_neighbors.remove(cluster1.id)
+            neighbor_neighbors.remove(cluster2.id)
+            if new_cluster.id not in neighbor_neighbors:
+                neighbor_neighbors.append(new_cluster.id)
+            if neighbor_id not in new_cluster.neighbor_ids:
+                updated_neighbors = new_cluster.neighbor_ids + [neighbor_id]
+                await db.cluster.update(
+                    where={"id": new_cluster.id},
+                    data={"neighbor_ids": updated_neighbors}
+                )
+                new_cluster.neighbor_ids = updated_neighbors  # Update local object
+
+            await db.cluster.update(where={"id": current_neighbor.id}, data={"neighbor_ids": neighbor_neighbors})
+        elif neighbor_id in neighbors_1 and not neighbor_id in neighbors_2:
             new_difference = await recalculate_difference_if_one_neighbor(cluster1, current_neighbor, db, grid_points1,
                                                                           grid_points2, neighbor_id)
-        elif neighbor_id in neighbors_2:
+            neighbor_neighbors = current_neighbor.neighbor_ids
+            neighbor_neighbors.remove(cluster1.id)
+            if new_cluster.id not in neighbor_neighbors:
+                neighbor_neighbors.append(new_cluster.id)
+            if neighbor_id not in new_cluster.neighbor_ids:
+                updated_neighbors = new_cluster.neighbor_ids + [neighbor_id]
+                await db.cluster.update(
+                    where={"id": new_cluster.id},
+                    data={"neighbor_ids": updated_neighbors}
+                )
+                new_cluster.neighbor_ids = updated_neighbors  # Update local object
+            await db.cluster.update(where={"id": current_neighbor.id}, data={"neighbor_ids": neighbor_neighbors})
+
+        elif neighbor_id in neighbors_2 and not neighbor_id in neighbors_1:
             new_difference = await recalculate_difference_if_one_neighbor(cluster2, current_neighbor, db, grid_points2,
                                                                           grid_points1, neighbor_id)
+            neighbor_neighbors = current_neighbor.neighbor_ids
+            neighbor_neighbors.remove(cluster2.id)
+            if neighbor_id not in new_cluster.neighbor_ids:
+                updated_neighbors = new_cluster.neighbor_ids + [neighbor_id]
+                await db.cluster.update(
+                    where={"id": new_cluster.id},
+                    data={"neighbor_ids": updated_neighbors}
+                )
+                new_cluster.neighbor_ids = updated_neighbors  # Update local object
+            if new_cluster.id not in neighbor_neighbors:
+                neighbor_neighbors.append(new_cluster.id)
+
+            await db.cluster.update(where={"id": current_neighbor.id}, data={"neighbor_ids": neighbor_neighbors})
+        else:
+            logger.error("Neighbor not found")
+
         if not new_difference:
-            return
+            NO_DIFF_COUNTER += 1
+            logger.error("Difference not found")
+            logger.info(f"Clusters remaining {await db.cluster.count()}")
+            exit()
+            continue
         await db.difference.create(
             data={
                 "cluster1Id": new_cluster.id,
@@ -62,7 +159,8 @@ async def recalculate_difference(db: Prisma, new_cluster, cluster1, cluster2, ne
                 "difference": new_difference
             }
         )
-
+        global DIFF_COUNTER
+        DIFF_COUNTER += 1
     return
 
 
@@ -78,6 +176,7 @@ async def recalculate_difference_if_one_neighbor(cluster1, current_neighbor, db,
     :param neighbor_id:
     :return:
     """
+
     difference1 = await db.difference.find_first(
         where={"cluster1Id": cluster1.id, "cluster2Id": neighbor_id}
     )
@@ -86,10 +185,18 @@ async def recalculate_difference_if_one_neighbor(cluster1, current_neighbor, db,
             where={"cluster1Id": neighbor_id, "cluster2Id": cluster1.id}
         )
     if not difference1:
-        return
-    # calculate difference2 as the average difference between all grid points in cluster1 and all gridpoints inthe neighbor-cluster
+        # Calculate new difference instead of returning None
+        difference1_value = 0
+        grid_point_pairs = [(gp1, gp2) for gp1 in grid_points1 for gp2 in current_neighbor.grid_points]
+        for gp1, gp2 in grid_point_pairs:
+            difference1_value += distance_function(gp1.latitude, gp1.longitude, gp1.timeseries,
+                                                   gp2.latitude, gp2.longitude, gp2.timeseries)
+        difference1_value /= len(grid_point_pairs)
+        difference1 = {"difference": difference1_value}
+
+    # calculate difference2 as the average difference between all grid points in cluster2 and all gridpoints in the neighbor-cluster
     difference2 = 0
-    grid_point_pairs = [(grid_point1, grid_point2) for grid_point1 in grid_points1 for grid_point2 in
+    grid_point_pairs = [(grid_point1, grid_point2) for grid_point1 in grid_points2 for grid_point2 in
                         current_neighbor.grid_points]
     sum_difference = 0
     for grid_point1, grid_point2 in grid_point_pairs:
@@ -134,78 +241,72 @@ def distance_function(lat1: float, long1: float, timeseries1: [float], lat2: flo
 
 async def merge_clusters(db: Prisma, cluster1: Prisma.cluster, cluster2: Prisma.cluster, difference: Prisma.difference):
     """
-    Merge two clusters
-    :param db:
-    :param difference:
-    :param cluster1:
-    :param cluster2:
-    :return:
+    Merge two clusters with proper bidirectional neighbor handling
     """
-    # add new cluster with the grid points from cluster1 and cluster2
     cluster1 = await db.cluster.find_first(where={"id": cluster1.id}, include={"grid_points": True})
     cluster2 = await db.cluster.find_first(where={"id": cluster2.id}, include={"grid_points": True})
+
+    # Combine grid points
     grid_points1 = cluster1.grid_points
     grid_points2 = cluster2.grid_points
     new_grid_points = [grid_point for grid_point in grid_points1] + [grid_point for grid_point in grid_points2]
-    new_neighbors = cluster1.neighbor_ids + cluster2.neighbor_ids
-    if cluster2.id in new_neighbors:
-        new_neighbors.remove(cluster2.id)
-    if cluster1.id in new_neighbors:
-        new_neighbors.remove(cluster1.id)
-    new_cluster = await db.cluster.create(
-        {"grid_points": {
+
+    # Get unique neighbors from both clusters
+    new_neighbors = list(set(cluster1.neighbor_ids + cluster2.neighbor_ids))
+    new_neighbors = [n for n in new_neighbors if n not in (cluster1.id, cluster2.id)]
+
+    new_cluster = await db.cluster.create({
+        "grid_points": {
             "connect": [{"id": grid_point.id} for grid_point in new_grid_points]
-        }, "neighbor_ids": new_neighbors}
-    )
-    await recalculate_difference(db, new_cluster, cluster1, cluster2, new_grid_points, grid_points1, grid_points2)
+        },
+        "neighbor_ids": []  # Start with empty neighbors
+    })
 
-    # delete the difference between the two old clusters
-    await db.difference.delete(where={"id": difference.id})
-    # delete all differences that reference cluster1 or cluster2
-    await db.difference.delete_many(where={"OR": [{"cluster1Id": cluster1.id}, {"cluster2Id": cluster1.id}]})
-    await db.difference.delete_many(where={"OR": [{"cluster1Id": cluster2.id}, {"cluster2Id": cluster2.id}]})
+    # establish all neighbor relationships
+    for neighbor_id in new_neighbors:
+        await ensure_bidirectional_neighbors(db, new_cluster.id, neighbor_id)
 
-    # remove cluster1 and cluster2 and references to them
-    await db.cluster.delete(where={"id": cluster1.id})
-    await db.cluster.delete(where={"id": cluster2.id})
+    # update the new_cluster object with final neighbor list
+    new_cluster = await db.cluster.find_first(where={"id": new_cluster.id})
+
+    # Continue with difference recalculation and cleanup
+    await recalculate_difference(db, new_cluster, cluster1, cluster2, grid_points1, grid_points2)
+
+    # Clean up old relationships and clusters
+    await cleanup_old_clusters(db, cluster1.id, cluster2.id, difference.id)
     return
 
 
-async def save_and_plot_clusters(db: Prisma, number_of_clusters: int, sea_level_anomaly_data: xr.Dataset):
+async def cleanup_old_clusters(db: Prisma, cluster1_id: int, cluster2_id: int, difference_id: int):
     """
-    Save and plot clusters
-    :param sea_level_anomaly_data:
-    :param db:
-    :param number_of_clusters:
-    :return:
+    Clean up old clusters and their relationships
     """
-    cluster_data = np.zeros((sea_level_anomaly_data.latitude.size, sea_level_anomaly_data.longitude.size))
-    clusters = await db.cluster.find_many(include={"grid_points": True})
-    # create a netcdf file with the cluster information
-    cluster_number = 0
-    for cluster in clusters:
-        for grid_point in cluster.grid_points:
-            # get index of lat long in sea_level_anomaly_data
-            lat_index = np.where(sea_level_anomaly_data.latitude.values == grid_point.latitude)[0][0]
-            long_index = np.where(sea_level_anomaly_data.longitude.values == grid_point.longitude)[0][0]
-            cluster_data[lat_index, long_index] = cluster_number
-        cluster_number += 1
-    cluster_data = xr.DataArray(cluster_data, dims=["latitude", "longitude"])
-    cluster_data = cluster_data.assign_coords(latitude=sea_level_anomaly_data.latitude,
-                                              longitude=sea_level_anomaly_data.longitude)
-    cluster_data.to_netcdf(f"../output/clusters_{number_of_clusters}.nc")
-    logger.info(f"plot clusters")
-    # plot the clusters
-    data = cluster_data
-    fig = plt.figure(figsize=(50, 25))
-    ax = plt.axes(projection=ccrs.PlateCarree())
-    data.plot(ax=ax, transform=ccrs.PlateCarree(), cmap='jet', add_colorbar=True)
-    ax.coastlines()
-    ax.gridlines(draw_labels=True)
-    plt.savefig(f"../output/clusters_{number_of_clusters}.svg", dpi=500)
-    plt.close(fig)
-    logger.info(f"Clusters saved and plotted")
-    return
+    # Delete the old difference
+    await db.difference.delete(where={"id": difference_id})
+
+    # Delete all differences involving the old clusters
+    await db.difference.delete_many(where={
+        "OR": [
+            {"cluster1Id": cluster1_id},
+            {"cluster2Id": cluster1_id},
+            {"cluster1Id": cluster2_id},
+            {"cluster2Id": cluster2_id}
+        ]
+    })
+
+    # Remove references to old clusters from their neighbors
+    clusters_to_update = await db.cluster.find_many(where={"neighbor_ids": {"hasSome": [cluster1_id, cluster2_id]}})
+
+    for cluster in clusters_to_update:
+        updated_neighbors = [n for n in cluster.neighbor_ids if n not in (cluster1_id, cluster2_id)]
+        await db.cluster.update(
+            where={"id": cluster.id},
+            data={"neighbor_ids": updated_neighbors}
+        )
+
+    # Delete the old clusters
+    await db.cluster.delete(where={"id": cluster1_id})
+    await db.cluster.delete(where={"id": cluster2_id})
 
 
 async def start_clustering(db: Prisma, k: [int], sea_level_anomaly_data: xr.Dataset):
@@ -218,10 +319,33 @@ async def start_clustering(db: Prisma, k: [int], sea_level_anomaly_data: xr.Data
     """
     sorted_k = sorted(k)
     number_of_clusters = await db.cluster.count()
-    logger.info(f"Number of differences in db: {await db.difference.count()}")
+
     while number_of_clusters > sorted_k[0]:
-        min_difference = await db.difference.find_first(order={"difference": "asc"},
-                                                        include={"cluster1": True, "cluster2": True})
+        min_difference = await db.difference.find_first(
+            order={"difference": "asc"},
+            include={"cluster1": True, "cluster2": True}
+        )
+
+        if not min_difference:
+            # Verify if there should be more differences
+            clusters = await db.cluster.find_many()
+            for c1 in clusters:
+                for neighbor_id in c1.neighbor_ids:
+                    diff = await db.difference.find_first(
+                        where={
+                            "OR": [
+                                {"cluster1Id": c1.id, "cluster2Id": neighbor_id},
+                                {"cluster1Id": neighbor_id, "cluster2Id": c1.id}
+                            ]
+                        }
+                    )
+                    if not diff:
+                        logger.error(f"Missing difference between clusters {c1.id} and {neighbor_id}")
+                        # Recalculate missing difference here
+
+            logger.info("No more valid differences to process")
+            break
+
         await merge_clusters(db, min_difference.cluster1, min_difference.cluster2, min_difference)
         number_of_clusters -= 1
         if number_of_clusters % 1000 == 0:
@@ -230,7 +354,11 @@ async def start_clustering(db: Prisma, k: [int], sea_level_anomaly_data: xr.Data
         if number_of_differences == 0:
             logger.info(f"No more neighbors to merge, there are {number_of_clusters} clusters left")
             await save_and_plot_clusters(db, number_of_clusters, sea_level_anomaly_data.copy())
+            logger.info(f"Did not create new diffs: {NO_DIFF_COUNTER} times")
+            logger.info(f"Created new diffs: {DIFF_COUNTER} times")
+            logger.info(f"No diffs between both neighbors: {NO_DIFF_COUNTER_BOTH_NEIGHBORS} times")
             exit()
         if number_of_clusters in sorted_k:
             await save_and_plot_clusters(db, number_of_clusters, sea_level_anomaly_data.copy())
+
     return
