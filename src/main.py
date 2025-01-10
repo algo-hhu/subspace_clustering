@@ -48,13 +48,13 @@ async def main():
     plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="025_degree")
 
     # interpolate to 5 degree grid
-    sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 1),
-                                                           longitude=range(-180, 180, 1))
+    sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 2),
+                                                           longitude=range(-180, 180, 2))
     # save netCDF file
-    sea_level_anomaly_data.to_netcdf("../data/sea_level_anomaly_data_5_degree.nc")
+    sea_level_anomaly_data.to_netcdf("../data/sea_level_anomaly_data_2_degree.nc")
     # plot
     variable_to_plot = "sla"
-    plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="1_degree")
+    plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="2_degree")
     # filter spatially with a symmetric Gaussian filter of half-width 500 km
     # leave filtering for now and decide later if it is necessary
     # filtered_data = filtering(sea_level_anomaly_data, time_2, out_dir)
@@ -78,6 +78,8 @@ async def main():
         await populate_database.calculate_initial_differences(db)
     logger.info(f"Start hierarchical clustering")
     # start clustering
+    # TODO: recalculate the distances between new cluster and neighbors in parallel
+    # TODO: use caching to decrease database queries
     await hierarchical_clustering.start_clustering(db, [100, 25, 20, 15, 10], sea_level_anomaly_data)
 
 

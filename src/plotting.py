@@ -91,12 +91,13 @@ async def save_and_plot_clusters(db: Prisma, number_of_clusters: int, sea_level_
         cluster_squares = []
         cluster_ids.append(counter)
         counter += 1
+        grid_point_area = 1
         for grid_point in cluster.grid_points:
             square = shapely.Polygon([
-                (grid_point.longitude + 5, grid_point.latitude + 5),
-                (grid_point.longitude + 5, grid_point.latitude - 5),
-                (grid_point.longitude - 5, grid_point.latitude - 5),
-                (grid_point.longitude - 5, grid_point.latitude + 5)
+                (grid_point.longitude + grid_point_area, grid_point.latitude + grid_point_area),
+                (grid_point.longitude + grid_point_area, grid_point.latitude - grid_point_area),
+                (grid_point.longitude - grid_point_area, grid_point.latitude - grid_point_area),
+                (grid_point.longitude - grid_point_area, grid_point.latitude + grid_point_area)
             ])
             cluster_squares.append(square)
 
@@ -109,7 +110,6 @@ async def save_and_plot_clusters(db: Prisma, number_of_clusters: int, sea_level_
         {'cluster_id': cluster_ids, 'color': colors, 'geometry': polygons},
         crs="EPSG:4326"  # WGS 84 coordinate system
     )
-    print(cluster_gdf.head())
 
     plot_regions(land_gdf, "../output/", cluster_gdf, f"clusters_{number_of_clusters}")
 
