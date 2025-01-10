@@ -10,6 +10,27 @@ from prisma import Prisma
 from tqdm import tqdm
 
 
+def find_neighbors(neighbors, cluster_id):
+    """
+    Find all neighbors of a cluster
+    :param neighbors:
+    :param cluster_id:
+    :return:
+    """
+    current_set = neighbors[cluster_id]
+    processed = []
+    change = True
+    while change:
+        change = False
+        for neighbor in current_set:
+            if neighbor in processed:
+                continue
+            processed.append(neighbor)
+            current_set.extend(neighbors[neighbor])
+            change = True
+    return current_set
+
+
 async def generate_grid_points_and_initial_clusters(sea_level_anomaly_data: xr.Dataset, db: Prisma):
     """
     Processes sea level anomaly data, generates grid points, stores them in the database, and assigns cluster information.
@@ -18,67 +39,108 @@ async def generate_grid_points_and_initial_clusters(sea_level_anomaly_data: xr.D
     :return:
     """
     sea_level = sea_level_anomaly_data['sla']
-    # filter grid points
-    valid_points = ~sea_level.isnull().all(dim="time")  # Replace "time" with the dimension to check
 
-    # Filter the dataset to keep only valid grid points
+    # Filter grid points
+    valid_points = ~sea_level.isnull().all(dim="time")
     filtered_sea_level = sea_level_anomaly_data.where(valid_points, drop=True)
-    # iterate over all grid points and generate a GridPoint object for each grid point and save it to the database
-    counter = 0
-    # create a nan array of the same shape as the sea level data
+
     ids = {}
     neighbors = {}
-    for i in tqdm(range(filtered_sea_level["latitude"].shape[0])):
-        counter += 1
-        for j in range(filtered_sea_level["longitude"].shape[0]):
+
+    n_lat = filtered_sea_level["latitude"].shape[0]
+    n_lon = filtered_sea_level["longitude"].shape[0]
+
+    # Create clusters and establish neighbor relationships
+    for i in tqdm(range(n_lat)):
+        for j in range(n_lon):
             if filtered_sea_level["sla"][:, i, j].isnull().values.any():
                 continue
+
             latitude = float(filtered_sea_level["latitude"].values[i])
             longitude = float(filtered_sea_level["longitude"].values[j])
             timeseries = filtered_sea_level["sla"][:, i, j].values.tolist()
-            current_neighbor_ids = []
+
             try:
                 current_cluster = await db.cluster.create(
                     data={
                         "grid_points": {
-                            "create": [
-                                {"latitude": float(filtered_sea_level["latitude"].values[i]),
-                                 "longitude": float(filtered_sea_level["longitude"].values[j]),
-                                 "timeseries": filtered_sea_level["sla"][:, i, j].values.tolist()}
-                            ]
-                        }, "neighbor_ids": []
+                            "create": [{
+                                "latitude": latitude,
+                                "longitude": longitude,
+                                "timeseries": timeseries
+                            }]
+                        },
+                        "neighbor_ids": []
                     }
                 )
             except:
+                logger.warning(f"Failed to create cluster at lat={latitude}, lon={longitude}")
                 continue
+
             ids[(i, j)] = current_cluster.id
-            if (i - 1, j) in ids and abs(filtered_sea_level["latitude"].values[i - 1] - latitude <= 20):
-                if ids[(i - 1, j)] not in neighbors:
-                    neighbors[ids[(i - 1, j)]] = []
-                neighbors[ids[(i - 1, j)]].append(current_cluster.id)
-                current_neighbor_ids.append(ids[(i - 1, j)])
-            if (i, j - 1) in ids and abs(filtered_sea_level["longitude"].values[j - 1] - longitude <= 20):
-                if ids[(i, j - 1)] not in neighbors:
-                    neighbors[ids[(i, j - 1)]] = []
-                neighbors[ids[(i, j - 1)]].append(current_cluster.id)
-                current_neighbor_ids.append(ids[(i, j - 1)])
+            current_neighbor_ids = []
+
+            # Check neighbors, accounting for wrapping around the globe
+            neighbor_positions = [
+                (i - 1, j),  # North
+                (i + 1, j),  # South
+                (i, (j - 1) % n_lon),  # West (wraps around)
+                (i, (j + 1) % n_lon),  # East (wraps around)
+            ]
+
+            # Add diagonal neighbors if desired
+            if True:  # Can make this configurable
+                neighbor_positions.extend([
+                    (i - 1, (j - 1) % n_lon),  # Northwest
+                    (i - 1, (j + 1) % n_lon),  # Northeast
+                    (i + 1, (j - 1) % n_lon),  # Southwest
+                    (i + 1, (j + 1) % n_lon),  # Southeast
+                ])
+
+            # Handle latitude wraparound at poles (if needed)
+            neighbor_positions = [
+                (pos[0], pos[1]) if 0 <= pos[0] < n_lat else None
+                for pos in neighbor_positions
+            ]
+
+            # Add valid neighbors to the relationship
+            for pos in neighbor_positions:
+                if pos is None:
+                    continue
+
+                if pos in ids:
+                    neighbor_id = ids[pos]
+                    if neighbor_id not in neighbors:
+                        neighbors[neighbor_id] = []
+                    neighbors[neighbor_id].append(current_cluster.id)
+                    current_neighbor_ids.append(neighbor_id)
+
             neighbors[current_cluster.id] = current_neighbor_ids
-    logger.info(f"Generated {await db.gridpoint.count()} grid points and {await db.cluster.count()} clusters")
-    logger.info(f"Establishing neighbor relationships between clusters")
-    # check if neighbor-relationships are symmetric
-    # check for duplicates
-    counter = 0
+
+    # Ensure symmetric relationships and remove duplicates
+    logger.info("Establishing symmetric neighbor relationships")
+    symmetry_updates = 0
     for neighbor_id1 in neighbors:
         neighbors[neighbor_id1] = list(set(neighbors[neighbor_id1]))
         for neighbor_id2 in neighbors[neighbor_id1]:
             if neighbor_id1 not in neighbors[neighbor_id2]:
                 neighbors[neighbor_id2].append(neighbor_id1)
-                counter += 1
-    logger.info(f"Added {counter} missing neighbor relationships")
+                symmetry_updates += 1
 
-    for cluster_id in neighbors.keys():  # Add neighbors to each cluster
-        if neighbors[cluster_id]:
-            await db.cluster.update(where={"id": cluster_id}, data={"neighbor_ids": neighbors[cluster_id]})
+    logger.info(f"Added {symmetry_updates} missing neighbor relationships for symmetry")
+
+    # Update database with neighbor relationships
+    for cluster_id, neighbor_list in neighbors.items():
+        if neighbor_list:
+            try:
+                await db.cluster.update(
+                    where={"id": cluster_id},
+                    data={"neighbor_ids": neighbor_list}
+                )
+            except Exception as e:
+                logger.error(f"Failed to update neighbors for cluster {cluster_id}: {str(e)}")
+
+    logger.info(f"Generated {await db.cluster.count()} clusters")
     return
 
 

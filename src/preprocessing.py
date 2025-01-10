@@ -131,7 +131,7 @@ def filtering(sea_level_anomaly_data: xr.Dataset, time_2: float, out_dir: str):
     return sea_level_anomaly_data_5_degree_grid
 
 
-def distance_function(lat1: float, long1: float, timeseries1: [float], lat2: float, long2: float, timeseries2: float):
+def distance_function(lat1: float, long1: float, timeseries1: [float], lat2: float, long2: float, timeseries2: [float]):
     """
     Calculate the distance function between two points D(x_i, x_j) = 1 - exp(- d(x_i, x_j)/2a^2) r(x_i, x_j)
     :param timeseries2:

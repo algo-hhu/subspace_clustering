@@ -192,7 +192,13 @@ async def recalculate_difference_if_one_neighbor(cluster1, current_neighbor, db,
             difference1_value += distance_function(gp1.latitude, gp1.longitude, gp1.timeseries,
                                                    gp2.latitude, gp2.longitude, gp2.timeseries)
         difference1_value /= len(grid_point_pairs)
-        difference1 = {"difference": difference1_value}
+        # write diff to db
+        difference1 = await db.difference.create(
+            data={
+                "cluster1Id": cluster1.id,
+                "cluster2Id": current_neighbor.id,
+                "difference": difference1_value
+            })
 
     # calculate difference2 as the average difference between all grid points in cluster2 and all gridpoints in the neighbor-cluster
     difference2 = 0
@@ -319,7 +325,7 @@ async def start_clustering(db: Prisma, k: [int], sea_level_anomaly_data: xr.Data
     """
     sorted_k = sorted(k)
     number_of_clusters = await db.cluster.count()
-
+    logger.info(f"Clustering {number_of_clusters} clusters")
     while number_of_clusters > sorted_k[0]:
         min_difference = await db.difference.find_first(
             order={"difference": "asc"},
