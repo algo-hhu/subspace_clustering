@@ -40,7 +40,7 @@ ax.set_global()
 #Hardcoded center coordinates
 center_lons = [156, -133, -67 , -35, 147, -2]
 center_lats = [25, 10, 29, 60, -55, -43]
-colors = ['red','yellow','green','cyan','blue','purple']
+cluster_colors = ['red','yellow','green','cyan','blue','purple']
 
 
 path = "../Data/Sea_Level_Data/sea_level_anomaly_data.nc"
@@ -55,8 +55,8 @@ print(valid_points)
 
 all_lats = sea_level['latitude'].values
 all_lons = sea_level['longitude'].values
-#get nearest entities for hardcoded centers
 
+#get nearest entities in data array for hardcoded centers
 centers = []
 for i in tqdm(range(len(center_lats))):
 
@@ -65,12 +65,8 @@ for i in tqdm(range(len(center_lats))):
     center_lons[i] = float(tmp['longitude'])
     center_lats[i] = float(tmp['latitude'])
     
-print(centers)
-
-assignment = []   
-lats = []
-lons = []
-
+plt.scatter(center_lons,center_lats,color = cluster_colors, marker = 'x',edgecolors= 'black')
+plt.show()
 
 clustering_variable = np.zeros((sea_level.latitude.size, sea_level.longitude.size))
 clustering_var_da = xr.DataArray(data=clustering_variable[:, :],
@@ -78,8 +74,8 @@ clustering_var_da = xr.DataArray(data=clustering_variable[:, :],
                                 coords={ 'latitude': sea_level.latitude, 'longitude': sea_level.longitude })
 
 #compute clustering
-for i,lat in tqdm(enumerate(all_lats[:300])):
-    for j,lon in enumerate(all_lons):
+for i,lat in tqdm(enumerate(all_lats[:30])):
+    for j,lon in enumerate(all_lons[:30]):
         if valid_points[i][j]:
             time_series = sea_level.loc[:,lat, lon].values
             min_dist = math.inf
@@ -88,12 +84,12 @@ for i,lat in tqdm(enumerate(all_lats[:300])):
                 c = centers[k]
                 tmp = distance_function(lat,lon,time_series,center_lats[k],center_lons[k],c)
                 if tmp < min_dist:
-                    tmp = min_dist
+                    min_dist = tmp
                     assignment = k
-                clustering_var_da[i,j] = assignment
+            clustering_var_da[i,j] = assignment
         else:
             clustering_var_da[i,j] = 'nan'
-clustering_var_da.plot()
+clustering_var_da.plot(colors = cluster_colors)
 plt.show()
 
 
