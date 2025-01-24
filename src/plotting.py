@@ -10,7 +10,8 @@ from cartopy import crs as ccrs
 from loguru import logger
 from matplotlib import pyplot as plt
 from prisma import Prisma
-from shapely.ops import unary_union
+from shapely.geometry import Polygon, MultiPolygon
+from shapely.ops import transform, unary_union
 
 
 def plot_sla_for_point_in_time(sea_level_anomaly_data: xr.Dataset, out_dir: str, feature, name: str):
@@ -33,6 +34,58 @@ def plot_sla_for_point_in_time(sea_level_anomaly_data: xr.Dataset, out_dir: str,
     plt.close(fig)
 
 
+def shift_all_longitudes(geom):
+    """
+    Shift geometries from -180/180 to 0/360 format, handling invalid geometries
+    """
+    if not geom.is_valid:
+        geom = geom.buffer(0)  # Try to fix invalid geometries
+
+    def shift_coords(x, y):
+        return (x + 360 if x < 0 else x, y)
+
+    if isinstance(geom, (Polygon, MultiPolygon)):
+        bounds = geom.bounds
+        # If geometry crosses the meridian
+        if bounds[0] < 0 and bounds[2] > 0:
+            try:
+                # Create a meridian line with a small buffer to ensure clean cuts
+                meridian = shapely.geometry.LineString([(0, -90), (0, 90)]).buffer(0.0001)
+                # Split the geometry
+                west_half = geom.difference(meridian)
+                east_half = geom.intersection(meridian)
+
+                # Shift the western part
+                shifted_west = transform(shift_coords, west_half)
+
+                # Ensure both parts are valid
+                if not shifted_west.is_valid:
+                    shifted_west = shifted_west.buffer(0)
+                if not east_half.is_valid:
+                    east_half = east_half.buffer(0)
+
+                # Combine parts using a more robust approach
+                try:
+                    result = shifted_west.union(east_half)
+                    if result.is_valid:
+                        return result
+                except:
+                    pass  # If union fails, fall back to simple transformation
+            except:
+                pass  # If splitting fails, fall back to simple transformation
+
+    # Fall back to simple transformation for all other cases
+    try:
+        result = transform(shift_coords, geom)
+        if result.is_valid:
+            return result
+        else:
+            return result.buffer(0)
+    except:
+        # If all else fails, return the original geometry
+        return geom
+
+
 def plot_regions(land_gdf: geopandas.GeoDataFrame, output_path: str,
                  clusters_gdf: geopandas.GeoDataFrame, name: str):
     """
@@ -51,6 +104,21 @@ def plot_regions(land_gdf: geopandas.GeoDataFrame, output_path: str,
     plt.xticks([-180, -135, -90, -45, 0, 45, 90, 135, 180])
     plt.yticks([-90, -45, 0, 45, 90])
     plt.savefig(os.path.join(output_path, f"{name}.svg"))
+    plt.savefig(os.path.join(output_path, f"{name}.png"))
+    plt.close()
+    # also plot ranging from 0 to 360 degrees longitude for better comparability of the images
+    land_gdf_360 = land_gdf.copy()
+    land_gdf_360["geometry"] = land_gdf_360["geometry"].apply(shift_all_longitudes)
+    clusters_gdf_360 = clusters_gdf.copy()
+    clusters_gdf_360["geometry"] = clusters_gdf_360["geometry"].apply(shift_all_longitudes)
+    ax = land_gdf_360.plot(color="burlywood", figsize=(20, 12), zorder=0, alpha=0.5)
+    ax.set_facecolor("aliceblue")
+    clusters_gdf_360.plot(ax=ax, color=clusters_gdf_360["color"], zorder=4, linewidth=4)
+    clusters_gdf_360.boundary.plot(ax=ax, color=clusters_gdf_360["color"], zorder=5, linewidth=0.5)
+    plt.xticks([0, 45, 90, 135, 180, 225, 270, 315, 360])
+    plt.yticks([-90, -45, 0, 45, 90])
+    plt.savefig(os.path.join(output_path, f"{name}_360.svg"))
+    plt.savefig(os.path.join(output_path, f"{name}_360.png"))
     plt.close()
     return
 
@@ -79,11 +147,26 @@ async def save_and_plot_clusters(db: Prisma, number_of_clusters: int, sea_level_
                                               longitude=sea_level_anomaly_data.longitude)
     cluster_data.to_netcdf(f"../output/clusters_{number_of_clusters}.nc")
     logger.info(f"plot clusters")
+    cluster_gdf, land_gdf = await create_gdf_from_xarray_dataset(clusters, number_of_clusters)
+
+    plot_regions(land_gdf, "../output/", cluster_gdf, f"clusters_{number_of_clusters}")
+
+    logger.info(f"Clusters saved and plotted")
+    return
+
+
+async def create_gdf_from_xarray_dataset(clusters, number_of_clusters):
+    """
+    Create a geopandas dataframe from the clusters
+    :param clusters:
+    :param number_of_clusters:
+    :return:
+    """
     land_gdf = geopandas.read_file("../data/ne_10m_land/ne_10m_land.shp")
     colors = random_color_generator(number_of_clusters + 1)
+    grid_point_area = 2.5
     # turn clusters into a geopandas dataframe
     counter = 0
-    cluster_gdf = geopandas.GeoDataFrame()
     cluster_ids = []
     polygons = []
     for cluster in clusters:
@@ -91,7 +174,7 @@ async def save_and_plot_clusters(db: Prisma, number_of_clusters: int, sea_level_
         cluster_squares = []
         cluster_ids.append(counter)
         counter += 1
-        grid_point_area = 1
+
         for grid_point in cluster.grid_points:
             square = shapely.Polygon([
                 (grid_point.longitude + grid_point_area, grid_point.latitude + grid_point_area),
@@ -107,14 +190,10 @@ async def save_and_plot_clusters(db: Prisma, number_of_clusters: int, sea_level_
 
         # Create GeoDataFrame with merged polygons
     cluster_gdf = geopandas.GeoDataFrame(
-        {'cluster_id': cluster_ids, 'color': colors, 'geometry': polygons},
-        crs="EPSG:4326"  # WGS 84 coordinate system
+        {'cluster_id': cluster_ids, 'color': colors, 'geometry': polygons}
+        # ,crs="EPSG:4326"  # WGS 84 coordinate system
     )
-
-    plot_regions(land_gdf, "../output/", cluster_gdf, f"clusters_{number_of_clusters}")
-
-    logger.info(f"Clusters saved and plotted")
-    return
+    return cluster_gdf, land_gdf
 
 
 def random_color_generator(num_colors: int):

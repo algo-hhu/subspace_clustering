@@ -7,10 +7,9 @@ from loguru import logger
 from prisma import Prisma
 from prisma.engine import http
 
-import hierarchical_clustering
 import populate_database
-from preprocessing import read_satellite_data
-from src import plotting
+from src import plotting, complete_hierarchical_clustering
+from src.preprocessing import read_satellite_data, filtering
 
 # Configure the timeout globally for all Prisma HTTP requests
 http.DEFAULT_TIMEOUT = 60.0  # 60 seconds
@@ -45,19 +44,11 @@ async def main():
     logger.info(f"Preprocessing done")
     # plot
     variable_to_plot = "sla"
-    plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="025_degree")
+    plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="05_degree")
 
-    # interpolate to 5 degree grid
-    sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 2),
-                                                           longitude=range(-180, 180, 2))
-    # save netCDF file
-    sea_level_anomaly_data.to_netcdf("../data/sea_level_anomaly_data_2_degree.nc")
-    # plot
-    variable_to_plot = "sla"
-    plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="2_degree")
     # filter spatially with a symmetric Gaussian filter of half-width 500 km
     # leave filtering for now and decide later if it is necessary
-    # filtered_data = filtering(sea_level_anomaly_data, time_2, out_dir)
+    sea_level_anomaly_data = filtering(sea_level_anomaly_data, time_2, out_dir)
     # Apply a convolution low-pass filter passing 90% of the amplitude at 24 months to each time series.
 
     logger.info(f"Initially populating database with grid points, differences, clusters and merge history")
@@ -68,19 +59,22 @@ async def main():
     # exponential is 0.5, when d=3000 km -> can be found in
 
     # generate grid_point objects for each grid point - only needs to be done once
-    calculating_initial_grid_points = True
+    calculating_initial_grid_points = False
     if calculating_initial_grid_points:
         await (populate_database.generate_grid_points_and_initial_clusters(sea_level_anomaly_data, db))
 
     # calculate initial differences between grid points
-    calculate_initial_differences = True
+    calculate_initial_differences = False
     if calculate_initial_differences:
         await populate_database.calculate_initial_differences(db)
     logger.info(f"Start hierarchical clustering")
     # start clustering
     # TODO: recalculate the distances between new cluster and neighbors in parallel
     # TODO: use caching to decrease database queries
-    await hierarchical_clustering.start_clustering(db, [100, 25, 20, 15, 10], sea_level_anomaly_data)
+    # await hierarchical_clustering.start_clustering(db, [100, 80, 90, 70, 60, 50, 25, 20, 15, 10],
+    #                                                sea_level_anomaly_data)
+    k = [100, 50, 25, 20, 15, 10, 8]
+    complete_hierarchical_clustering.start_clustering(k, sea_level_anomaly_data)
 
 
 # TODO: filter spatially with a symmetric Gaussian filter of half-width 500 km

@@ -6,9 +6,8 @@ import numpy as np
 import tqdm
 import xarray as xr
 from loguru import logger
-from scipy.ndimage import gaussian_filter
 
-from plotting import plot_sla_for_point_in_time
+from src.plotting import plot_sla_for_point_in_time
 
 
 def calculate_sigma_per_latitude(half_width: int, latitude: float, grid_cell_size: float):
@@ -55,16 +54,18 @@ def apply_gaussian_filter(sea_level_anomaly_data_set: xr.Dataset, half_width: in
 
     filtered_sea_level = np.zeros_like(sea_level_data)
     # Loop over all latitudes
-    for time in tqdm.tqdm(range(sea_level_data.shape[0])):
-        current_slice = sea_level_data[time, :, :].values
+    for current_time_frame in tqdm.tqdm(range(sea_level_data.shape[0])):
+        current_slice = sea_level_data[current_time_frame, :, :].values
         for i in range(current_slice.shape[0]):
             current_latitude = sea_level_data.coords['latitude'][i].item()
             current_sigma = calculate_sigma_per_latitude(half_width, current_latitude, grid_cell_size)
             # Loop over all longitudes
             for j in range(current_slice.shape[1]):
                 current_longitude = sea_level_data.coords['longitude'][j].item()
-                filtered_sea_level[time, i, j] = gaussian_filter(current_slice[i, j], current_sigma)
+                # TODO: Revise the gaussian filter
+                # filtered_sea_level[current_time_frame, i, j] = gaussian_filter(current_slice[i, j], current_sigma)
     sea_level_anomaly_data_set['filtered_sla'] = xr.DataArray(filtered_sea_level, dims=sea_level_data.dims)
+    plot_sla_for_point_in_time(sea_level_anomaly_data_set, "../output/Preprocessing/", "filtered_sla", name="filtered")
     return sea_level_anomaly_data_set
 
 
@@ -99,6 +100,7 @@ def filtering(sea_level_anomaly_data: xr.Dataset, time_2: float, out_dir: str):
     :param sea_level_anomaly_data:
     :return:
     """
+    logger.info("filtering data")
     # check if longitude is correct (-180 to 180)
     if sea_level_anomaly_data.longitude.max() > 180 or sea_level_anomaly_data.longitude.min() < -180:
         logger.warning(

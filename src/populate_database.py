@@ -38,10 +38,10 @@ async def generate_grid_points_and_initial_clusters(sea_level_anomaly_data: xr.D
     :param sea_level_anomaly_data:
     :return:
     """
-    sea_level = sea_level_anomaly_data['sla']
 
+    sea_level = sea_level_anomaly_data['sla']
     # Filter grid points
-    valid_points = ~sea_level.isnull().all(dim="time")
+    valid_points = ~sea_level.isnull().any(dim="time")
     filtered_sea_level = sea_level_anomaly_data.where(valid_points, drop=True)
 
     ids = {}
