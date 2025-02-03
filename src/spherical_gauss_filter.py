@@ -1,4 +1,5 @@
 import numpy as np
+from joblib import Parallel, delayed
 
 
 class SphericalGaussFilter:
@@ -31,12 +32,63 @@ class SphericalGaussFilter:
         for i, lat in enumerate(np.deg2rad(self.lat)):
             self.lon_distances[i] = self.R * lon_step * np.cos(lat)
 
-    def filter(self, data, mask, sigma_lat: float, sigma_lon: float):
+        return self.lat_distances, self.lon_distances
+
+    def filter(self, data, provided_mask, sigma_lat: float, sigma_lon: float):
         """
-        Apply a spherical Gaussian filter to the data
+        Apply a spherical Gaussian filter to the data.
+        Data has the dimensions (time, lat, lon)
         :param data:
         :param mask:
         :param sigma_lat:
         :param sigma_lon:
         :return:
         """
+        if provided_mask is None:
+            mask = np.zeros_like(data, dtype=bool)
+        else:
+            mask = provided_mask
+        filtered_data = data.copy()
+
+        # parallelize using joblib
+        # for time_step in range(data.shape[0]):
+        results = Parallel(n_jobs=-1)(
+            delayed(self.filter_one_time_step)(data, mask, sigma_lat, sigma_lon, time_step) for time_step in
+            range(data.shape[0]))
+        for result in results:
+            filtered_data[result[1]] = result[0]
+
+    def filter_one_time_step(self, data, mask, sigma_lat, sigma_lon, time_step):
+        current_filtered_data = np.zeros_like(data[time_step])
+        for i in range(data.shape[1]):
+            for j in range(data.shape[2]):
+                if mask[time_step, i, j]:
+                    continue
+                # compute weights for latitude and longitude
+                lat_diff = np.abs(np.deg2rad(self.lat - self.lat[i]))
+                lon_diff = np.abs(np.deg2rad(self.lon - self.lon[j]))
+
+                # wrap around the earth
+                lon_diff = np.minimum(lon_diff, np.pi - lon_diff)
+
+                # compute distances
+                lat_dist = self.R * lat_diff
+                lon_dist = np.zeros_like(lon_diff)
+
+                # for k, lat in enumerate(np.deg2rad(self.lat)):
+                #     lon_dist[k] = self.R * lon_diff[k] * np.cos(lat)
+                # more efficient version:
+                lon_dist = self.R * lon_diff * np.cos(np.deg2rad(self.lat))[:, np.newaxis]
+
+                # compute weights
+                lat_weights = np.exp(- (lat_dist ** 2) / (2 * sigma_lat ** 2))
+                lon_weights = np.exp(- (lon_dist ** 2) / (2 * sigma_lon ** 2))
+                weights = lat_weights * lon_weights
+                weights[mask[time_step]] = 0
+
+                if weights.sum() > 0:
+                    weights /= weights.sum()
+                    current_filtered_data[i, j] = np.sum(data[time_step] * weights)
+                else:
+                    current_filtered_data[i, j] = np.nan
+                return current_filtered_data, time_step

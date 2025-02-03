@@ -5,8 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d39a10a8-8466-406c-962c-2d4bd8147b18" name="Changes" comment="implemented full hierarchical clustering">
-      <change afterPath="$PROJECT_DIR$/src/spherical_gauss_filter.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/spherical_gauss_filter.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/spherical_gauss_filter.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -233,6 +233,9 @@
       <workItem from="1736849791526" duration="44376000" />
       <workItem from="1737447136801" duration="608000" />
       <workItem from="1737705037079" duration="5407000" />
+      <workItem from="1737731433357" duration="3347000" />
+      <workItem from="1738052670998" duration="539000" />
+      <workItem from="1738610257848" duration="1630000" />
     </task>
     <task id="LOCAL-00001" summary="calculating start clustering using matrices">
       <option name="closed" value="true" />
