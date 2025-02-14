@@ -18,9 +18,9 @@ db = Prisma()
 
 async def main():
     # create database tables
-    logger.info(f"Establish connection to database and create tables")
-    await db.connect()
-    logger.info("Database tables created")
+    # logger.info(f"Establish connection to database and create tables")
+    # await db.connect()
+    # logger.info("Database tables created")
     out_dir = "../output/Preprocessing/"
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
@@ -48,9 +48,11 @@ async def main():
 
     # filter spatially with a symmetric Gaussian filter of half-width 500 km
     # leave filtering for now and decide later if it is necessary
-    sea_level_anomaly_data = filtering(sea_level_anomaly_data, time_2, out_dir)
+    sea_level_anomaly_data = filtering(sea_level_anomaly_data, time_2, out_dir, half_width=500)
+    # plot
+    plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="gaussian_filtered")
+    exit(0)
     # Apply a convolution low-pass filter passing 90% of the amplitude at 24 months to each time series.
-
     logger.info(f"Initially populating database with grid points, differences, clusters and merge history")
 
     # distance function

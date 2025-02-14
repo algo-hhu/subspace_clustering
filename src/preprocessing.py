@@ -7,21 +7,8 @@ import tqdm
 import xarray as xr
 from loguru import logger
 
+from src import spherical_gauss_filter
 from src.plotting import plot_sla_for_point_in_time
-
-
-def calculate_sigma_per_latitude(half_width: int, latitude: float, grid_cell_size: float):
-    """
-    Given the latitude of a point, calculate the sigma for the Gaussian filter
-    :param half_width:
-    :param latitude:
-    :return:
-    """
-    km_per_degree_latitude = 111
-    km_per_degree_longitude = 111 * math.cos(math.radians(latitude))
-    sigma_latitude = half_width / km_per_degree_latitude / grid_cell_size
-    sigma_longitude = half_width / km_per_degree_longitude / grid_cell_size
-    return (sigma_latitude + sigma_longitude)
 
 
 def apply_gaussian_filter(sea_level_anomaly_data_set: xr.Dataset, half_width: int):
@@ -49,23 +36,10 @@ def apply_gaussian_filter(sea_level_anomaly_data_set: xr.Dataset, half_width: in
     # sea_level_anomaly_data["transformed_coords_y"] = xr.DataArray(transformed_coords_y,
     #                                                               dims=sea_level_anomaly_data["longitude"].dims)
 
-    grid_cell_size = 0.25
-    sea_level_data = sea_level_anomaly_data_set['sla']
-
-    filtered_sea_level = np.zeros_like(sea_level_data)
-    # Loop over all latitudes
-    for current_time_frame in tqdm.tqdm(range(sea_level_data.shape[0])):
-        current_slice = sea_level_data[current_time_frame, :, :].values
-        for i in range(current_slice.shape[0]):
-            current_latitude = sea_level_data.coords['latitude'][i].item()
-            current_sigma = calculate_sigma_per_latitude(half_width, current_latitude, grid_cell_size)
-            # Loop over all longitudes
-            for j in range(current_slice.shape[1]):
-                current_longitude = sea_level_data.coords['longitude'][j].item()
-                # TODO: Revise the gaussian filter
-                # filtered_sea_level[current_time_frame, i, j] = gaussian_filter(current_slice[i, j], current_sigma)
-    sea_level_anomaly_data_set['filtered_sla'] = xr.DataArray(filtered_sea_level, dims=sea_level_data.dims)
-    plot_sla_for_point_in_time(sea_level_anomaly_data_set, "../output/Preprocessing/", "filtered_sla", name="filtered")
+    spatial_filter = spherical_gauss_filter.SphericalGaussFilter(sea_level_anomaly_data_set.latitude.values,
+                                                                 sea_level_anomaly_data_set.longitude.values,
+                                                                 half_width)
+    spatial_filter.filter(sea_level_anomaly_data_set)
     return sea_level_anomaly_data_set
 
 
@@ -92,9 +66,10 @@ def read_satellite_data(data_directory: str):
     return satellite_altimeter_data
 
 
-def filtering(sea_level_anomaly_data: xr.Dataset, time_2: float, out_dir: str):
+def filtering(sea_level_anomaly_data: xr.Dataset, time_2: float, out_dir: str, half_width: int):
     """
     Filter the sea level anomaly data
+    :param half_width:
     :param out_dir:
     :param time_2:
     :param sea_level_anomaly_data:
@@ -109,7 +84,7 @@ def filtering(sea_level_anomaly_data: xr.Dataset, time_2: float, out_dir: str):
     logger.info(f"Time taken to check longitude: {time_3 - time_2}")
     if not os.path.exists("../data/sea_level_anomaly_data_filtered.nc"):
         # filter spatially with a symmetric Gaussian filter of half-width 500 km (here the C$S is transformed to meters using a geocentric CRS EPSG:4978)
-        sea_level_anomaly_data = apply_gaussian_filter(sea_level_anomaly_data, 500)
+        sea_level_anomaly_data = apply_gaussian_filter(sea_level_anomaly_data, half_width)
 
         time_4 = time.time()
         logger.info(f"Time taken to apply Gaussian filter: {time_4 - time_3}")

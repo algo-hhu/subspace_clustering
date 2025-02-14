@@ -210,3 +210,24 @@ def random_color_generator(num_colors: int):
         colors.append('#%02x%02x%02x' % (r, g, b))
         # colors.append(random.choice(list(mcolors.CSS4_COLORS.keys())))
     return colors
+
+
+def plot_nan_values(data, time_step):
+    """
+    Plot the NaN distribution at a given time step
+    :param data:
+    :param time_step:
+    :return:
+    """
+    nan_mask = data['sla'].isel(time=time_step).isnull()
+    # Extract lat/lon for correct map projection
+    lat = data['latitude']
+    lon = data['longitude']
+    # Create the plot
+    plt.figure(figsize=(12, 6))
+    plt.pcolormesh(lon, lat, nan_mask, cmap='gray', shading='auto')
+    plt.xlabel('Longitude')
+    plt.ylabel('Latitude')
+    plt.title(f'NaN Distribution at Time Step {time_step}')
+    plt.colorbar(label='NaN Mask (1 = NaN, 0 = Valid Data)')
+    plt.savefig(f'../output/nan_distribution_{time_step}.png')

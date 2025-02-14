@@ -4,8 +4,14 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d39a10a8-8466-406c-962c-2d4bd8147b18" name="Changes" comment="implemented full hierarchical clustering">
+    <list default="true" id="d39a10a8-8466-406c-962c-2d4bd8147b18" name="Changes" comment="implemented spherical gaussian filter">
+      <change afterPath="$PROJECT_DIR$/test/test_sperical_gauss_filter.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/poetry.lock" beforeDir="false" afterPath="$PROJECT_DIR$/poetry.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/plotting.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/plotting.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/preprocessing.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/preprocessing.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/spherical_gauss_filter.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/spherical_gauss_filter.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -44,39 +50,40 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ASKED_MARK_IGNORED_FILES_AS_EXCLUDED&quot;: &quot;true&quot;,
-    &quot;Docker.compose.yaml: Compose Deployment.executor&quot;: &quot;Run&quot;,
-    &quot;Python tests.Python tests for test_complete_hierarchical_clustering.Test.executor&quot;: &quot;Run&quot;,
-    &quot;Python tests.Python tests for test_complete_hierarchical_clustering.Test.test_hierarchical_clusterin_with_20_grid_points.executor&quot;: &quot;Run&quot;,
-    &quot;Python tests.Python tests for test_complete_hierarchical_clustering.Test.test_hierarchical_clustering.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/home/johanna/Dokumente/SubspaceClustering/src/plotting.py&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;actions.on.save&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ASKED_MARK_IGNORED_FILES_AS_EXCLUDED": "true",
+    "Docker.compose.yaml: Compose Deployment.executor": "Run",
+    "Python tests.Python tests for test_complete_hierarchical_clustering.Test.executor": "Run",
+    "Python tests.Python tests for test_complete_hierarchical_clustering.Test.test_hierarchical_clusterin_with_20_grid_points.executor": "Run",
+    "Python tests.Python tests for test_complete_hierarchical_clustering.Test.test_hierarchical_clustering.executor": "Run",
+    "Python tests.Python tests for test_sperical_gauss_filter.Test.executor": "Debug",
+    "Python.main.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "/home/johanna/Dokumente/SubspaceClustering/src/plotting.py",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "actions.on.save",
+    "vue.rearranger.settings.migration": "true"
   },
-  &quot;keyToStringList&quot;: {
-    &quot;DatabaseDriversLRU&quot;: [
-      &quot;postgresql&quot;
+  "keyToStringList": {
+    "DatabaseDriversLRU": [
+      "postgresql"
     ]
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/test" />
       <recent name="$PROJECT_DIR$" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.main">
+  <component name="RunManager" selected="Python tests.Python tests for test_sperical_gauss_filter.Test">
     <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="SubspaceClustering" />
       <option name="ENV_FILES" value="" />
@@ -103,15 +110,6 @@
     <configuration default="true" type="docker-deploy" factoryName="docker-compose.yml" temporary="true">
       <deployment type="docker-compose.yml">
         <settings />
-      </deployment>
-      <method v="2" />
-    </configuration>
-    <configuration name="compose.yaml: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" temporary="true" server-name="Docker">
-      <deployment type="docker-compose.yml">
-        <settings>
-          <option name="envFilePath" value="" />
-          <option name="sourceFilePath" value="compose.yaml" />
-        </settings>
       </deployment>
       <method v="2" />
     </configuration>
@@ -163,13 +161,29 @@
       <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
+    <configuration name="Python tests for test_sperical_gauss_filter.Test" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+      <module name="SubspaceClustering" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/test" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;test_sperical_gauss_filter.Test&quot;" />
+      <option name="_new_targetType" value="&quot;PYTHON&quot;" />
+      <method v="2" />
+    </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python tests.Python tests for test_sperical_gauss_filter.Test" />
         <item itemvalue="Python.main" />
         <item itemvalue="Python tests.Python tests for test_complete_hierarchical_clustering.Test.test_hierarchical_clusterin_with_20_grid_points" />
         <item itemvalue="Python tests.Python tests for test_complete_hierarchical_clustering.Test.test_hierarchical_clustering" />
         <item itemvalue="Python tests.Python tests for test_complete_hierarchical_clustering.Test" />
-        <item itemvalue="Docker.compose.yaml: Compose Deployment" />
       </list>
     </recent_temporary>
   </component>
@@ -235,7 +249,9 @@
       <workItem from="1737705037079" duration="5407000" />
       <workItem from="1737731433357" duration="3347000" />
       <workItem from="1738052670998" duration="539000" />
-      <workItem from="1738610257848" duration="1630000" />
+      <workItem from="1738610257848" duration="5228000" />
+      <workItem from="1738858571251" duration="21608000" />
+      <workItem from="1739371553711" duration="6439000" />
     </task>
     <task id="LOCAL-00001" summary="calculating start clustering using matrices">
       <option name="closed" value="true" />
@@ -397,7 +413,15 @@
       <option name="project" value="LOCAL" />
       <updated>1737711597776</updated>
     </task>
-    <option name="localTasksCounter" value="21" />
+    <task id="LOCAL-00021" summary="implemented spherical gaussian filter">
+      <option name="closed" value="true" />
+      <created>1738611960753</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1738611960754</updated>
+    </task>
+    <option name="localTasksCounter" value="22" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -433,10 +457,11 @@
     <MESSAGE value="repaired neighborhood-updating" />
     <MESSAGE value="repaired neighborhood-updating to wrap around the world" />
     <MESSAGE value="implemented full hierarchical clustering" />
-    <option name="LAST_COMMIT_MESSAGE" value="implemented full hierarchical clustering" />
+    <MESSAGE value="implemented spherical gaussian filter" />
+    <option name="LAST_COMMIT_MESSAGE" value="implemented spherical gaussian filter" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/SubspaceClustering$.coverage" NAME=" Coverage Results" MODIFIED="1736971358776" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test" />
-    <SUITE FILE_PATH="coverage/SubspaceClustering$main.coverage" NAME="main Coverage Results" MODIFIED="1736973241893" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
+    <SUITE FILE_PATH="coverage/SubspaceClustering$.coverage" NAME=" Coverage Results" MODIFIED="1739377979457" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test" />
+    <SUITE FILE_PATH="coverage/SubspaceClustering$main.coverage" NAME="main Coverage Results" MODIFIED="1739355283025" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
   </component>
 </project>
