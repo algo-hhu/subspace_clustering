@@ -1679,6 +1679,20 @@ slack = ["slack-sdk"]
 telegram = ["requests"]
 
 [[package]]
+name = "tqdm-joblib"
+version = "0.0.4"
+description = "Tracking progress of joblib.Parallel execution"
+optional = false
+python-versions = "*"
+files = [
+    {file = "tqdm_joblib-0.0.4-py3-none-any.whl", hash = "sha256:786f4423f2282701db7959a2b4449d1e3ab60b4841f5a6d03ec49e8cb8946e0b"},
+    {file = "tqdm_joblib-0.0.4.tar.gz", hash = "sha256:8588e0d04aa5d51a0fae3ce68206045a8117ec695daddeaea3012dfd8869d2a5"},
+]
+
+[package.dependencies]
+tqdm = "*"
+
+[[package]]
 name = "typing-extensions"
 version = "4.12.2"
 description = "Backported and Experimental Type Hints for Python 3.8+"
@@ -1742,4 +1756,4 @@ viz = ["cartopy", "matplotlib", "nc-time-axis", "seaborn"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "e3a57a95b4997cffd4b287375d59692040c6d983049fae0a78d2b8378ee8fc71"
+content-hash = "b6ab0109e72032fdb64a56428135faec9215c2a3083c4c4f46cca6216d7cf69c"

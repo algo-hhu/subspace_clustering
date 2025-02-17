@@ -19,6 +19,7 @@ sqlalchemy = "^2.0.36"
 prisma = "^0.15.0"
 joblib = "^1.4.2"
 haversine = "^2.9.0"
+tqdm-joblib = "^0.0.4"
 
 
 [build-system]
