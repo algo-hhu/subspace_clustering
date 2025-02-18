@@ -39,6 +39,7 @@ def apply_gaussian_filter(sea_level_anomaly_data_set: xr.Dataset, half_width: in
     spatial_filter = spherical_gauss_filter.SphericalGaussFilter(sea_level_anomaly_data_set.latitude.values,
                                                                  sea_level_anomaly_data_set.longitude.values,
                                                                  half_width)
+    spatial_filter.precompute_grid_distances()
     spatial_filter.filter(sea_level_anomaly_data_set)
     return sea_level_anomaly_data_set
 

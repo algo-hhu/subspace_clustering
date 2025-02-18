@@ -1,10 +1,9 @@
 import math
+from os import cpu_count
 
 import numpy as np
-from joblib import Parallel, delayed
 from loguru import logger
-from tqdm import tqdm
-from tqdm_joblib import tqdm_joblib
+from tqdm.contrib.concurrent import process_map
 
 
 class SphericalGaussFilter:
@@ -20,63 +19,62 @@ class SphericalGaussFilter:
         self.lon = lon
         self.half_width = half_width
         self.grid_cell_size = 360 / len(self.lon)
-        self.distances = self.precompute_grid_distances()
+        self.distances = {}
 
-    def select_lat_lon_pairs(self, lat1, lon1, max_distance_in_degrees):
+    def select_lat_lon_pairs(self, triple):
         """
         Select latitude longitude pairs that are within the half-width-distance of each other
-        :param max_distance_in_degrees:
-        :param lon1:
-        :param lat1:
+        :param triple:
         :return:
         """
-        lat_lon_pairs = []
-        for lat2 in self.lat:
-            for lon2 in self.lon:
-                if lat1 == lat2 and lon1 == lon2:
-                    continue
-                if np.abs(lat1 - lat2) > max_distance_in_degrees:
-                    continue
-                if np.min([np.abs(lon1 - lon2), 360 - np.abs(lon1 - lon2)]) > max_distance_in_degrees * np.cos(
-                        np.deg2rad(lat1)):
-                    continue
-                else:
-                    lat_lon_pairs.append(((lat1, lon1), (lat2, lon2)))
-        return lat_lon_pairs
+        lat1, lon1, max_distance_in_degrees = triple
+        lat_lon_dist = []
+        # Create bounding box
+        lat_min = lat1 - max_distance_in_degrees
+        lat_max = lat1 + max_distance_in_degrees
+        # Calculate longitude threshold adjusted for latitude
+        lon_threshold = max_distance_in_degrees * np.cos(np.deg2rad(lat1))
+        lon_min = lon1 - lon_threshold
+        lon_max = lon1 + lon_threshold
+        # Handle wraparound for longitude
+        if lon_min < -180:
+            lon_min += 360
+        if lon_max > 180:
+            lon_max -= 360
+        # Create mask for points within the bounding box
+        if lon_min < lon_max:
+            # Normal case
+            lat_mask = (self.lat >= lat_min) & (self.lat <= lat_max)
+            lon_mask = (self.lon >= lon_min) & (self.lon <= lon_max)
+        else:
+            # Case where we cross the date line
+            lat_mask = (self.lat >= lat_min) & (self.lat <= lat_max)
+            lon_mask = (self.lon >= lon_min) | (self.lon <= lon_max)
 
-    # def get_lon_distance(self, lon1_index, lon2_index, lat_index):
-    #     """
-    #     Get the distance between two longitudes
-    #     :param lon2_index:
-    #     :param lon1_index:
-    #     :param lat_index:
-    #     :param lon2:
-    #     :return:
-    #     """
-    #     # compute shortest distance based on precalculated base_lon_distances and cos_factors
-    #     # Compute the angular difference in degrees
-    #     lon_diff_deg = np.abs(self.lon[lon1_index] - self.lon[lon2_index])
-    #     print(f"lon diff degree {lon_diff_deg}")
-    #
-    #     # Ensure the shortest path (handles wraparound, e.g., 170° to -170° should be 20°)
-    #     lon_diff_deg = min(lon_diff_deg, 360 - lon_diff_deg)
-    #     print(f"lon diff degree {lon_diff_deg}")
-    #
-    #     # Convert to radians
-    #     lon_diff_rad = np.deg2rad(lon_diff_deg)
-    #     distance = np.round((lon_diff_rad * self.cos_factors[lat_index] * self.R), 2)
-    #
-    #     return distance
+        valid_lat_indices = np.where(lat_mask)[0]
+        valid_lon_indices = np.where(lon_mask)[0]
+        candidate_indices = np.array(np.meshgrid(valid_lat_indices, valid_lon_indices)).T.reshape(-1, 2)
 
-    def haversine(self, lat1: float, lon1: float, lat2: float, lon2: float):
+        # For the candidates, calculate actual distances
+        for idx in candidate_indices:
+            lat2, lon2 = self.lat[idx[0]], self.lon[idx[1]]
+            # Skip the point itself
+            if lat1 == lat2 and lon1 == lon2:
+                continue
+
+            # Calculate the great circle distance
+            distance = np.round(self.haversine((lat1, lon1, lat2, lon2)))
+            if distance < self.half_width:
+                lat_lon_dist.extend([((lat1, lon1), (lat2, lon2), distance)])
+        return lat_lon_dist
+
+    def haversine(self, coordinate_pair):
         """
         Calculate the great circle distance between two points using the haversine formula
-        :param lon2:
-        :param lat2:
-        :param lon1:
-        :param lat1:
+        :param coordinate_pair:
         :return:
         """
+        lat1, lon1, lat2, lon2 = coordinate_pair
         # Convert latitude and longitude from degrees to radians
         lat_radians_1, lon_radians_1, lat_radians_2, lon_radians_2 = map(np.radians, [lat1, lon1, lat2, lon2])
 
@@ -86,7 +84,7 @@ class SphericalGaussFilter:
         a = np.sin(dlat / 2) ** 2 + np.cos(lat_radians_1) * np.cos(lat_radians_2) * np.sin(dlon / 2) ** 2
         c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
         distance = self.R * c
-        return ((lat1, lon1), (lat2, lon2), distance)
+        return distance
 
     def precompute_grid_distances(self):
         """
@@ -99,29 +97,22 @@ class SphericalGaussFilter:
         logger.info("Precomputing distances")
         max_dist = self.half_width
         distances = {}
-        lat_lon_tuples = [(i, j) for i in self.lat for j in self.lon]
+        max_distance_in_degrees = np.ceil(self.half_width / 111)
+        lat_lon_tuples = [(i, j, max_distance_in_degrees) for i in self.lat for j in self.lon]
         # find pairs for which the approximate distance is less than the half width, to avoid calculating too many distances
         # for lat only need to check up to np.ceil(half_width / 111) degrees north and south, for lon up to np.ceil(half_width / 111) * cos(lat) east and west
         # for lon we additionally need to check for wrap around
-        # TODO: Fix progressbar
-        logger.info("Selecting eligible latitude longitude pairs")
-        max_distance_in_degrees = np.ceil(self.half_width / 111)
-        with tqdm_joblib(tqdm(desc="Processing", total=len(lat_lon_tuples))):
-            results = Parallel(n_jobs=-2)(delayed(self.select_lat_lon_pairs)
-                                          (lat, lon, max_distance_in_degrees) for lat in
-                                          self.lat for lon in self.lon)
-        lat_lon_pairs = [pair for sublist in results for pair in sublist]
-        logger.info(f"Calculating distances for {len(lat_lon_pairs)} pairs of lat lon tuples")
-
-        # calculate these distances in parallel using joblib
-        results = Parallel(n_jobs=-2)(
-            self.haversine(lat1, lon1, lat2, lon2) for (lat1, lon1), (lat2, lon2) in lat_lon_pairs)
+        logger.info("Selecting eligible latitude longitude pairs and calculating distances")
+        logger.info(f"Number of cpus available / 2: {cpu_count() / 2}")
+        # use shared memory for parallelization
+        
+        results = process_map(self.select_lat_lon_pairs, lat_lon_tuples, chunksize=1, max_workers=int(cpu_count() / 2))
         for (lat1, lon1), (lat2, lon2), distance in results:
             if distance < max_dist:
                 if (lat1, lon1) not in distances:
                     distances[(lat1, lon1)] = {}
                 distances[(lat1, lon1)][(lat2, lon2)] = distance
-        return distances
+        self.distances = distances
 
     def filter(self, data):
         """
