@@ -1,10 +1,10 @@
 import math
-import time
 
 import haversine
 import numpy as np
 import xarray
 from loguru import logger
+from tqdm import tqdm
 
 
 class SphericalGaussFilter:
@@ -13,7 +13,7 @@ class SphericalGaussFilter:
         Initialize gauss filter with given coordinate system
         :param lat: latitude values
         :param lon: longitude values
-        :param cut_off: half width of the Gaussian filter in km
+        :param half_width: half width of the Gaussian filter in km
         """
         self.R = 6371  # Radius of the Earth in km
         self.lat = lat
@@ -121,27 +121,43 @@ class SphericalGaussFilter:
         max_dist_in_degrees = np.ceil(self.cut_off / 111)
         self.lat_lon_grid = self.create_latlon_grid(data)
         logger.info("Begin filtering")
-        for lat in self.lat:
-            for lon in self.lon:
-                time1 = time.time()
-                if np.isnan(data["sla"].sel(latitude=lat, longitude=lon).values).any():
-                    continue
-                distances = self.distances_between_lat_lon_pairs(
-                    (lat, lon, max_dist_in_degrees))
-                if not distances:
-                    continue
-                filtered_data = self.filter_all_time_steps_at_point(data, filtered_data, lat, lon, distances)
-                del distances
-                logger.info(f"Time taken to filter one point: {time.time() - time1}")
-                exit()
+        # Extract data into a numpy array and build lookup table for lat/lon pairs and time_steps
+        sla_array = data["sla"].values
+        lat_to_index = {lat: i for i, lat in enumerate(self.lat)}
+        lon_to_index = {lon: i for i, lon in enumerate(self.lon)}
+        idx_to_lat = {i: lat for i, lat in enumerate(self.lat)}
+        idx_to_lon = {i: lon for i, lon in enumerate(self.lon)}
+        filtered_data_array = np.zeros_like(sla_array)
+        # create a list of valid grid points (no NaN values)
+        non_nan_mask = ~np.isnan(sla_array).any(axis=0)
+        valid_grid_points = list(map(tuple, np.argwhere(non_nan_mask)))
+        for lat_idx, lon_idx in tqdm(valid_grid_points):
+            lat = idx_to_lat[lat_idx]
+            lon = idx_to_lon[lon_idx]
+            distances = self.distances_between_lat_lon_pairs(
+                (lat, lon, max_dist_in_degrees))
+            if not distances:
+                continue
+            filtered_data_array = self.filter_all_time_steps_at_point(sla_array, filtered_data_array, lat, lon,
+                                                                      distances,
+                                                                      lat_to_index, lon_to_index)
+        filtered_da = xarray.DataArray(
+            filtered_data_array,
+            dims=data["sla"].dims,
+            coords=data["sla"].coords,
+            attrs=data["sla"].attrs
+        )
+        filtered_data["sla"] = filtered_da
         return filtered_data
 
-    def filter_all_time_steps_at_point(self, data: xarray.Dataset, filtered_data: xarray.Dataset, lat: float,
-                                       lon: float, distances: list):
+    def filter_all_time_steps_at_point(self, sla_array: np.array, filtered_data_array: np.array, lat: float,
+                                       lon: float, distances: list, lat_to_index: dict, lon_to_index: dict):
         """
         Filter all time steps at a given point
-        :param data:
-        :param filtered_data:
+        :param lon_to_index:
+        :param lat_to_index:
+        :param filtered_data_array:
+        :param sla_array:
         :param lat:
         :param lon:
         :param distances:
@@ -154,11 +170,15 @@ class SphericalGaussFilter:
         # normalize weights
         total_weight = sum([weight for weight in neighbor_weights.values()])
         neighbor_weights = {key: value / total_weight for key, value in neighbor_weights.items()}
+        # filter data
         data_values = np.stack(
-            [data["sla"].sel(latitude=key[0], longitude=key[1]).values for key in neighbor_weights.keys()])
+            [sla_array[:, lat_to_index[key[0]], lon_to_index[key[1]]] for key in neighbor_weights.keys()])
+        # data_values = np.stack(
+        #     [data["sla"].sel(latitude=key[0], longitude=key[1]).values for key in neighbor_weights.keys()])
         # replace nan in data_values with 0
         data_values = np.nan_to_num(data_values)
         weights = np.array(list(neighbor_weights.values()))
-        new_data = np.einsum('i,ij->j', weights, data_values)
-        filtered_data["sla"].loc[dict(latitude=lat, longitude=lon)] = new_data
-        return filtered_data
+        new_data = np.round(np.einsum('i,ij->j', weights, data_values), 4)
+        # filtered_data["sla"].loc[dict(latitude=lat, longitude=lon)] = new_data
+        filtered_data_array[:, lat_to_index[lat], lon_to_index[lon]] = new_data
+        return filtered_data_array

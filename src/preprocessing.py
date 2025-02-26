@@ -86,8 +86,9 @@ def filtering(sea_level_anomaly_data: xr.Dataset, time_2: float, out_dir: str, h
     if not os.path.exists("../data/sea_level_anomaly_data_filtered.nc"):
         # filter spatially with a symmetric Gaussian filter of half-width 500 km (here the C$S is transformed to meters using a geocentric CRS EPSG:4978)
         sea_level_anomaly_data = apply_gaussian_filter(sea_level_anomaly_data, half_width)
-
         time_4 = time.time()
+        # save netcdf
+        sea_level_anomaly_data.to_netcdf("../data/sea_level_anomaly_data_filtered.nc")
         logger.info(f"Time taken to apply Gaussian filter: {time_4 - time_3}")
         variable_to_plot = "sla"
         plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="filtered_sla")
@@ -100,7 +101,6 @@ def filtering(sea_level_anomaly_data: xr.Dataset, time_2: float, out_dir: str, h
                                    name="5_degree_grid_filtered")
         time_6 = time.time()
         logger.info(f"Time taken to plot sea level anomaly for one point in time: {time_6 - time_5}")
-        sea_level_anomaly_data.to_netcdf("../data/sea_level_anomaly_data_filtered.nc")
         exit(0)
     else:
         sea_level_anomaly_data_5_degree_grid = xr.open_dataset("../data/sea_level_anomaly_data_filtered.nc")
