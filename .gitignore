@@ -2,15 +2,12 @@
 # Edit at https://www.toptal.com/developers/gitignore?templates=pycharm,python
 
 # netcdf files and generated images
-output/*.nc
-*.nc
 *.png
 *.jpg
 *.jpeg
 *.gif
 *.svg
-output
-data
+*.pdf
 
 # Ignore database files
 database/data/
