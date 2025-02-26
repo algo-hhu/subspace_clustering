@@ -5,22 +5,6 @@ import haversine
 import numpy as np
 import xarray
 from loguru import logger
-from tqdm import tqdm
-
-
-def filter_at_point(time_step, data_per_point, weights):
-    """
-    Filter data at a given point
-    :param weights:
-    :param data_per_point:
-    :param time_step:
-    :return:
-    """
-    values = np.array([data_per_point[i][time_step] for i in range(len(data_per_point))])
-    values = np.nan_to_num(values)  # Replace NaNs with 0
-    # apply filter
-    new_point_value = np.dot(values, weights)
-    return new_point_value
 
 
 class SphericalGaussFilter:
@@ -170,15 +154,11 @@ class SphericalGaussFilter:
         # normalize weights
         total_weight = sum([weight for weight in neighbor_weights.values()])
         neighbor_weights = {key: value / total_weight for key, value in neighbor_weights.items()}
-        data_per_point = {}
-        for key in neighbor_weights.keys():
-            data_per_point[key] = data["sla"].sel(latitude=key[0], longitude=key[1]).values
-        # turn data_per_point and neighbor_weights into numpy arrays
+        data_values = np.stack(
+            [data["sla"].sel(latitude=key[0], longitude=key[1]).values for key in neighbor_weights.keys()])
+        # replace nan in data_values with 0
+        data_values = np.nan_to_num(data_values)
         weights = np.array(list(neighbor_weights.values()))
-        values = np.array([data_per_point[key] for key in neighbor_weights.keys()])
-        for time_step in tqdm(range(len(data.time.values))):
-            new_point_data = filter_at_point(time_step, values, weights)
-            # assign new point data to filtered data
-            current_time_step = data.time.values[time_step]
-            filtered_data["sla"].loc[dict(time=current_time_step, latitude=lat, longitude=lon)] = new_point_data
+        new_data = np.einsum('i,ij->j', weights, data_values)
+        filtered_data["sla"].loc[dict(latitude=lat, longitude=lon)] = new_data
         return filtered_data
