@@ -14,32 +14,13 @@ from src.plotting import plot_sla_for_point_in_time
 def apply_gaussian_filter(sea_level_anomaly_data_set: xr.Dataset, half_width: int):
     """
     Apply a Gaussian filter of half width 500 to the sea level anomaly data
-    :param cut_off:
-    :param sea_level_anomaly_data:
+    :param half_width:
+    :param sea_level_anomaly_data_set:
     :return:
     """
-    # Todo: check again if this transformation is needed.
-    # # change CRS to geocentric CRS EPSG:3857
-    # transformer = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
-    # # Extract latitude and longitude values
-    # latitudes = sea_level_anomaly_data["latitude"].values
-    # longitudes = sea_level_anomaly_data["longitude"].values
-    # latitudes = latitudes.flatten()
-    # longitudes = longitudes.flatten()
-    # transformed_coords = np.array([transformer.transform(lat, lon) for lat, lon in zip(latitudes, longitudes)])
-    # transformed_coords_x = transformed_coords[:, 0].reshape(sea_level_anomaly_data["latitude"].shape)
-    # transformed_coords_y = transformed_coords[:, 1].reshape(sea_level_anomaly_data["longitude"].shape)
-    #
-    # # Assign the transformed coordinates back to the dataset
-    # sea_level_anomaly_data["transformed_coords_x"] = xr.DataArray(transformed_coords_x,
-    #                                                               dims=sea_level_anomaly_data["latitude"].dims)
-    # sea_level_anomaly_data["transformed_coords_y"] = xr.DataArray(transformed_coords_y,
-    #                                                               dims=sea_level_anomaly_data["longitude"].dims)
-
     spatial_filter = spherical_gauss_filter.SphericalGaussFilter(sea_level_anomaly_data_set.latitude.values,
                                                                  sea_level_anomaly_data_set.longitude.values,
                                                                  half_width)
-    # spatial_filter.precompute_grid_distances(sea_level_anomaly_data_set)
     sea_level_anomaly_data_set = spatial_filter.filter(sea_level_anomaly_data_set)
     return sea_level_anomaly_data_set
 
@@ -70,7 +51,6 @@ def read_satellite_data(data_directory: str):
 def filtering(sea_level_anomaly_data: xr.Dataset, time_2: float, out_dir: str, half_width: int):
     """
     Filter the sea level anomaly data
-    :param cut_off:
     :param out_dir:
     :param time_2:
     :param sea_level_anomaly_data:

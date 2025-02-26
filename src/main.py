@@ -79,8 +79,8 @@ async def main():
     complete_hierarchical_clustering.start_clustering(k, sea_level_anomaly_data)
 
 
-# TODO: filter spatially with a symmetric Gaussian filter of half-width 500 km
-# TODO: interpolate to 5 degree grid
+# filter spatially with a symmetric Gaussian filter of half-width 500 km
+# interpolate to 5 degree grid
 # TODO: Apply a convolution low-pass filter passing 90% of the amplitude at 24 months to each time series.  (To emphasize inter annual and longer variability)
 # TODO: implement distance function between two grid points x_i and x_j - D(x_i, x_j) = 1 - exp(- d(x_i, x_j)/2a^2) r(x_i, x_j)
 # TODO: d is Euclidean distance, r is temporal correlation coefficient, a is constant such that the value of the exponential is 0.5, when d=3000 km
