@@ -1,16 +1,30 @@
 import math
-import pickle
+import time
 
 import haversine
 import numpy as np
 import xarray
-from joblib import Parallel, delayed
 from loguru import logger
 from tqdm import tqdm
 
 
+def filter_at_point(time_step, data_per_point, weights):
+    """
+    Filter data at a given point
+    :param weights:
+    :param data_per_point:
+    :param time_step:
+    :return:
+    """
+    values = np.array([data_per_point[i][time_step] for i in range(len(data_per_point))])
+    values = np.nan_to_num(values)  # Replace NaNs with 0
+    # apply filter
+    new_point_value = np.dot(values, weights)
+    return new_point_value
+
+
 class SphericalGaussFilter:
-    def __init__(self, lat: np.ndarray, lon: np.ndarray, cut_off: int):
+    def __init__(self, lat: np.ndarray, lon: np.ndarray, half_width: int):
         """
         Initialize gauss filter with given coordinate system
         :param lat: latitude values
@@ -22,9 +36,11 @@ class SphericalGaussFilter:
         self.lon = lon
         # create lat/lon meshgrid, create mask where sea level anomaly is nan, filter, transform to list of tuples
         self.lat_lon_grid = None
-        self.cut_off = cut_off
         self.grid_cell_size = 360 / len(self.lon)
         self.distances = {}
+        self.half_width = half_width
+        self.sigma = half_width / 1.178
+        self.cut_off = 3 * self.sigma
 
     def create_valid_data_mask(self, ds, variable_name='sla'):
         # Create a 2D boolean mask indicating grid cells that have
@@ -97,98 +113,21 @@ class SphericalGaussFilter:
         valid_lat_indices = np.where(lat_mask)[0]
         valid_lon_indices = np.where(lon_mask)[0]
         candidate_indices = np.array(np.meshgrid(valid_lat_indices, valid_lon_indices)).T.reshape(-1, 2)
-        candidate_coords = [(self.lat[i], self.lon[j]) for i, j in candidate_indices if
+        candidate_coords = [(float(self.lat[i]), float(self.lon[j])) for i, j in candidate_indices if
                             (not np.isnan(self.lat[i]) and not np.isnan(self.lon[j])) and (
                                     self.lat[i] != lat1 or self.lon[j] != lon1)]
         current_point = [(lat1, lon1) for _ in range(len(candidate_coords))]
         distances = haversine.haversine_vector(current_point, candidate_coords)
         lat_lon_dist = [[(lat1, lon1), candidate_coords[i], distances[i]] for i in range(len(candidate_coords)) if
                         distances[i] < self.cut_off]
-        # # For the candidates, calculate actual distances
-        # for idx in candidate_indices:
-        #     lat2, lon2 = self.lat_lon_grid[idx[0], idx[1]]
-        #     if np.isnan(lat2) or np.isnan(lon2):
-        #         continue
-        #     # Skip the point itself
-        #     if lat1 == lat2 and lon1 == lon2:
-        #         continue
-        #
-        #     # Calculate the great circle distance
-        #     distance = np.round(self.haversine((lat1, lon1, lat2, lon2)))
-        #     if distance < self.half_width:
-        #         lat_lon_dist.extend([((lat1, lon1), (lat2, lon2), distance)])
         return lat_lon_dist
 
-    def haversine(self, coordinate_pair):
-        """
-        Calculate the great circle distance between two points using the haversine formula
-        :param coordinate_pair:
-        :return:
-        """
-        lat1, lon1, lat2, lon2 = coordinate_pair
-        # Convert latitude and longitude from degrees to radians
-        lat_radians_1, lon_radians_1, lat_radians_2, lon_radians_2 = map(np.radians, [lat1, lon1, lat2, lon2])
-
-        # Haversine formula
-        dlat = lat_radians_2 - lat_radians_1
-        dlon = lon_radians_2 - lon_radians_1
-        a = np.sin(dlat / 2) ** 2 + np.cos(lat_radians_1) * np.cos(lat_radians_2) * np.sin(dlon / 2) ** 2
-        c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
-        distance = self.R * c
-        return distance
-
-    def precompute_grid_distances(self, sea_level_anomaly_data: xarray.Dataset):
-        """
-        Precompute the distances between all points that are within a 500 km radius of each other
-        Store the calculated distances in a dictionary {(lat, lon): {(neighbor_lat, neighbor_lon): distance}}
-        Latitude ranges from -90 to 90, longitude from -180 to 180
-        Use the Haversine formula to calculate the distance between two points on the sphere
-        :return:
-        """
-        logger.info("Precomputing distances")
-        max_dist = self.cut_off
-        distances = {}
-        max_distance_in_degrees = np.ceil(self.cut_off / 111)
-        self.lat_lon_grid = self.create_latlon_grid(sea_level_anomaly_data)
-        # remove lat/lon that do not have any values in the dataset
-        # lat_lon_tuples = [(i, j, max_distance_in_degrees) for (i, j) in self.lat_lon_grid if
-        #                   not np.isnan(i) and not np.isnan(j)]
-        # find pairs for which the approximate distance is less than the half width, to avoid calculating too many distances
-        # for lat only need to check up to np.ceil(half_width / 111) degrees north and south, for lon up to np.ceil(half_width / 111) * cos(lat) east and west
-        # for lon we additionally need to check for wrap around
-        logger.info("Selecting eligible latitude longitude pairs and calculating distances")
-        # TODO: process in chunks to avoid memory issues
-        for dimension1 in tqdm(self.lat_lon_grid):
-            current_lat_lon_pairs = [(i, j, max_distance_in_degrees) for (i, j) in dimension1 if
-                                     not np.isnan(i) and not np.isnan(j)]
-            if not current_lat_lon_pairs:
-                continue
-            current_results = (Parallel(n_jobs=-2)(
-                delayed(self.distances_between_lat_lon_pairs)(triple) for triple in current_lat_lon_pairs))
-            # results.extend(process_map(self.distances_between_lat_lon_pairs, current_lat_lon_pairs, chunksize=1,
-            #                            max_workers=int(cpu_count() / 2)))
-            current_distances = {}
-            for element in current_results:
-                for (lat1, lon1), (lat2, lon2), distance in element:
-                    if distance < max_dist:
-                        if (lat1, lon1) not in current_distances.keys():
-                            current_distances[(lat1, lon1)] = {}
-                        current_distances[(lat1, lon1)][(lat2, lon2)] = distance
-
-            # save to disk and delete from memory
-            file_path = f"../output/distances_{dimension1[0][0]}.pkl"
-            with open(file_path, "wb") as f:
-                pickle.dump(current_distances, f)
-                f.close()
-                del current_distances
-        self.distances = distances
-
-    def filter(self, data):
+    def filter(self, data: xarray.Dataset):
         """
         Apply a spherical Gaussian filter to the data.
         Data has the dimensions (time, lat, lon)
         For each point determine all points that are within half_width km of the point and calculate their distances
-        Then filter the data at this point using the weights determined by the distances, normalize the weights and apply the filter
+        Then filter the data at this point using the weights determined by the distances, normalize the weights and apply the filter.
         Filter for every time step using the distances, then select next point
         :param data:
         :return:
@@ -198,93 +137,48 @@ class SphericalGaussFilter:
         max_dist_in_degrees = np.ceil(self.cut_off / 111)
         self.lat_lon_grid = self.create_latlon_grid(data)
         logger.info("Begin filtering")
-        for lat in range(data.latitude.shape[0]):
-            for lon in range(data.longitude.shape[0]):
+        for lat in self.lat:
+            for lon in self.lon:
+                time1 = time.time()
+                if np.isnan(data["sla"].sel(latitude=lat, longitude=lon).values).any():
+                    continue
                 distances = self.distances_between_lat_lon_pairs(
-                    (data.latitude[lat].item(), data.longitude[lon].item(), max_dist_in_degrees))
+                    (lat, lon, max_dist_in_degrees))
                 if not distances:
                     continue
-                print(f"distances {distances}")
+                filtered_data = self.filter_all_time_steps_at_point(data, filtered_data, lat, lon, distances)
+                del distances
+                logger.info(f"Time taken to filter one point: {time.time() - time1}")
                 exit()
-        for time_step in range(data.time.shape[0]):
-            filtered_data[time_step] = self.filter_one_time_step(data, time_step)
-            exit(0)
+        return filtered_data
 
-    def calculate_sigma_per_latitude(self, latitude: float, grid_cell_size: float):
+    def filter_all_time_steps_at_point(self, data: xarray.Dataset, filtered_data: xarray.Dataset, lat: float,
+                                       lon: float, distances: list):
         """
-        Given the latitude of a point, calculate the sigma for the Gaussian filter
-        :param grid_cell_size:
-        :param latitude:
-        :return:
-        """
-        km_per_degree_latitude = 111
-        km_per_degree_longitude = 111 * math.cos(math.radians(latitude))
-        sigma_latitude = self.cut_off / km_per_degree_latitude / grid_cell_size
-        sigma_longitude = self.cut_off / km_per_degree_longitude / grid_cell_size
-        return sigma_latitude, sigma_longitude
-
-    def filter_one_time_step(self, data, time_step):
-        """
-        Apply the spherical gauss filter to one time step
+        Filter all time steps at a given point
         :param data:
-        :param time_step:
+        :param filtered_data:
+        :param lat:
+        :param lon:
+        :param distances:
         :return:
         """
-        # sea_level_anomaly_data[feature].isel(time=0)
-        current_data = data["sla"].isel(time=time_step).values
-        # print(f"current data: {current_data}")
-        # print(f"current data shape: {current_data.shape}")
-        # print("=====================================")
-        current_filtered_data = np.nan * np.ones_like(current_data)
-        # # how many nan values are there in the data at the current time step
-        # print(f"current time step: {time_step}")
-        # print(
-        #     f"number of nan values in current time step {data.sla.isel(time=time_step).isnull().sum().item()}")
-        # print(f"number of not NaN values in current time step {data.sla.isel(time=time_step).notnull().sum().item()}")
-        # print("=====================================")
-        # plotting.plot_nan_values(data, time_step)
-        invalid_counter = 0
-        valid_counter = 0
-        for i in range(data.latitude.size):
-            for j in range(data.longitude.size):
-                lat = data.latitude[i].item()
-                lon = data.longitude[j].item()
-                if np.isnan(current_data[i, j]):
-                    invalid_counter += 1
-                    continue
-                # compute weights for latitude and longitude
-                valid_counter += 1
-                if valid_counter % 1000 == 0:
-                    print(f"valid counter: {valid_counter}")
-                logger.info(f"compute weights")
-                lat_diff = np.abs(np.deg2rad(self.lat - self.lat[i]))
-                lon_diff = np.abs(np.deg2rad(self.lon - self.lon[j]))
-                print(f"lat diff: {lat_diff}")
-                print(f"lon diff: {lon_diff}")
-
-                # wrap around the earth
-                lon_diff = np.minimum(lon_diff, np.pi - lon_diff)
-                print(f"lon diff wrap around: {lon_diff}")
-
-                # compute distances
-                logger.info(f"compute distances")
-                lat_dist = self.R * lat_diff
-
-                # for k, lat in enumerate(np.deg2rad(self.lat)):
-                #     lon_dist[k] = self.R * lon_diff[k] * np.cos(lat)
-                # more efficient version:
-                lon_dist = self.R * lon_diff * np.cos(np.deg2rad(self.lat))[:, np.newaxis]
-                sigma_lat, sigma_lon = self.calculate_sigma_per_latitude(self.lat[i], 360 / len(self.lon))
-                # compute weights
-                logger.info(f"compute weights")
-                lat_weights = np.exp(- (lat_dist ** 2) / (2 * sigma_lat ** 2))
-                lon_weights = np.exp(- (lon_dist ** 2) / (2 * sigma_lon ** 2))
-                weights = lat_weights * lon_weights
-                # weights[current_mask] = 0
-
-                if weights.sum() > 0:
-                    weights /= weights.sum()
-                    current_filtered_data[i, j] = np.sum(
-                        data[time_step] * weights)
-                # return a data array with the filtered data
-                return current_filtered_data
+        neighbor_weights = {(lat, lon): 1}
+        for _, (lat2, lon2), distance in distances:
+            current_weight = math.exp(-distance ** 2 / (2 * self.sigma ** 2))
+            neighbor_weights[(lat2, lon2)] = current_weight
+        # normalize weights
+        total_weight = sum([weight for weight in neighbor_weights.values()])
+        neighbor_weights = {key: value / total_weight for key, value in neighbor_weights.items()}
+        data_per_point = {}
+        for key in neighbor_weights.keys():
+            data_per_point[key] = data["sla"].sel(latitude=key[0], longitude=key[1]).values
+        # turn data_per_point and neighbor_weights into numpy arrays
+        weights = np.array(list(neighbor_weights.values()))
+        values = np.array([data_per_point[key] for key in neighbor_weights.keys()])
+        for time_step in tqdm(range(len(data.time.values))):
+            new_point_data = filter_at_point(time_step, values, weights)
+            # assign new point data to filtered data
+            current_time_step = data.time.values[time_step]
+            filtered_data["sla"].loc[dict(time=current_time_step, latitude=lat, longitude=lon)] = new_point_data
+        return filtered_data

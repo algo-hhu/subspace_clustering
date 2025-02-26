@@ -14,7 +14,7 @@ from src.plotting import plot_sla_for_point_in_time
 def apply_gaussian_filter(sea_level_anomaly_data_set: xr.Dataset, half_width: int):
     """
     Apply a Gaussian filter of half width 500 to the sea level anomaly data
-    :param half_width:
+    :param cut_off:
     :param sea_level_anomaly_data:
     :return:
     """
@@ -40,7 +40,7 @@ def apply_gaussian_filter(sea_level_anomaly_data_set: xr.Dataset, half_width: in
                                                                  sea_level_anomaly_data_set.longitude.values,
                                                                  half_width)
     # spatial_filter.precompute_grid_distances(sea_level_anomaly_data_set)
-    spatial_filter.filter(sea_level_anomaly_data_set)
+    sea_level_anomaly_data_set = spatial_filter.filter(sea_level_anomaly_data_set)
     return sea_level_anomaly_data_set
 
 
@@ -70,7 +70,7 @@ def read_satellite_data(data_directory: str):
 def filtering(sea_level_anomaly_data: xr.Dataset, time_2: float, out_dir: str, half_width: int):
     """
     Filter the sea level anomaly data
-    :param half_width:
+    :param cut_off:
     :param out_dir:
     :param time_2:
     :param sea_level_anomaly_data:
@@ -89,8 +89,8 @@ def filtering(sea_level_anomaly_data: xr.Dataset, time_2: float, out_dir: str, h
 
         time_4 = time.time()
         logger.info(f"Time taken to apply Gaussian filter: {time_4 - time_3}")
-        variable_to_plot = "filtered_sla"
-        plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="filtered")
+        variable_to_plot = "sla"
+        plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="filtered_sla")
         # interpolate to 5 degree grid
         sea_level_anomaly_data_5_degree_grid = sea_level_anomaly_data.interp(latitude=range(-90, 91, 5),
                                                                              longitude=range(-180, 180, 5))
@@ -101,6 +101,7 @@ def filtering(sea_level_anomaly_data: xr.Dataset, time_2: float, out_dir: str, h
         time_6 = time.time()
         logger.info(f"Time taken to plot sea level anomaly for one point in time: {time_6 - time_5}")
         sea_level_anomaly_data.to_netcdf("../data/sea_level_anomaly_data_filtered.nc")
+        exit(0)
     else:
         sea_level_anomaly_data_5_degree_grid = xr.open_dataset("../data/sea_level_anomaly_data_filtered.nc")
         time_4 = time.time()

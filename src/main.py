@@ -44,7 +44,7 @@ async def main():
     logger.info(f"Preprocessing done")
     # plot
     variable_to_plot = "sla"
-    plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="05_degree")
+    # plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="05_degree")
 
     # filter spatially with a symmetric Gaussian filter of half-width 500 km
     # leave filtering for now and decide later if it is necessary
