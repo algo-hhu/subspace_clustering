@@ -190,8 +190,8 @@ def save_clustering(clusters: {int: Cluster}, number_of_clusters: int):
         # ,crs="EPSG:4326"  # WGS 84 coordinate system
     )
     # save clustering
-    plotting.plot_regions(geopandas.read_file("../data/ne_10m_land/ne_10m_land.shp"),
-                          "../output/full_hierarchical_clustering/", cluster_gdf,
+    plotting.plot_regions(geopandas.read_file("../../data/ne_10m_land/ne_10m_land.shp"),
+                          "../../output/full_hierarchical_clustering/", cluster_gdf,
                           f"clustering_{number_of_clusters}")
 
 

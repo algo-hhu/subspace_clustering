@@ -148,6 +148,10 @@ class SphericalGaussFilter:
             attrs=data["sla"].attrs
         )
         filtered_data["sla"] = filtered_da
+        # put NaN values back
+        mask = data.sla.isnull()
+        # Apply mask using `.where()`, replacing with NaNs
+        filtered_data["sla"] = filtered_data["sla"].where(~mask, np.nan)
         return filtered_data
 
     def filter_all_time_steps_at_point(self, sla_array: np.array, filtered_data_array: np.array, lat: float,

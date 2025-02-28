@@ -3,7 +3,7 @@ from unittest import TestCase
 
 import numpy as np
 
-from src.complete_hierarchical_clustering import GridPoint, Cluster, hierarchical_clustering
+from src.clustering.complete_hierarchical_clustering import GridPoint, Cluster, hierarchical_clustering
 
 
 class Test(TestCase):

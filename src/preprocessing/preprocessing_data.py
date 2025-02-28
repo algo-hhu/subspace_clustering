@@ -7,8 +7,8 @@ import tqdm
 import xarray as xr
 from loguru import logger
 
-from src import spherical_gauss_filter
 from src.plotting import plot_sla_for_point_in_time
+from src.preprocessing import spherical_gauss_filter
 
 
 def apply_gaussian_filter(sea_level_anomaly_data_set: xr.Dataset, half_width: int):
@@ -48,11 +48,11 @@ def read_satellite_data(data_directory: str):
     return satellite_altimeter_data
 
 
-def filtering(sea_level_anomaly_data: xr.Dataset, time_2: float, out_dir: str, half_width: int):
+def filtering(sea_level_anomaly_data: xr.Dataset, out_dir: str, half_width: int):
     """
     Filter the sea level anomaly data
+    :param half_width:
     :param out_dir:
-    :param time_2:
     :param sea_level_anomaly_data:
     :return:
     """
@@ -61,33 +61,31 @@ def filtering(sea_level_anomaly_data: xr.Dataset, time_2: float, out_dir: str, h
     if sea_level_anomaly_data.longitude.max() > 180 or sea_level_anomaly_data.longitude.min() < -180:
         logger.warning(
             "Longitude is not correct, it should range from -180 to 180, try deleting the sea_level_anomaly_data.nc file and rerun the program")
-    time_3 = time.time()
-    logger.info(f"Time taken to check longitude: {time_3 - time_2}")
-    if not os.path.exists("../data/sea_level_anomaly_data_filtered.nc"):
-        # filter spatially with a symmetric Gaussian filter of half-width 500 km (here the C$S is transformed to meters using a geocentric CRS EPSG:4978)
-        sea_level_anomaly_data = apply_gaussian_filter(sea_level_anomaly_data, half_width)
-        time_4 = time.time()
-        # save netcdf
-        sea_level_anomaly_data.to_netcdf("../data/sea_level_anomaly_data_filtered.nc")
-        logger.info(f"Time taken to apply Gaussian filter: {time_4 - time_3}")
-        variable_to_plot = "sla"
-        plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="filtered_sla")
-        # interpolate to 5 degree grid
-        sea_level_anomaly_data_5_degree_grid = sea_level_anomaly_data.interp(latitude=range(-90, 91, 5),
-                                                                             longitude=range(-180, 180, 5))
-        time_5 = time.time()
-        logger.info(f"Time taken to interpolate to 5 degree grid: {time_5 - time_4}")
-        plot_sla_for_point_in_time(sea_level_anomaly_data_5_degree_grid, out_dir, variable_to_plot,
-                                   name="5_degree_grid_filtered")
-        time_6 = time.time()
-        logger.info(f"Time taken to plot sea level anomaly for one point in time: {time_6 - time_5}")
-        exit(0)
-    else:
-        sea_level_anomaly_data_5_degree_grid = xr.open_dataset("../data/sea_level_anomaly_data_filtered.nc")
-        time_4 = time.time()
-        logger.info(f"Time taken to read filtered data: {time_4 - time_3}")
 
-    return sea_level_anomaly_data_5_degree_grid
+    # filter spatially with a symmetric Gaussian filter of half-width 500 km (here the C$S is transformed to meters using a geocentric CRS EPSG:4978)
+    current_time = time.time()
+    sea_level_anomaly_data = apply_gaussian_filter(sea_level_anomaly_data, half_width)
+    logger.info(f"Time taken for gaussian filtering {time.time() - current_time}")
+    current_time = time.time()
+    # save netcdf
+    encoding = {
+        'sla': {
+            'zlib': True,  # Enable compression
+            'complevel': 4,  # Compression level (1-9, trade-off between speed and compression ratio)
+            'shuffle': True,  # Improve compression efficiency
+            'dtype': 'float32',  # Convert from float64 to float32 to save space (optional)
+            'chunksizes': (73, 144, 288),  # Use the same efficient chunking as in the smaller dataset
+            '_FillValue': -2147483648,  # Match fill value from the smaller dataset
+            'scale_factor': 0.0001  # Match scale factor for consistency
+        }
+    }
+    sea_level_anomaly_data.to_netcdf("../data/sea_level_anomaly_data_filtered.nc", encoding=encoding,
+                                     format="NETCDF4")
+    variable_to_plot = "sla"
+    plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="filtered_sla")
+    # TODO: Apply a convolution low-pass filter passing 90% of the amplitude at 24 months to each time series.
+
+    return sea_level_anomaly_data
 
 
 def distance_function(lat1: float, long1: float, timeseries1: [float], lat2: float, long2: float, timeseries2: [float]):

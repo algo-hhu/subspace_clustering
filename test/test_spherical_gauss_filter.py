@@ -4,7 +4,7 @@ import haversine
 import numpy as np
 import xarray as xr
 
-from src.spherical_gauss_filter import SphericalGaussFilter
+from src.preprocessing.spherical_gauss_filter import SphericalGaussFilter
 
 
 class TestSphericalGaussFilter(TestCase):
