@@ -10,8 +10,8 @@ from loguru import logger
 from shapely.ops import unary_union
 from tqdm import tqdm
 
+import src.distance
 from src import plotting
-from src.preprocessing import preprocessing_data
 
 
 @dataclass()
@@ -76,8 +76,8 @@ def distances_between_all_pairs(cluster_pairs, distances):
         lat2 = grid_point2.latitude
         long2 = grid_point2.longitude
         timeseries2 = grid_point2.timeseries
-        current_distance = preprocessing_data.distance_function(lat1, long1, timeseries1, lat2, long2,
-                                                                timeseries2)
+        current_distance = src.distance.distance_function(lat1, long1, timeseries1, lat2, long2,
+                                                          timeseries2)
         distances[cluster1.id, cluster2.id] = current_distance
         distances[cluster2.id, cluster1.id] = current_distance
     return distances

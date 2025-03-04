@@ -1,8 +1,6 @@
-import math
 import os
 import time
 
-import numpy as np
 import tqdm
 import xarray as xr
 from loguru import logger
@@ -56,6 +54,7 @@ def filtering(sea_level_anomaly_data: xr.Dataset, out_dir: str, half_width: int)
     :param sea_level_anomaly_data:
     :return:
     """
+    logger.warning("Filtering data - this may take some time, if this is not wanted, set filtering_sla to False")
     logger.info("filtering data")
     # check if longitude is correct (-180 to 180)
     if sea_level_anomaly_data.longitude.max() > 180 or sea_level_anomaly_data.longitude.min() < -180:
@@ -91,31 +90,3 @@ def filtering(sea_level_anomaly_data: xr.Dataset, out_dir: str, half_width: int)
     plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="filtered_sla")
 
     return sea_level_anomaly_data
-
-
-def distance_function(lat1: float, long1: float, timeseries1: [float], lat2: float, long2: float, timeseries2: [float]):
-    """
-    Calculate the distance function between two points D(x_i, x_j) = 1 - exp(- d(x_i, x_j)/2a^2) r(x_i, x_j)
-    :param timeseries2:
-    :param long2:
-    :param lat2:
-    :param timeseries1:
-    :param long1:
-    :param lat1:
-    :return:
-    """
-    a = math.sqrt(- (1500 / (math.log(0.5))))
-    earth_radius = 6371  # km
-    lat1, lat2, long1, long2 = map(np.radians, [lat1, lat2, long1, long2])
-    delta_phi = lat2 - lat1
-    delta_lambda = long2 - long1
-    haversine_distance = 2 * earth_radius * np.arcsin(
-        np.sqrt(np.sin(delta_phi / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(delta_lambda / 2) ** 2)
-    )
-
-    # Pearsons correlation coefficient
-    r = np.corrcoef(timeseries1, timeseries2)[0, 1]
-
-    # calculate difference
-    difference = 1 - np.exp(-haversine_distance / (2 * a ** 2)) * r
-    return difference

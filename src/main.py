@@ -96,7 +96,7 @@ async def main():
 
 # filter spatially with a symmetric Gaussian filter of half-width 500 km
 # interpolate to 5 degree grid
-# TODO: Apply a convolution low-pass filter passing 90% of the amplitude at 24 months to each time series.  (To emphasize inter annual and longer variability)
+# Apply a convolution low-pass filter passing 90% of the amplitude at 24 months to each time series.  (To emphasize inter annual and longer variability)
 # implement distance function between two grid points x_i and x_j - D(x_i, x_j) = 1 - exp(- d(x_i, x_j)/2a^2) r(x_i, x_j)
 # d is Euclidean distance, r is temporal correlation coefficient, a is constant such that the value of the exponential is 0.5, when d=3000 km
 # calculate distances between each pair of grid points
