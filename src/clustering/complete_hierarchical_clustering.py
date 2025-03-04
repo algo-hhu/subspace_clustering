@@ -10,7 +10,8 @@ from loguru import logger
 from shapely.ops import unary_union
 from tqdm import tqdm
 
-from src import preprocessing, plotting
+from src import plotting
+from src.preprocessing import preprocessing_data
 
 
 @dataclass()
@@ -75,8 +76,8 @@ def distances_between_all_pairs(cluster_pairs, distances):
         lat2 = grid_point2.latitude
         long2 = grid_point2.longitude
         timeseries2 = grid_point2.timeseries
-        current_distance = preprocessing.distance_function(lat1, long1, timeseries1, lat2, long2,
-                                                           timeseries2)
+        current_distance = preprocessing_data.distance_function(lat1, long1, timeseries1, lat2, long2,
+                                                                timeseries2)
         distances[cluster1.id, cluster2.id] = current_distance
         distances[cluster2.id, cluster1.id] = current_distance
     return distances
@@ -190,8 +191,8 @@ def save_clustering(clusters: {int: Cluster}, number_of_clusters: int):
         # ,crs="EPSG:4326"  # WGS 84 coordinate system
     )
     # save clustering
-    plotting.plot_regions(geopandas.read_file("../../data/ne_10m_land/ne_10m_land.shp"),
-                          "../../output/full_hierarchical_clustering/", cluster_gdf,
+    plotting.plot_regions(geopandas.read_file("../data/ne_10m_land/ne_10m_land.shp"),
+                          "../output/full_hierarchical_clustering/", cluster_gdf,
                           f"clustering_{number_of_clusters}")
 
 

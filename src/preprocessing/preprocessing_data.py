@@ -67,6 +67,12 @@ def filtering(sea_level_anomaly_data: xr.Dataset, out_dir: str, half_width: int)
     sea_level_anomaly_data = apply_gaussian_filter(sea_level_anomaly_data, half_width)
     logger.info(f"Time taken for gaussian filtering {time.time() - current_time}")
     current_time = time.time()
+    sea_level_anomaly_data["sla"] = (
+        sea_level_anomaly_data["sla"]
+        .rolling(time=15, center=True, min_periods=1)
+        .mean(skipna=True)
+    )
+    logger.info(f"Time taken for temporal filtering {time.time() - current_time}")
     # save netcdf
     encoding = {
         'sla': {
@@ -83,7 +89,6 @@ def filtering(sea_level_anomaly_data: xr.Dataset, out_dir: str, half_width: int)
                                      format="NETCDF4")
     variable_to_plot = "sla"
     plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="filtered_sla")
-    # TODO: Apply a convolution low-pass filter passing 90% of the amplitude at 24 months to each time series.
 
     return sea_level_anomaly_data
 

@@ -139,8 +139,7 @@ class SphericalGaussFilter:
             if not distances:
                 continue
             filtered_data_array = self.filter_all_time_steps_at_point(sla_array, filtered_data_array, lat, lon,
-                                                                      distances,
-                                                                      lat_to_index, lon_to_index)
+                                                                      distances, lat_to_index, lon_to_index)
         filtered_da = xarray.DataArray(
             filtered_data_array,
             dims=data["sla"].dims,

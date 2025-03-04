@@ -58,21 +58,23 @@ async def main():
             # plot
             plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot,
                                                 name="gaussian_filtered")
+        else:
+            sea_level_anomaly_data = xr.open_dataset("../data/sea_level_anomaly_data_filtered.nc")
 
     if neighborhood_clustering:  # hierarchical clustering using only the neighborhood of each point
+        # plot used data
+        plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="used_data")
         # create database tables
         logger.info(f"Establish connection to database and create tables")
         await db.connect()
         logger.info("Database tables created")
         logger.info(f"Initially populating database with grid points, differences, clusters and merge history")
+        sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 1),
+                                                               longitude=range(-180, 180, 1))
         # generate grid_point objects for each grid point - only needs to be done once
-        calculating_initial_grid_points = True
-        if calculating_initial_grid_points:
-            await (populate_database.generate_grid_points_and_initial_clusters(sea_level_anomaly_data, db))
+        await (populate_database.generate_grid_points_and_initial_clusters(sea_level_anomaly_data, db))
         # calculate initial differences between grid points
-        calculate_initial_differences = True
-        if calculate_initial_differences:
-            await populate_database.calculate_initial_differences(db)
+        await populate_database.calculate_initial_differences(db)
         logger.info(f"Start hierarchical clustering")
         # TODO: recalculate the distances between new cluster and neighbors in parallel
         # TODO: use caching to decrease database queries
@@ -80,11 +82,13 @@ async def main():
                                                        sea_level_anomaly_data)
 
     if full_hierarchical_clustering:
+        # plot used data
+        plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="used_data")
         logger.info("Interpolating to 5 degree grid")
         # interpolate to 5 degree grid
-        sea_level_anomaly_data_5_degree_grid = sea_level_anomaly_data.interp(latitude=range(-90, 91, 5),
-                                                                             longitude=range(-180, 180, 5))
-        plotting.plot_sla_for_point_in_time(sea_level_anomaly_data_5_degree_grid, out_dir, variable_to_plot,
+        sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 5),
+                                                               longitude=range(-180, 180, 5))
+        plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot,
                                             name="5_degree_grid_filtered")
         k = [100, 50, 25, 20, 15, 10, 8]
         complete_hierarchical_clustering.start_clustering(k, sea_level_anomaly_data)

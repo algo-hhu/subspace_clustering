@@ -123,6 +123,25 @@ def plot_regions(land_gdf: geopandas.GeoDataFrame, output_path: str,
     return
 
 
+def plot_one_timeseries(sea_level_anomaly_data, out_dir, id_x, id_y, name: str):
+    """
+    Plot one time series
+    :param sea_level_anomaly_data:
+    :param out_dir:
+    :param id_x:
+    :param id_y:
+    :return:
+    """
+    data = sea_level_anomaly_data["sla"].isel(latitude=id_y, longitude=id_x)
+    plt.figure(figsize=(12, 6))
+    data.plot()
+    plt.xlabel('Time')
+    plt.ylabel('Sea Level Anomaly')
+    plt.title(f'Sea Level Anomaly at ({data.latitude.values}, {data.longitude.values})')
+    plt.savefig(os.path.join(out_dir, f"{name}timeseries_{id_x}_{id_y}.png"))
+    plt.close()
+
+
 async def save_and_plot_clusters(db: Prisma, number_of_clusters: int, sea_level_anomaly_data: xr.Dataset):
     """
     Save and plot clusters
