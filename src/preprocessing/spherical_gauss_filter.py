@@ -129,7 +129,7 @@ class SphericalGaussFilter:
         idx_to_lon = {i: lon for i, lon in enumerate(self.lon)}
         filtered_data_array = np.zeros_like(sla_array)
         # create a list of valid grid points (no NaN values)
-        non_nan_mask = ~np.isnan(sla_array).any(axis=0)
+        non_nan_mask = ~np.isnan(sla_array).all(axis=0)
         valid_grid_points = list(map(tuple, np.argwhere(non_nan_mask)))
         for lat_idx, lon_idx in tqdm(valid_grid_points):
             lat = idx_to_lat[lat_idx]

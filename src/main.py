@@ -7,7 +7,7 @@ from prisma import Prisma
 from prisma.engine import http
 
 from src import plotting
-from src.clustering import hierarchical_clustering, complete_hierarchical_clustering
+from src.clustering import hierarchical_clustering, complete_hierarchical_clustering, neighborhood_clustering
 from src.preprocessing import populate_database, preprocessing_data
 
 # Configure the timeout globally for all Prisma HTTP requests
@@ -29,8 +29,8 @@ async def main():
         }
     }
     filtering_sla = True
-    neighborhood_clustering = True
-    full_hierarchical_clustering = False
+    use_neighborhood_clustering = False
+    full_hierarchical_clustering = True
     subspace_clustering = False
     out_dir = "../output/clustering_filtered_data/"
     if not os.path.exists(out_dir):
@@ -61,7 +61,9 @@ async def main():
         else:
             sea_level_anomaly_data = xr.open_dataset("../data/sea_level_anomaly_data_filtered.nc")
 
-    if neighborhood_clustering:  # hierarchical clustering using only the neighborhood of each point
+    neighborhood_clustering.start_clustering(sea_level_anomaly_data, [100, 80, 90, 70, 60, 50, 25, 20, 15, 10])
+    exit()
+    if use_neighborhood_clustering:  # hierarchical clustering using only the neighborhood of each point
         # plot used data
         plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="used_data")
         # create database tables

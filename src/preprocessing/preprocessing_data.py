@@ -62,6 +62,8 @@ def filtering(sea_level_anomaly_data: xr.Dataset, out_dir: str, half_width: int)
             "Longitude is not correct, it should range from -180 to 180, try deleting the sea_level_anomaly_data.nc file and rerun the program")
 
     # filter spatially with a symmetric Gaussian filter of half-width 500 km (here the C$S is transformed to meters using a geocentric CRS EPSG:4978)
+    # Store original NaN locations
+    nan_mask = sea_level_anomaly_data["sla"].isnull()
     current_time = time.time()
     sea_level_anomaly_data = apply_gaussian_filter(sea_level_anomaly_data, half_width)
     logger.info(f"Time taken for gaussian filtering {time.time() - current_time}")
@@ -71,6 +73,8 @@ def filtering(sea_level_anomaly_data: xr.Dataset, out_dir: str, half_width: int)
         .rolling(time=15, center=True, min_periods=1)
         .mean(skipna=True)
     )
+    # Restore original NaN locations
+    sea_level_anomaly_data["sla"] = sea_level_anomaly_data["sla"].where(~nan_mask)
     logger.info(f"Time taken for temporal filtering {time.time() - current_time}")
     # save netcdf
     encoding = {

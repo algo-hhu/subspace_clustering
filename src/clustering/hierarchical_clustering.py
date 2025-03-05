@@ -58,7 +58,6 @@ async def recalculate_difference(db: Prisma, new_cluster, cluster1, cluster2, gr
     :param new_grid_points:
     :return:
     """
-    # TODO: check if the differences are calculated correctly and are saved to the database
     global NO_DIFF_COUNTER
     global NO_DIFF_COUNTER_BOTH_NEIGHBORS
     all_neighbors = new_cluster.neighbor_ids
