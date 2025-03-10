@@ -9,6 +9,9 @@
 *.svg
 *.pdf
 
+# ignore output files
+./output/
+
 # Ignore database files
 database/data/
 img/
