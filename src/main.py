@@ -6,6 +6,7 @@ from loguru import logger
 from prisma import Prisma
 from prisma.engine import http
 
+import src.distance
 from src import plotting
 from src.clustering import hierarchical_clustering, complete_hierarchical_clustering, neighborhood_clustering
 from src.preprocessing import populate_database, preprocessing_data
@@ -32,7 +33,7 @@ async def main():
     use_neighborhood_clustering = False
     full_hierarchical_clustering = True
     subspace_clustering = False
-    out_dir = "../output/clustering_filtered_data/"
+    out_dir = "../output/test_new_clustering/"
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     variable_to_plot = "sla"
@@ -60,8 +61,12 @@ async def main():
                                                 name="gaussian_filtered")
         else:
             sea_level_anomaly_data = xr.open_dataset("../data/sea_level_anomaly_data_filtered.nc")
-
-    neighborhood_clustering.start_clustering(sea_level_anomaly_data, [100, 80, 90, 70, 60, 50, 25, 20, 15, 10])
+    # interpolate to 2 degree grid
+    sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 2), longitude=range(-180, 180, 2))
+    distance_function = src.distance.distance_function
+    sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 1), longitude=range(-90, 91, 1))
+    neighborhood_clustering.start_clustering(sea_level_anomaly_data, [100, 80, 90, 70, 60, 50, 25, 20, 15, 10],
+                                             distance_function, out_dir)
     exit()
     if use_neighborhood_clustering:  # hierarchical clustering using only the neighborhood of each point
         # plot used data

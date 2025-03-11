@@ -97,7 +97,7 @@ async def generate_grid_points_and_initial_clusters(sea_level_anomaly_data: xr.D
                     (i + 1, (j + 1) % n_lon),  # Southeast
                 ])
 
-            # Handle latitude wraparound at poles (if needed)
+            # Handle out-of-bounds positions
             neighbor_positions = [
                 (pos[0], pos[1]) if 0 <= pos[0] < n_lat else None
                 for pos in neighbor_positions

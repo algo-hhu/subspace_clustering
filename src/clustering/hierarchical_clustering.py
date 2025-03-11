@@ -89,7 +89,6 @@ async def recalculate_difference(db: Prisma, new_cluster, cluster1, cluster2, gr
                 NO_DIFF_COUNTER_BOTH_NEIGHBORS += 1
                 logger.error("Difference not found")
                 logger.info(f"Clusters remaining {await db.cluster.count()}")
-                exit()
                 continue
             new_difference = (difference1.difference * len(grid_points1) + difference2.difference * len(
                 grid_points2)) / (len(grid_points1) + len(grid_points2))
