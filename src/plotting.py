@@ -3,6 +3,7 @@ import os
 import random
 
 import geopandas
+import matplotlib.patches as mpatches
 import numpy as np
 import shapely
 import xarray as xr
@@ -100,9 +101,13 @@ def plot_regions(land_gdf: geopandas.GeoDataFrame, output_path: str,
     ax = land_gdf.plot(color="burlywood", figsize=(20, 12), zorder=0, alpha=0.5)
     ax.set_facecolor("aliceblue")
     clusters_gdf.plot(ax=ax, color=clusters_gdf["color"], zorder=4, linewidth=4)
-    clusters_gdf.boundary.plot(ax=ax, color=clusters_gdf["color"], zorder=5, linewidth=0.5)
+    # clusters_gdf.boundary.plot(ax=ax, color=clusters_gdf["color"], zorder=5, linewidth=0.5)
     plt.xticks([-180, -135, -90, -45, 0, 45, 90, 135, 180])
     plt.yticks([-90, -45, 0, 45, 90])
+    handles = [mpatches.Patch(color=color, label=f"Cluster {cluster_id}")
+               for cluster_id, color in
+               zip(clusters_gdf["cluster_id"].unique(), clusters_gdf["color"].unique())]
+    ax.legend(handles=handles, title="Clusters")
     plt.savefig(os.path.join(output_path, f"{name}.svg"))
     plt.savefig(os.path.join(output_path, f"{name}.png"))
     plt.close()
@@ -114,9 +119,13 @@ def plot_regions(land_gdf: geopandas.GeoDataFrame, output_path: str,
     ax = land_gdf_360.plot(color="burlywood", figsize=(20, 12), zorder=0, alpha=0.5)
     ax.set_facecolor("aliceblue")
     clusters_gdf_360.plot(ax=ax, color=clusters_gdf_360["color"], zorder=4, linewidth=4)
-    clusters_gdf_360.boundary.plot(ax=ax, color=clusters_gdf_360["color"], zorder=5, linewidth=0.5)
+    handles = [mpatches.Patch(color=color, label=f"Cluster {cluster_id}")
+               for cluster_id, color in
+               zip(clusters_gdf_360["cluster_id"].unique(), clusters_gdf_360["color"].unique())]
+    # clusters_gdf_360.boundary.plot(ax=ax, color=clusters_gdf_360["color"], zorder=5, linewidth=0.5)
     plt.xticks([0, 45, 90, 135, 180, 225, 270, 315, 360])
     plt.yticks([-90, -45, 0, 45, 90])
+    ax.legend(handles=handles, title="Clusters")
     plt.savefig(os.path.join(output_path, f"{name}_360.svg"))
     plt.savefig(os.path.join(output_path, f"{name}_360.png"))
     plt.close()
@@ -183,7 +192,7 @@ async def create_gdf_from_xarray_dataset(clusters, number_of_clusters):
     """
     land_gdf = geopandas.read_file("../data/ne_10m_land/ne_10m_land.shp")
     colors = random_color_generator(number_of_clusters + 1)
-    grid_point_area = 2.5
+    grid_point_area = 1
     # turn clusters into a geopandas dataframe
     counter = 0
     cluster_ids = []
@@ -250,3 +259,49 @@ def plot_nan_values(data, time_step):
     plt.title(f'NaN Distribution at Time Step {time_step}')
     plt.colorbar(label='NaN Mask (1 = NaN, 0 = Valid Data)')
     plt.savefig(f'../output/nan_distribution_{time_step}.png')
+
+
+def turn_dict_into_gdf(cluster_dict: {float: [(float, float)]}, out_dir: str, name: str, grid_point_area: float,
+                       cluster_colors: [str]):
+    """
+    Turn a dictionary into a geopandas dataframe
+    :param grid_point_area:
+    :param cluster_dict:
+    :param out_dir:
+    :param name:
+    :return:
+    """
+    land_gdf = geopandas.read_file("../data/ne_10m_land/ne_10m_land.shp")
+    if not len(cluster_colors) >= len(cluster_dict.keys()):
+        colors = random_color_generator(len(cluster_dict.keys()) + 1)
+    else:
+        colors = cluster_colors[:len(cluster_dict.keys())]
+    # turn clusters into a geopandas dataframe
+    counter = 0
+    cluster_ids = []
+    polygons = []
+    for cluster in cluster_dict.keys():
+        # create a polygon from all grid points in the current cluster
+        cluster_squares = []
+        cluster_ids.append(counter)
+        counter += 1
+
+        for grid_point in cluster_dict[cluster]:
+            square = shapely.Polygon([
+                (grid_point[1] + grid_point_area, grid_point[0] + grid_point_area),
+                (grid_point[1] + grid_point_area, grid_point[0] - grid_point_area),
+                (grid_point[1] - grid_point_area, grid_point[0] - grid_point_area),
+                (grid_point[1] - grid_point_area, grid_point[0] + grid_point_area)
+            ])
+            cluster_squares.append(square)
+
+        # Merge all squares in the cluster using unary_union
+        merged_polygon = unary_union(cluster_squares)
+        polygons.append(merged_polygon)
+
+        # Create GeoDataFrame with merged polygons
+    cluster_gdf = geopandas.GeoDataFrame(
+        {'cluster_id': cluster_ids, 'color': colors, 'geometry': polygons}
+        # ,crs="EPSG:4326"  # WGS 84 coordinate system
+    )
+    return cluster_gdf, land_gdf
