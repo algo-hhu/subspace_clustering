@@ -29,12 +29,12 @@ async def main():
         }
     }
     filtering_sla = True
-    use_neighborhood_clustering = False
+    use_neighborhood_clustering = True
     full_hierarchical_clustering = False
-    do_subspace_clustering = True
-    out_dir = "../output/subspace_clustering/1.3_15comp_normalized_squareddists/"
-    number_of_components = 15
-    initial_clustering_path = "../output/clustering_filtered_data/hierarchical_neighborhood_clustering_1deg/clusters_10.nc"
+    do_subspace_clustering = False
+    out_dir = "../output/euclidean_distance/"
+    number_of_components = 20
+    initial_clustering_path = "../output/clustering_filtered_data/hierarchical_neighborhood_clustering_1deg/clusters_20.nc"
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     variable_to_plot = "sla"

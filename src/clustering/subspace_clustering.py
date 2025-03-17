@@ -7,7 +7,6 @@ import numpy as numpy
 import xarray
 from loguru import logger
 from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 
 from src import plotting, helper
@@ -31,20 +30,22 @@ def generate_subspace(cluster_grid_point_ids: [(int, int)], data: numpy.ndarray,
         time_series = data[:, grid_point_id_x, grid_point_id_y]
         data_matrix[counter] = time_series
         counter += 1
-    # mean center each time series ?
+    column_means = data_matrix.mean(axis=0)
+    # print(f"column means: {column_means}")
     # SVD X' = USV^T
     # U = left singular vectors, V = right singular vectors
     # U = T x T, V = N x N
-    scaler = StandardScaler()
-    normalized_data = scaler.fit_transform(data_matrix)
     pca = PCA(number_of_components)
-    pca.fit(normalized_data)
+    pca.fit(data_matrix)
     explained_variance = pca.explained_variance_ratio_
     # round explained variance to 2 decimal places
     explained_variance = [round((explained_variance[i] * 100), 4) for i in range(len(explained_variance))]
     logger.info(f"Explained variance ratio: {explained_variance}")
     components = pca.components_
-    return components
+    # add mean back to components
+    # print(f"component: {components}")
+    mean = pca.mean_
+    return components, mean
 
 
 def determine_closest_subspace(data: numpy.ndarray, subspaces):
@@ -62,16 +63,15 @@ def determine_closest_subspace(data: numpy.ndarray, subspaces):
             if numpy.isnan(data[:, id_x, id_y]).any():
                 continue
             current_time_series = data[:, id_x, id_y]
-            current_time_series = (current_time_series - numpy.mean(current_time_series)) / numpy.std(
-                current_time_series)
             min_error = numpy.inf
             closest_cluster = None
-            for cluster_id, subspace in subspaces.items():
+            for cluster_id, (subspace, mean) in subspaces.items():
+                current_time_series = current_time_series - mean
                 # project current time series onto subspace
                 projection = subspace.T @ (subspace @ current_time_series)
                 # use squared Euclidean distance
                 residual = current_time_series - projection
-                distance = numpy.linalg.norm(residual) ** 2
+                distance = numpy.sum(residual ** 2)
                 # otherwise could use the norm
                 # distance = numpy.linalg.norm(current_time_series - x_proj)
                 if distance < min_error:
@@ -159,9 +159,10 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
     subspaces = {}
     for cluster in cluster_id_dict.keys():
         logger.info(f"cluster: {cluster}")
-        current_subspace = generate_subspace(cluster_id_dict[cluster], sla_data, number_of_components)
-        if current_subspace is not None:
-            subspaces[cluster] = current_subspace
+        if not len(cluster_id_dict[cluster]) <= number_of_components * 2:
+            current_subspace, mean = generate_subspace(cluster_id_dict[cluster], sla_data, number_of_components)
+            if current_subspace is not None:
+                subspaces[cluster] = (current_subspace, mean)
     assignment_graph, grid_point_assignment = determine_closest_subspace(sla_data, subspaces)
     grid_point_assignment_lat_lon = {}
     for cluster_id in grid_point_assignment.keys():
@@ -181,9 +182,11 @@ def plot_clustering(cluster_dict, out_dir, resolution, name):
     :param name:
     :return:
     """
-    cluster_colors = ["darkmagenta", "lightseagreen", "green", "gold", "orchid", "darkorange", "yellowgreen",
-                      "cadetblue", "red", "yellow", "blue", "olive", "powderblue", "lavenderblush",
-                      "midnightblue", "lavender", "darkslateblue", "purple", "pink", ]
+    cluster_colors = ["firebrick", "gold", "yellowgreen", "dodgerblue", "rebeccapurple", "orchid", "maroon",
+                      "darkorange", "palegoldenrod", "darkolivegreen", "forestgreen", "teal", "darkblue", "darkorchid",
+                      "deeppink", "red", "yellow", "darkseagreen", "azure", "lightsteelblue", "midnightblue", "plum",
+                      "sienna", "chartreuse", "darkslategray", "darkmagenta", "crimson", "cornflowerblue", "chocolate",
+                      "lemonchiffon", "lavenderblush", "navy", "purple"]
     cluster_gdf, land_gdf = plotting.turn_dict_into_gdf(cluster_dict, out_dir, name, resolution / 2,
                                                         cluster_colors)
     plotting.plot_regions(land_gdf, out_dir, cluster_gdf, name)

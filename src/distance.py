@@ -29,3 +29,7 @@ def distance_function(lat1: float, long1: float, timeseries1: [float], lat2: flo
     # calculate difference
     difference = 1 - np.exp(-haversine_distance / (2 * a ** 2)) * r
     return difference
+
+
+def test_distance_function(lat1, long1, time_series1, lat2, long2, time_series2):
+    return abs(sum(time_series1) - sum(time_series2))

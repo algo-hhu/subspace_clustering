@@ -1,5 +1,3 @@
-import math
-
 import numpy as np
 import xarray as xr
 from loguru import logger
@@ -226,20 +224,21 @@ def distance_function(lat1: float, long1: float, timeseries1: [float], lat2: flo
     :param lat1:
     :return:
     """
-    a = math.sqrt(- (1500 / (math.log(0.5))))
-    earth_radius = 6371  # km
-    lat1, lat2, long1, long2 = map(np.radians, [lat1, lat2, long1, long2])
-    delta_phi = lat2 - lat1
-    delta_lambda = long2 - long1
-    haversine_distance = 2 * earth_radius * np.arcsin(
-        np.sqrt(np.sin(delta_phi / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(delta_lambda / 2) ** 2)
-    )
-
-    # Pearsons correlation coefficient
-    r = np.corrcoef(timeseries1, timeseries2)[0, 1]
-
-    # calculate difference
-    difference = 1 - np.exp(-haversine_distance / (2 * a ** 2)) * r
+    # a = math.sqrt(- (1500 / (math.log(0.5))))
+    # earth_radius = 6371  # km
+    # lat1, lat2, long1, long2 = map(np.radians, [lat1, lat2, long1, long2])
+    # delta_phi = lat2 - lat1
+    # delta_lambda = long2 - long1
+    # haversine_distance = 2 * earth_radius * np.arcsin(
+    #     np.sqrt(np.sin(delta_phi / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(delta_lambda / 2) ** 2)
+    # )
+    #
+    # # Pearsons correlation coefficient
+    # r = np.corrcoef(timeseries1, timeseries2)[0, 1]
+    #
+    # # calculate difference
+    # difference = 1 - np.exp(-haversine_distance / (2 * a ** 2)) * r
+    difference = np.linalg.norm(np.array(timeseries2) - np.array(timeseries1))
     return difference
 
 

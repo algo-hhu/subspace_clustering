@@ -219,27 +219,27 @@ def calculate_difference(cluster1: (Prisma.cluster, Prisma.gridpoint),
     """
     grid_point1 = cluster1.grid_points[0]
     grid_point2 = cluster2.grid_points[0]
-    # distance in km between two points > using the haversine distance instead of Euclidean, otherwise the error could
-    # be substantial
-    lat1 = grid_point1.latitude
-    long1 = grid_point1.longitude
-    lat2 = grid_point2.latitude
-    long2 = grid_point2.longitude
-    earth_radius = 6371  # km
-    lat1, lat2, long1, long2 = map(np.radians, [lat1, lat2, long1, long2])
-    delta_phi = lat2 - lat1
-    delta_lambda = long2 - long1
-    haversine_distance = 2 * earth_radius * np.arcsin(
-        np.sqrt(np.sin(delta_phi / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(delta_lambda / 2) ** 2)
-    )
-
+    # distance in km between two points > using the haversine distance instead of Euclidean
+    # lat1 = grid_point1.latitude
+    # long1 = grid_point1.longitude
+    # lat2 = grid_point2.latitude
+    # long2 = grid_point2.longitude
+    # earth_radius = 6371  # km
+    # lat1, lat2, long1, long2 = map(np.radians, [lat1, lat2, long1, long2])
+    # delta_phi = lat2 - lat1
+    # delta_lambda = long2 - long1
+    # haversine_distance = 2 * earth_radius * np.arcsin(
+    #     np.sqrt(np.sin(delta_phi / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(delta_lambda / 2) ** 2)
+    # )
+    #
     timeseries1 = grid_point1.timeseries
     timeseries2 = grid_point2.timeseries
-    # Pearsons correlation coefficient
-    r = np.corrcoef(timeseries1, timeseries2)[0, 1]
-
-    # calculate difference
-    difference = 1 - np.exp(-haversine_distance / (2 * a ** 2)) * r
+    # # Pearsons correlation coefficient
+    # r = np.corrcoef(timeseries1, timeseries2)[0, 1]
+    #
+    # # calculate difference
+    # difference = 1 - np.exp(-haversine_distance / (2 * a ** 2)) * r
+    difference = np.linalg.norm(np.array(timeseries1) - np.array(timeseries2))
     return cluster1, cluster2, difference
 
 
