@@ -6,8 +6,9 @@ from loguru import logger
 from prisma import Prisma
 from prisma.engine import http
 
-from src import plotting
-from src.clustering import hierarchical_clustering, complete_hierarchical_clustering, subspace_clustering
+from src import plotting, distance
+from src.clustering import hierarchical_clustering, complete_hierarchical_clustering, subspace_clustering, \
+    neighborhood_clustering
 from src.preprocessing import populate_database, preprocessing_data
 
 # Configure the timeout globally for all Prisma HTTP requests
@@ -32,6 +33,7 @@ async def main():
     use_neighborhood_clustering = True
     full_hierarchical_clustering = False
     do_subspace_clustering = False
+    do_neighborhood_clustering_without_db = False
     out_dir = "../output/euclidean_distance/"
     number_of_components = 20
     initial_clustering_path = "../output/clustering_filtered_data/hierarchical_neighborhood_clustering_1deg/clusters_20.nc"
@@ -56,18 +58,18 @@ async def main():
     if filtering_sla:  # apply Gaussian filter & temporal low-pass filter
         if not os.path.exists("../data/sea_level_anomaly_data_filtered.nc"):
             # filter spatially with a symmetric Gaussian filter of half-width 500 km
-            sea_level_anomaly_data = preprocessing_data.filtering(sea_level_anomaly_data, out_dir, half_width=500)
+            sea_level_anomaly_data = preprocessing_data.filtering(sea_level_anomaly_data, out_dir, half_width=250)
             # plot
             plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot,
                                                 name="gaussian_filtered")
         else:
             sea_level_anomaly_data = xr.open_dataset("../data/sea_level_anomaly_data_filtered.nc")
 
-    # distance_function = src.distance.distance_function
-    # sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 2), longitude=range(-90, 91, 2))
-    # neighborhood_clustering.start_clustering(sea_level_anomaly_data, [100, 80, 90, 70, 60, 50, 25, 20, 15, 10],
-    #                                          distance_function, out_dir)
-    # exit()
+    if do_neighborhood_clustering_without_db:
+        distance_function = distance.distance_function
+        sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 2), longitude=range(-90, 91, 2))
+        neighborhood_clustering.start_clustering(sea_level_anomaly_data, [100, 80, 90, 70, 60, 50, 25, 20, 15, 10],
+                                                 distance_function, out_dir)
 
     if use_neighborhood_clustering:  # hierarchical clustering using only the neighborhood of each point
         # plot used data
