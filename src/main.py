@@ -77,8 +77,8 @@ async def main():
         await db.connect()
         logger.info("Database tables created")
         logger.info(f"Initially populating database with grid points, differences, clusters and merge history")
-        sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 1),
-                                                               longitude=range(-180, 180, 1))
+        sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 2),
+                                                               longitude=range(-180, 180, 2))
         # generate grid_point objects for each grid point - only needs to be done once
         await (populate_database.generate_grid_points_and_initial_clusters(sea_level_anomaly_data, db))
         # calculate initial differences between grid points
