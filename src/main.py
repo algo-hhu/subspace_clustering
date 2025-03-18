@@ -11,7 +11,7 @@ from src.clustering import hierarchical_clustering, complete_hierarchical_cluste
 from src.preprocessing import populate_database, preprocessing_data
 
 # Configure the timeout globally for all Prisma HTTP requests
-http.DEFAULT_TIMEOUT = 60.0  # 60 seconds
+http.DEFAULT_TIMEOUT = 120.0  # 60 seconds
 db = Prisma()
 
 
