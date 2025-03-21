@@ -9,7 +9,8 @@ from loguru import logger
 from sklearn.decomposition import PCA
 from tqdm import tqdm
 
-from src import plotting, helper
+from src import helper
+from src.plotting import plot_clustering
 
 
 def generate_subspace(cluster_grid_point_ids: [(int, int)], data: numpy.ndarray, number_of_components: int):
@@ -171,22 +172,3 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
             lat, lon = helper.index_to_lat_lon(grid_point[0], grid_point[1], min_lat, min_lon, resolution)
             grid_point_assignment_lat_lon[cluster_id].append((lat, lon))
     plot_clustering(grid_point_assignment_lat_lon, out_dir, resolution, name="grid_point_assignment")
-
-
-def plot_clustering(cluster_dict, out_dir, resolution, name):
-    """
-    Plot the clustering
-    :param cluster_dict:
-    :param out_dir:
-    :param resolution:
-    :param name:
-    :return:
-    """
-    cluster_colors = ["firebrick", "gold", "yellowgreen", "dodgerblue", "rebeccapurple", "orchid", "maroon",
-                      "darkorange", "palegoldenrod", "darkolivegreen", "forestgreen", "teal", "darkblue", "darkorchid",
-                      "deeppink", "red", "yellow", "darkseagreen", "azure", "lightsteelblue", "midnightblue", "plum",
-                      "sienna", "chartreuse", "darkslategray", "darkmagenta", "crimson", "cornflowerblue", "chocolate",
-                      "lemonchiffon", "lavenderblush", "navy", "purple"]
-    cluster_gdf, land_gdf = plotting.turn_dict_into_gdf(cluster_dict, out_dir, name, resolution / 2,
-                                                        cluster_colors)
-    plotting.plot_regions(land_gdf, out_dir, cluster_gdf, name)

@@ -1,23 +1,24 @@
 import cProfile
 import multiprocessing.shared_memory as shm
-import os
 import pickle
 import pstats
-from multiprocessing import Pool
 
-import dill
+import numpy
 import numpy as np
 import xarray
 from joblib import Parallel, delayed
 from loguru import logger
 from tqdm import tqdm
 
+from src import helper, plotting
+
 MIN_LATITUDE = None
 MIN_LONGITUDE = None
 RESOLUTION = None
 
 
-def find_neighbors(sea_level_anomaly_data: xarray.Dataset, distance_function, lat_lon_to_clusters: {}) -> (dict, set):
+def find_neighbors(sea_level_anomaly_data: xarray.Dataset, distance_function, lat_lon_to_clusters: {}, nan_mask) -> (
+        dict, set):
     """
     Find neighbors for each grid point
     :param lat_lon_to_clusters:
@@ -25,41 +26,76 @@ def find_neighbors(sea_level_anomaly_data: xarray.Dataset, distance_function, la
     :param sea_level_anomaly_data:
     :return:
     """
-    neighbors = {}
-    lat_ids = sea_level_anomaly_data["latitude"].shape[0]
+    neighbors = {}  # {cluster: {neighbor_cluster1, neighbor_cluster2, ...}}
+    lat_range = sea_level_anomaly_data["latitude"].shape[0]
     latitudes = sea_level_anomaly_data.latitude.values
-    long_ids = sea_level_anomaly_data["longitude"].shape[0]
+    long_range = sea_level_anomaly_data["longitude"].shape[0]
     longitudes = sea_level_anomaly_data.longitude.values
     data = sea_level_anomaly_data["sla"].values
     unique_pairs = set()
+    # find first and last longitude that has data
+    first_longitude = np.inf
+    lat_for_first_longitude = np.inf
+    last_longitude = 0
+    lat_for_last_longitude = 0
+    for i in range(long_range):
+        for j in range(lat_range):
+            if not nan_mask[j, i]:
+                if i < first_longitude:
+                    first_longitude = i
+                    lat_for_first_longitude = j
+                continue
+
+    for i in reversed(range(long_range)):
+        for j in range(lat_range):
+            if not nan_mask[j, i]:
+                if i > last_longitude:
+                    last_longitude = i
+                    lat_for_last_longitude = j
+                continue
+
+    print(f"first longitude: {first_longitude}, last longitude: {last_longitude}")
+    print(
+        f"first long {latitudes[lat_for_first_longitude], longitudes[first_longitude]}, last long {latitudes[lat_for_last_longitude], longitudes[last_longitude]}")
+
+    # extract all unique pairs of grid points that are neighbors with their time series
     unique_pairs_with_time_series = []
-    for i in tqdm(range(lat_ids)):
-        for j in (range(long_ids)):
-            if np.isnan(data[:, i, j]).any():
+    # iterate through latitudes and longitudes and find neighbors for each grid point
+    for i in tqdm(range(lat_range)):
+        for j in (range(long_range)):
+            if nan_mask[i, j]:
                 continue
             neighbors[lat_lon_to_clusters[latitudes[i], longitudes[j]]] = set()
             # direct neighbors
             neighbor_positions = [
                 (i - 1, j),  # North
                 (i + 1, j),  # South
-                (i, (j - 1) % long_ids),  # West (wraps around)
-                (i, (j + 1) % long_ids),  # East (wraps around)
+                (i, (j - 1) % long_range),  # West (wraps around)
+                (i, (j + 1) % long_range),  # East (wraps around)
             ]
+            # check if the grid point is on the edge of the grid, because of the interpolation there might be nan values at the edges
+            if j == last_longitude:
+                neighbor_positions.extend([(i, first_longitude), (i - 1, first_longitude), (i + 1, first_longitude)])
+            if j == first_longitude:
+                neighbor_positions.extend([(i, last_longitude), (i - 1, last_longitude), (i + 1, last_longitude)])
             # diagonal neighbors
             neighbor_positions.extend([
-                (i - 1, (j - 1) % long_ids),  # Northwest
-                (i - 1, (j + 1) % long_ids),  # Northeast
-                (i + 1, (j - 1) % long_ids),  # Southwest
-                (i + 1, (j + 1) % long_ids),  # Southeast
+                ((i - 1), (j - 1) % long_range),  # Northwest
+                ((i - 1), (j + 1) % long_range),  # Northeast
+                ((i + 1), (j - 1) % long_range),  # Southwest
+                ((i + 1), (j + 1) % long_range),  # Southeast
             ])
             # Handle out-of-bounds positions
-            neighbor_positions = [
-                (pos[0], pos[1]) if 0 <= pos[0] < lat_ids else None
+            neighbor_positions_without_out_of_bounds = [
+                (pos[0], pos[1]) if 0 <= pos[0] < lat_range else None
                 for pos in neighbor_positions
             ]
+            valid_neighbor_positions = [(pos[0], pos[1]) for pos in neighbor_positions_without_out_of_bounds if
+                                        not nan_mask[pos[0], pos[1]]]
+            # add valid neighbors to the set of neighbors
             cluster1 = lat_lon_to_clusters[latitudes[i], longitudes[j]]
-            for pos in neighbor_positions:
-                if pos is not None and not np.isnan(data[:, pos[0], pos[1]]).any():
+            for pos in valid_neighbor_positions:
+                if pos is not None and not nan_mask[pos[0], pos[1]]:
                     cluster2 = lat_lon_to_clusters[latitudes[pos[0]], longitudes[pos[1]]]
                     neighbors[cluster1].add(cluster2)
 
@@ -110,8 +146,9 @@ def calculate_distances(unique_pairs_with_time_series, lat_lon_to_clusters: {(fl
     results = Parallel(n_jobs=-2, verbose=1)(
         delayed(wrap_distance_function)(args) for args in unique_pairs_with_time_series)
     for (lat1, lon1), (lat2, lon2), distance in results:
-        distances[(lat_lon_to_clusters[lat1, lon1], lat_lon_to_clusters[lat2, lon2])] = distance
-        distances[(lat_lon_to_clusters[lat2, lon2], lat_lon_to_clusters[lat1, lon1])] = distance
+        if distance is not numpy.nan:
+            distances[(lat_lon_to_clusters[lat1, lon1], lat_lon_to_clusters[lat2, lon2])] = distance
+            distances[(lat_lon_to_clusters[lat2, lon2], lat_lon_to_clusters[lat1, lon1])] = distance
     return distances
 
 
@@ -156,9 +193,10 @@ def recalculate_distance(cluster2_grid_points: set, neighbor_grid_points: set,
 
 
 def clustering(clustering_results, sea_level_anomaly_data, k, neighbors, distances,
-               distance_function) -> dict:
+               distance_function, output_dir) -> dict:
     """
     Hierarchical clustering of neighboring grid points
+    :param output_dir:
     :param distance_function:
     :param clustering_results:
     :param sea_level_anomaly_data:
@@ -167,37 +205,37 @@ def clustering(clustering_results, sea_level_anomaly_data, k, neighbors, distanc
     :param distances:
     :return:
     """
-    # shared memory block for sla data
-    sla_shm = shm.SharedMemory(create=True, size=sea_level_anomaly_data.nbytes)
-    # Create a NumPy array backed by shared memory
-    shared_sla_data = np.ndarray(sea_level_anomaly_data.shape, dtype=sea_level_anomaly_data.dtype, buffer=sla_shm.buf)
-    # Copy the original data into shared memory
-    np.copyto(shared_sla_data, sea_level_anomaly_data)
-    try:
-        number_grid_points = len(clustering_results.keys())
-        for _ in tqdm(range(number_grid_points)):
-            old_len_clustering_results = len(clustering_results.keys())
-            if len(clustering_results.keys()) <= 1:
-                logger.warning("Clustering continued until only one cluster was left")
+    solutions_for_k = {}
+    number_grid_points = len(clustering_results.keys())
+    for _ in tqdm(range(number_grid_points)):
+        old_len_clustering_results = len(clustering_results.keys())
+        if len(clustering_results.keys()) <= 1:
+            logger.warning("Clustering continued until only one cluster was left")
+            break
+        if len(distances.keys()) <= 1:
+            logger.warning("Distances empty")
+            logger.warning(f"number of clusters left {len(clustering_results.keys())}")
+            logger.info(f"number of neighbors left {len(neighbors)}")
+            # average number of neighbors per cluster
+            logger.info(
+                f"average number of neighbors per cluster {np.mean([len(value) for value in neighbors.values()])}")
+            return {len(clustering_results.keys()): clustering_results}
+        min_distance_pair = min(distances, key=distances.get)
+        clustering_results, neighbors, distances = merge_clusters(clustering_results, distance_function, distances,
+                                                                  min_distance_pair, neighbors,
+                                                                  sea_level_anomaly_data)
+        if len(clustering_results.keys()) in k:
+            # save clustering results using pickle
+            with open(f"{output_dir}/{len(clustering_results.keys())}.pkl", "wb") as f:
+                pickle.dump(clustering_results, f)
+            solutions_for_k[len(clustering_results.keys())] = clustering_results.copy()
+            if len(clustering_results.keys()) == min(k):
                 break
-            if len(distances.keys()) <= 1:
-                logger.warning("Distances empty")
-                logger.warning(f"number of clusters left {len(clustering_results.keys())}")
-                break
-            min_distance_pair = min(distances, key=distances.get)
-            merge_clusters(clustering_results, distance_function, distances, min_distance_pair, neighbors,
-                           sla_shm.name, shared_sla_data.shape, shared_sla_data.dtype)
-            if len(clustering_results.keys()) in k:
-                # save clustering results using pickle
-                with open(f"../output/clustering_results_{len(clustering_results.keys())}.pkl", "wb") as f:
-                    pickle.dump(clustering_results, f)
-                if len(clustering_results.keys()) == min(k):
-                    break
-                continue
-    finally:
-        sla_shm.close()
-        sla_shm.unlink()
-    return clustering_results
+            continue
+    # finally:
+    #     sla_shm.close()
+    #     sla_shm.unlink()
+    return solutions_for_k
 
 
 def distance_recalculation(args):
@@ -236,13 +274,79 @@ def distance_recalculation(args):
     return [neighbor_id, new_distance]
 
 
+def new_recalculate_distance_function(sla_data: numpy.ndarray, cluster1: int, cluster2: int, distance_function,
+                                      neighbor: int, clustering_results: {int: (float, float)}, distance_cluster1,
+                                      distance_cluster2) -> float:
+    """
+    Recalculate the distance between a cluster and a neighbor
+    :param distance_cluster1:
+    :param distance_cluster2:
+    :param sla_data:
+    :param cluster1:
+    :param cluster2:
+    :param distance_function:
+    :param neighbor:
+    :param clustering_results:
+    :return:
+    """
+    new_distance = None
+    grid_points1 = clustering_results.get(cluster1)
+    grid_points2 = clustering_results.get(cluster2)
+    grid_points_neighbor = clustering_results.get(neighbor)
+    grid_points_neighbor_with_timeseries = [(lat, lon, sla_data[:,
+                                                       helper.lat_lon_to_index(lat, lon, MIN_LATITUDE, MIN_LONGITUDE,
+                                                                               RESOLUTION)[0],
+                                                       helper.lat_lon_to_index(lat, lon, MIN_LATITUDE, MIN_LONGITUDE,
+                                                                               RESOLUTION)[1]]) for lat, lon in
+                                            grid_points_neighbor]
+    if distance_cluster1 is not None and distance_cluster2 is not None:
+        new_distance = (distance_cluster1 * len(grid_points1) + (
+                distance_cluster2 * len(
+            grid_points2))) / (len(grid_points1) + len(grid_points2))
+    if distance_cluster1 is not None and distance_cluster2 is None:
+        grid_points2_with_timeseries = [(lat, lon, sla_data[:,
+                                                   helper.lat_lon_to_index(lat, lon, MIN_LATITUDE, MIN_LONGITUDE,
+                                                                           RESOLUTION)[0],
+                                                   helper.lat_lon_to_index(lat, lon, MIN_LATITUDE, MIN_LONGITUDE,
+                                                                           RESOLUTION)[1]]) for lat, lon in
+                                        grid_points2]
+        grid_point_pairs_with_timeseries = [
+            (distance_function, (grid_points_neighbor[0], grid_points_neighbor[1]), grid_points_neighbor[2],
+             (grid_point2[0], grid_point2[1]), grid_point2[2]) for
+            grid_points_neighbor, grid_point2 in
+            zip(grid_points_neighbor_with_timeseries, grid_points2_with_timeseries)]
+        # recalculate distances in parallel using joblib
+        results = Parallel(n_jobs=-2)(
+            delayed(wrap_distance_function)(args) for args in grid_point_pairs_with_timeseries)
+        summed_distances = np.sum([distance for _, _, distance in results])
+        new_distance = (distance_cluster1 * len(grid_points1) + summed_distances * len(
+            grid_points2)) / (len(grid_points1) + len(grid_points2))
+    if distance_cluster2 is not None and distance_cluster1 is None:
+        grid_points1_with_timeseries = [(lat, lon, sla_data[:,
+                                                   helper.lat_lon_to_index(lat, lon, MIN_LATITUDE, MIN_LONGITUDE,
+                                                                           RESOLUTION)[0],
+                                                   helper.lat_lon_to_index(lat, lon, MIN_LATITUDE, MIN_LONGITUDE,
+                                                                           RESOLUTION)[1]]) for lat, lon in
+                                        grid_points1]
+        grid_point_pairs_with_timeseries = [
+            (distance_function, (grid_points_neighbor[0], grid_points_neighbor[1]), grid_points_neighbor[2],
+             (grid_point1[0], grid_point1[1]), grid_point1[2]) for
+            grid_points_neighbor, grid_point1 in
+            zip(grid_points_neighbor_with_timeseries, grid_points1_with_timeseries)]
+        # recalculate distances in parallel using joblib
+        results = Parallel(n_jobs=-2)(
+            delayed(wrap_distance_function)(args) for args in grid_point_pairs_with_timeseries)
+        summed_distances = np.sum([distance for _, _, distance in results])
+        new_distance = (distance_cluster2 * len(grid_points2) + summed_distances * len(
+            grid_points1)) / (len(grid_points1) + len(grid_points2))
+    return new_distance
+
+
 def merge_clusters(clustering_results, distance_function, distances, min_distance_pair, neighbors,
-                   sla_shm_name, shared_sla_data_shape, shared_sla_data_type):
+                   sla_data: numpy.ndarray):
     """
     merge two clusters
-    :param shared_sla_data_type:
-    :param shared_sla_data_shape:
-    :param sla_shm_name:
+    :param sla_data:
     :param clustering_results:
     :param distance_function:
     :param distances:
@@ -251,8 +355,6 @@ def merge_clusters(clustering_results, distance_function, distances, min_distanc
     :return:
     """
     cluster1, cluster2 = min_distance_pair
-    grid_points1 = clustering_results[cluster1]
-    grid_points2 = clustering_results[cluster2]
 
     # get unique neighbors from cluster 1 and cluster 2
     new_neighbors = neighbors[cluster1].union(neighbors[cluster2])
@@ -262,18 +364,12 @@ def merge_clusters(clustering_results, distance_function, distances, min_distanc
     distances.pop((cluster1, cluster2))
     distances.pop((cluster2, cluster1))
 
-    # the function needs to know the grid_points of the neighbors, cluster1 and cluster2 and the distance function, additionally the sla at each grid point
-    # args: neighbor_id, {neighbor_grid_points: sla}, {cluster1_grid_points: sla}, {cluster2_grid_points: sla}, distance_function, distance_to_cluster1, distance_to_cluster2
-    args = [(neighbor, {grid_point for grid_point in clustering_results[neighbor]}, grid_points1, grid_points2,
-             distance_function, distances.get((cluster1, neighbor)),
-             distances.get((cluster2, neighbor)), sla_shm_name, shared_sla_data_shape, shared_sla_data_type,
-             MIN_LATITUDE, MIN_LONGITUDE, RESOLUTION) for neighbor in new_neighbors]
-
-    n_jobs = os.cpu_count() - 1
-    with Pool(processes=n_jobs if n_jobs > 0 else None, initializer=lambda: setattr(dill, '_dill', 'pool')) as pool:
-        results = pool.map(distance_recalculation, args)
-
-    for neighbor, new_distance in results:
+    results = []
+    for neighbor in new_neighbors:
+        distance_cluster1 = distances.get((cluster1, neighbor))
+        distance_cluster2 = distances.get((cluster2, neighbor))
+        new_distance = new_recalculate_distance_function(sla_data, cluster1, cluster2, distance_function, neighbor,
+                                                         clustering_results, distance_cluster1, distance_cluster2)
         distances[(cluster1, neighbor)] = new_distance
         distances[(neighbor, cluster1)] = new_distance
         if neighbor in neighbors[cluster2]:
@@ -283,53 +379,13 @@ def merge_clusters(clustering_results, distance_function, distances, min_distanc
     neighbors.pop(cluster2)
     neighbors[cluster1] = new_neighbors
 
-    # for neighbor in new_neighbors:
-    #     if neighbor == cluster1 or neighbor == cluster2:
-    #         continue
-    #     # calculate new distance
-    #     new_distance = 0.0
-    #
-    #     if neighbor in neighbors[cluster1] and neighbor in neighbors[cluster2]:
-    #         try:
-    #             new_distance = (distances[(cluster1, neighbor)] * len(grid_points1) + (
-    #                     distances[(cluster2, neighbor)] * len(
-    #                 grid_points2))) / (len(grid_points1) + len(grid_points2))
-    #         except KeyError:
-    #             logger.warning(f"KeyError: {cluster1, neighbor}, {cluster2, neighbor}")
-    #             exit()
-    #         distances.pop((cluster1, neighbor))
-    #         distances.pop((neighbor, cluster1))
-    #         distances.pop((cluster2, neighbor))
-    #         distances.pop((neighbor, cluster2))
-    #         neighbors[neighbor].remove(cluster2)
-    #     elif neighbor in neighbors[cluster1] and not neighbor in neighbors[cluster2]:
-    #         new_distance = recalculate_distance(cluster2, neighbor, clustering_results, distance_function,
-    #                                             distances[(cluster1, neighbor)], cluster1, lat_lon_to_idx,
-    #                                             sea_level_anomaly_data)
-    #         distances.pop((cluster1, neighbor))
-    #         distances.pop((neighbor, cluster1))
-    #     elif neighbor in neighbors[cluster2] and not neighbor in neighbors[cluster1]:
-    #         new_distance = recalculate_distance(cluster1, neighbor, clustering_results, distance_function,
-    #                                             distances[cluster2, neighbor], cluster2, lat_lon_to_idx,
-    #                                             sea_level_anomaly_data)
-    #         distances.pop((cluster2, neighbor))
-    #         distances.pop((neighbor, cluster2))
-    #         neighbors[neighbor].remove(cluster2)
-    #         neighbors[neighbor].append(cluster1)
-    #     else:
-    #         logger.warning("Neighbor not in cluster 1 or cluster 2")
-    #
-    #     distances[(cluster1, neighbor)] = new_distance
-    #     distances[(neighbor, cluster1)] = new_distance
-    # neighbors.pop(cluster2)
-    # neighbors[cluster1] = new_neighbors
-    # update cluster in clustering_results
     clustering_results[cluster1].extend(clustering_results[cluster2])
     clustering_results.pop(cluster2)
     for neighbor in new_neighbors:
         # ensure bidirectionality
         if cluster1 not in neighbors[neighbor]:
             neighbors[neighbor].add(cluster1)
+    return clustering_results, neighbors, distances
 
 
 def index_to_lat_lon(x, y, lat_min, lon_min, resolution) -> (float, float):
@@ -377,26 +433,66 @@ def start_clustering(sea_level_anomaly_data: xarray.Dataset, k: [int], distance_
     MIN_LATITUDE = sea_level_anomaly_data.latitude.min().values
     MIN_LONGITUDE = sea_level_anomaly_data.longitude.min().values
     RESOLUTION = sea_level_anomaly_data.latitude.values[1] - sea_level_anomaly_data.latitude.values[0]
+    # use profiler to find bottlenecks
     profiler = cProfile.Profile()
     profiler.enable()
     k = sorted(k)
     data = sea_level_anomaly_data["sla"].values
-    nan_mask = sea_level_anomaly_data["sla"].isnull().values
-    nan_mask = nan_mask[0, :, :]
-    clusters = np.full((sea_level_anomaly_data.latitude.size, sea_level_anomaly_data.longitude.size), fill_value=-1,
-                       dtype=int)
+    # find grid points with NaN values
+    # nan_mask = sea_level_anomaly_data["sla"].isnull().values
+    nan_mask = numpy.isnan(data).any(axis=0)
+
     lat_lon_to_idx = {(lat, lon): (i, j) for i, lat in enumerate(sea_level_anomaly_data.latitude.values) for j, lon in
                       enumerate(sea_level_anomaly_data.longitude.values)}
-    idx_to_lat_lon = {(i, j): (lat, lon) for (lat, lon), (i, j) in lat_lon_to_idx.items()}
-    clusters = {current_id: [(lat, lon)] for current_id, (lat, lon) in enumerate(lat_lon_to_idx.keys())}
+    # in the beginning each grid point is its own clusters
+    clusters = {}
+    counter = 0
+    for lat in sea_level_anomaly_data.latitude.values:
+        for lon in sea_level_anomaly_data.longitude.values:
+            if nan_mask[lat_lon_to_idx[lat, lon]]:
+                continue
+            else:
+                clusters[counter] = [(lat, lon)]
+                counter += 1
     lat_lon_to_clusters = {value[0]: key for key, value in clusters.items()}
+    # for each cluster find out which clusters are neighbors (direct and diagonal)
     neighbors, unique_pairs_with_timeseries = find_neighbors(sea_level_anomaly_data, distance_function,
-                                                             lat_lon_to_clusters)
+                                                             lat_lon_to_clusters, nan_mask)
+    print(f"len grid points: {len(neighbors)}")
+    print(f"avg number of neighbors: {np.mean([len(value) for value in neighbors.values()])}")
+    # calculate initial distances between neighbors
     distances = calculate_distances(unique_pairs_with_timeseries, lat_lon_to_clusters)
-    logger.info(f"min distance: {min(distances.keys())}, max distance: {max(distances.keys())}")
+    print(f"number of distances: {len(distances)}")
+    counter = 0
+
+    for key, dist in distances.items():
+        if np.isnan(dist):
+            counter += 1
+    print(f"number of nan distances: {counter}")
+    logger.info(
+        f"min distance: {min(distances.items(), key=lambda x: x[1])}, max distance: {max(distances.items(), key=lambda x: x[1])}, number of grid points: {len(clusters.keys())}")
     # hierarchical neighbor clustering
-    clusters = clustering(clusters, data, k, neighbors, distances, distance_function)
+    clusters = clustering(clusters, data, k, neighbors, distances, distance_function, out_dir)
     profiler.disable()
     stats = pstats.Stats(profiler)
     stats.strip_dirs().sort_stats("cumulative").print_stats(20)
+    for current_k in clusters.keys():
+        # plot results
+        plotting.plot_clustering(clusters[current_k], out_dir, RESOLUTION, name=f"clustering_{current_k}")
+
+        # save as netcdf file
+        cluster_data = numpy.zeros((sea_level_anomaly_data.latitude.size, sea_level_anomaly_data.longitude.size))
+        cluster_number = 0
+        clustering_dict = clusters[current_k]
+        for cluster in clustering_dict.keys():
+            for grid_point in clustering_dict[cluster]:
+                # get index of lat long in sea_level_anomaly_data
+                lat_index = numpy.where(sea_level_anomaly_data.latitude.values == grid_point[0])[0][0]
+                long_index = numpy.where(sea_level_anomaly_data.longitude.values == grid_point[1])[0][0]
+                cluster_data[lat_index, long_index] = cluster_number
+            cluster_number += 1
+        cluster_data = xarray.DataArray(cluster_data, dims=["latitude", "longitude"])
+        cluster_data = cluster_data.assign_coords(latitude=sea_level_anomaly_data.latitude,
+                                                  longitude=sea_level_anomaly_data.longitude)
+        cluster_data.to_netcdf(f"../output/clusters_{len(clustering_dict.keys())}.nc")
     exit()

@@ -1,4 +1,5 @@
 import asyncio
+import multiprocessing
 import os
 
 import xarray as xr
@@ -29,14 +30,14 @@ async def main():
             'scale_factor': 0.0001  # Match scale factor for consistency
         }
     }
-    filtering_sla = True
-    use_neighborhood_clustering = True
+    filtering_sla = False
+    use_neighborhood_clustering = False
     full_hierarchical_clustering = False
-    do_subspace_clustering = False
+    do_subspace_clustering = True
     do_neighborhood_clustering_without_db = False
-    out_dir = "../output/euclidean_distance/"
+    out_dir = "../output/filter_250_halfwidth/"
     number_of_components = 20
-    initial_clustering_path = "../output/clustering_filtered_data/hierarchical_neighborhood_clustering_1deg/clusters_20.nc"
+    initial_clustering_path = "../output/test_new_clustering/2deg/"
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     variable_to_plot = "sla"
@@ -66,8 +67,10 @@ async def main():
             sea_level_anomaly_data = xr.open_dataset("../data/sea_level_anomaly_data_filtered.nc")
 
     if do_neighborhood_clustering_without_db:
-        distance_function = distance.distance_function
-        sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 2), longitude=range(-90, 91, 2))
+        distance_function = distance.euclidean_distance
+
+        sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 2),
+                                                               longitude=range(-180, 180, 2))
         neighborhood_clustering.start_clustering(sea_level_anomaly_data, [100, 80, 90, 70, 60, 50, 25, 20, 15, 10],
                                                  distance_function, out_dir)
 
@@ -79,8 +82,8 @@ async def main():
         await db.connect()
         logger.info("Database tables created")
         logger.info(f"Initially populating database with grid points, differences, clusters and merge history")
-        sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 2),
-                                                               longitude=range(-180, 180, 2))
+        sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 5),
+                                                               longitude=range(-180, 180, 5))
         # generate grid_point objects for each grid point - only needs to be done once
         await (populate_database.generate_grid_points_and_initial_clusters(sea_level_anomaly_data, db))
         # calculate initial differences between grid points
@@ -119,3 +122,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+    multiprocessing.set_start_method("forkserver")

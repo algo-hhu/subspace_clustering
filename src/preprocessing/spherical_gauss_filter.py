@@ -148,7 +148,7 @@ class SphericalGaussFilter:
         )
         filtered_data["sla"] = filtered_da
         # put NaN values back
-        mask = data.sla.isnull()
+        mask = data.sla.isnull().any(axis=0)
         # Apply mask using `.where()`, replacing with NaNs
         filtered_data["sla"] = filtered_data["sla"].where(~mask, np.nan)
         return filtered_data

@@ -305,3 +305,22 @@ def turn_dict_into_gdf(cluster_dict: {float: [(float, float)]}, out_dir: str, na
         # ,crs="EPSG:4326"  # WGS 84 coordinate system
     )
     return cluster_gdf, land_gdf
+
+
+def plot_clustering(cluster_dict, out_dir, resolution, name):
+    """
+    Plot the clustering
+    :param cluster_dict:
+    :param out_dir:
+    :param resolution:
+    :param name:
+    :return:
+    """
+    cluster_colors = ["firebrick", "gold", "yellowgreen", "dodgerblue", "rebeccapurple", "orchid", "maroon",
+                      "darkorange", "palegoldenrod", "darkolivegreen", "forestgreen", "teal", "darkblue", "darkorchid",
+                      "deeppink", "red", "yellow", "darkseagreen", "azure", "lightsteelblue", "midnightblue", "plum",
+                      "sienna", "chartreuse", "darkslategray", "darkmagenta", "crimson", "cornflowerblue", "chocolate",
+                      "lemonchiffon", "lavenderblush", "navy", "purple"]
+    cluster_gdf, land_gdf = turn_dict_into_gdf(cluster_dict, out_dir, name, resolution / 2,
+                                               cluster_colors)
+    plot_regions(land_gdf, out_dir, cluster_gdf, name)

@@ -33,3 +33,19 @@ def distance_function(lat1: float, long1: float, timeseries1: [float], lat2: flo
 
 def test_distance_function(lat1, long1, time_series1, lat2, long2, time_series2):
     return abs(sum(time_series1) - sum(time_series2))
+
+
+def euclidean_distance(lat1: float, long1: float, timeseries1: [float], lat2: float, long2: float,
+                       timeseries2: [float]):
+    """
+
+    :param lat1:
+    :param long1:
+    :param timeseries1:
+    :param lat2:
+    :param long2:
+    :param timeseries2:
+    :return:
+    """
+    distance = np.linalg.norm(np.array(timeseries1) - np.array(timeseries2))
+    return distance

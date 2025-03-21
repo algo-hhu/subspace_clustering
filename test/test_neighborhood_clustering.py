@@ -1,9 +1,11 @@
 from unittest import TestCase
 
+import numpy
 import numpy as np
+import xarray
 
 from src.clustering import neighborhood_clustering
-from src.clustering.neighborhood_clustering import clustering
+from src.clustering.neighborhood_clustering import clustering, find_neighbors
 from src.distance import test_distance_function
 
 
@@ -137,3 +139,79 @@ class Test(TestCase):
         id_x_result, id_y_result = neighborhood_clustering.lat_lon_to_index(lat, lon, lat_min, lon_min, 0.25)
         assert id_x_result == id_x, f"Expected {id_x}, got {id_x_result}"
         assert id_y_result == id_y, f"Expected {id_y}, got {id_y_result}"
+
+    def test_neighbors_across_180(self):
+        # read data
+        sea_level_anomaly_data = xarray.open_dataset("../data/sea_level_anomaly_data.nc")
+        data = sea_level_anomaly_data["sla"].values
+        print(max(sea_level_anomaly_data.longitude.values))
+        print(min(sea_level_anomaly_data.longitude.values))
+        distance_function = test_distance_function
+        lat_lon_to_idx = {(lat, lon): (i, j) for i, lat in enumerate(sea_level_anomaly_data.latitude.values) for j, lon
+                          in
+                          enumerate(sea_level_anomaly_data.longitude.values)}
+        nan_mask = numpy.isnan(data).any(axis=0)
+        clusters = {}
+        counter = 0
+        for lat in sea_level_anomaly_data.latitude.values:
+            for lon in sea_level_anomaly_data.longitude.values:
+                if nan_mask[lat_lon_to_idx[lat, lon]]:
+                    continue
+                else:
+                    clusters[counter] = [(lat, lon)]
+                    counter += 1
+        lat_lon_to_clusters = {value[0]: key for key, value in clusters.items()}
+        matching_items = {
+            key: value for key, value in lat_lon_to_clusters.items()
+            if isinstance(key[0], np.floating) and key[1] == 179.875
+        }
+        print(matching_items)
+        matching_items = {
+            key: value for key, value in lat_lon_to_clusters.items()
+            if isinstance(key[0], np.floating) and key[1] == -179.875
+        }
+        print(matching_items)
+        cluster_180 = lat_lon_to_clusters.get((np.float32(-65.125), np.float32(179.875)))
+        cluster_neg180 = lat_lon_to_clusters.get((np.float32(-65.125), np.float32(-179.875)))
+        print(cluster_180, cluster_neg180)
+        neighbors, unique_pairs_with_timeseries = find_neighbors(sea_level_anomaly_data, distance_function,
+                                                                 lat_lon_to_clusters, nan_mask)
+        assert cluster_180 in neighbors.get(cluster_neg180) and cluster_neg180 in neighbors.get(
+            cluster_180), f"Expected {cluster_180} to be in neighbors of {cluster_neg180} and vice versa"
+
+    def test_neighbors_across_180_interp(self):
+        # read data
+        sea_level_anomaly_data = xarray.open_dataset("../data/sea_level_anomaly_data.nc")
+        sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 5),
+                                                               longitude=range(-180, 180, 5))
+        data = sea_level_anomaly_data["sla"].values
+        print(max(sea_level_anomaly_data.longitude.values))
+        print(min(sea_level_anomaly_data.longitude.values))
+        distance_function = test_distance_function
+        lat_lon_to_idx = {(lat, lon): (i, j) for i, lat in enumerate(sea_level_anomaly_data.latitude.values) for j, lon
+                          in
+                          enumerate(sea_level_anomaly_data.longitude.values)}
+        nan_mask = numpy.isnan(data).any(axis=0)
+        clusters = {}
+        counter = 0
+        for lat in sea_level_anomaly_data.latitude.values:
+            for lon in sea_level_anomaly_data.longitude.values:
+                if nan_mask[lat_lon_to_idx[lat, lon]]:
+                    continue
+                else:
+                    clusters[counter] = [(lat, lon)]
+                    counter += 1
+        lat_lon_to_clusters = {value[0]: key for key, value in clusters.items()}
+        cluster_180 = lat_lon_to_clusters.get((np.int64(-60), np.int64(175)))
+        cluster_neg180 = lat_lon_to_clusters.get((np.int64(-60), np.int64(-175)))
+        print(cluster_180, cluster_neg180)
+        neighbors, unique_pairs_with_timeseries = find_neighbors(sea_level_anomaly_data, distance_function,
+                                                                 lat_lon_to_clusters, nan_mask)
+        print(f"neighbors of pos edge cluster {cluster_180}: {neighbors.get(cluster_180)}")
+        print(
+            f" lat lons of pos edge cluster neighbors: {[clusters.get(neighbor)[0] for neighbor in neighbors.get(cluster_180)]}")
+        print(f"neighbors of neg edge cluster {cluster_neg180}: {neighbors.get(cluster_neg180)}")
+        print(
+            f" lat lons of neg edge cluster neighbors: {[clusters.get(neighbor)[0] for neighbor in neighbors.get(cluster_neg180)]}")
+        assert cluster_180 in neighbors.get(cluster_neg180) and cluster_neg180 in neighbors.get(
+            cluster_180), f"Expected {cluster_180} to be in neighbors of {cluster_neg180} and vice versa"
