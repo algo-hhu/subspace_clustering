@@ -495,4 +495,4 @@ def start_clustering(sea_level_anomaly_data: xarray.Dataset, k: [int], distance_
         cluster_data = cluster_data.assign_coords(latitude=sea_level_anomaly_data.latitude,
                                                   longitude=sea_level_anomaly_data.longitude)
         cluster_data.to_netcdf(f"../output/clusters_{len(clustering_dict.keys())}.nc")
-    exit()
+    return
