@@ -34,10 +34,10 @@ async def main():
     use_neighborhood_clustering = False
     full_hierarchical_clustering = False
     do_subspace_clustering = True
-    do_neighborhood_clustering_without_db = True
+    do_neighborhood_clustering_without_db = False
     out_dir = "../output/filter_250_halfwidth_complete/2deg/"
     number_of_components = 20
-    initial_clustering_path = "../output/filter_250_halfwidth_complete/2deg/clusters_20.nc"
+    initial_clustering_path = "../output/clusters_20.nc"
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     variable_to_plot = "sla"
