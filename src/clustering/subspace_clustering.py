@@ -171,4 +171,5 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
         for grid_point in grid_point_assignment[cluster_id]:
             lat, lon = helper.index_to_lat_lon(grid_point[0], grid_point[1], min_lat, min_lon, resolution)
             grid_point_assignment_lat_lon[cluster_id].append((lat, lon))
-    plot_clustering(grid_point_assignment_lat_lon, out_dir, resolution, name="grid_point_assignment")
+    plot_clustering(grid_point_assignment_lat_lon, out_dir, resolution,
+                    name=f"grid_point_assignment{number_of_components}")

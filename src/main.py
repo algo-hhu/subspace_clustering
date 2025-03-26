@@ -1,5 +1,4 @@
 import asyncio
-import multiprocessing
 import os
 
 import xarray as xr
@@ -30,14 +29,14 @@ async def main():
             'scale_factor': 0.0001  # Match scale factor for consistency
         }
     }
-    filtering_sla = False
+    filtering_sla = True
     use_neighborhood_clustering = False
     full_hierarchical_clustering = False
     do_subspace_clustering = True
     do_neighborhood_clustering_without_db = True
     out_dir = "../output/filter_250_halfwidth_complete/2deg/"
     number_of_components = 20
-    initial_clustering_path = "../output/filter_250_halfwidth_complete/2deg/clusters_20.nc"
+    initial_clustering_path = "../output/filter_250_halfwidth_complete/2deg/clusters_15.nc"
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     variable_to_plot = "sla"
@@ -107,6 +106,9 @@ async def main():
         complete_hierarchical_clustering.start_clustering(k, sea_level_anomaly_data)
 
     if do_subspace_clustering:
+        out_dir = f"{out_dir}/components_{number_of_components}/"
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
         initial_clustering = xr.open_dataset(initial_clustering_path)
         subspace_clustering.start_subspace_clustering(sea_level_anomaly_data, initial_clustering, out_dir,
                                                       number_of_components)
@@ -122,4 +124,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-    multiprocessing.set_start_method("forkserver")
