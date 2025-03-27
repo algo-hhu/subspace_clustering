@@ -3,17 +3,19 @@ import os
 
 import xarray as xr
 from loguru import logger
-from prisma import Prisma
-from prisma.engine import http
 
 from src import plotting, distance
 from src.clustering import hierarchical_clustering, complete_hierarchical_clustering, subspace_clustering, \
     neighborhood_clustering
 from src.preprocessing import populate_database, preprocessing_data
 
-# Configure the timeout globally for all Prisma HTTP requests
-http.DEFAULT_TIMEOUT = 120.0  # 60 seconds
-db = Prisma()
+
+# from prisma.engine import http
+
+
+# # Configure the timeout globally for all Prisma HTTP requests
+# http.DEFAULT_TIMEOUT = 120.0  # 60 seconds
+# db = Prisma()
 
 
 async def main():
@@ -32,11 +34,11 @@ async def main():
     filtering_sla = True
     use_neighborhood_clustering = False
     full_hierarchical_clustering = False
-    do_subspace_clustering = True
+    do_subspace_clustering = False
     do_neighborhood_clustering_without_db = True
-    out_dir = "../output/filter_250_halfwidth_complete/2deg/"
+    out_dir = "../output/test/"
     number_of_components = 20
-    initial_clustering_path = "../output/filter_250_halfwidth_complete/2deg/clusters_15.nc"
+    initial_clustering_path = "../output/filter_100_halfwidth_complete/2deg/clusters_15.nc"
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     variable_to_plot = "sla"
@@ -58,7 +60,7 @@ async def main():
     if filtering_sla:  # apply Gaussian filter & temporal low-pass filter
         if not os.path.exists("../data/sea_level_anomaly_data_filtered.nc"):
             # filter spatially with a symmetric Gaussian filter of half-width 500 km
-            sea_level_anomaly_data = preprocessing_data.filtering(sea_level_anomaly_data, out_dir, half_width=250)
+            sea_level_anomaly_data = preprocessing_data.filtering(sea_level_anomaly_data, out_dir, half_width=100)
             # plot
             plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot,
                                                 name="gaussian_filtered")
