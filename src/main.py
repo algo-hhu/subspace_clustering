@@ -33,12 +33,13 @@ async def main():
     }
     filtering_sla = True
     use_neighborhood_clustering = False
-    full_hierarchical_clustering = False
+    full_hierarchical_clustering = True
     do_subspace_clustering = False
     do_neighborhood_clustering_without_db = True
-    out_dir = "../output/test/"
-    number_of_components = 20
-    initial_clustering_path = "../output/filter_100_halfwidth_complete/2deg/clusters_15.nc"
+    out_dir = "../output/filter_500/"
+    number_of_components = [3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
+    half_width = 500
+    initial_clustering_path = "../output/thompson_distance/15_cluster/clusters_15.nc"
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     variable_to_plot = "sla"
@@ -58,22 +59,25 @@ async def main():
         sea_level_anomaly_data = xr.open_dataset("../data/sea_level_anomaly_data.nc")
 
     if filtering_sla:  # apply Gaussian filter & temporal low-pass filter
-        if not os.path.exists("../data/sea_level_anomaly_data_filtered.nc"):
+        if not os.path.exists(f"../data/sea_level_anomaly_data_filtered_{half_width}.nc"):
             # filter spatially with a symmetric Gaussian filter of half-width 500 km
-            sea_level_anomaly_data = preprocessing_data.filtering(sea_level_anomaly_data, out_dir, half_width=100)
+            sea_level_anomaly_data = preprocessing_data.filtering(sea_level_anomaly_data, out_dir, half_width)
             # plot
             plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot,
                                                 name="gaussian_filtered")
         else:
-            sea_level_anomaly_data = xr.open_dataset("../data/sea_level_anomaly_data_filtered.nc")
+            sea_level_anomaly_data = xr.open_dataset(f"../data/sea_level_anomaly_data_filtered_{half_width}.nc")
 
     if do_neighborhood_clustering_without_db:
+        current_out_dir = f"{out_dir}/neighborhood_clustering/"
+        if not os.path.exists(current_out_dir):
+            os.makedirs(current_out_dir)
         distance_function = distance.euclidean_distance
 
-        sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 2),
-                                                               longitude=range(-180, 180, 2))
+        sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 1),
+                                                               longitude=range(-180, 180, 1))
         neighborhood_clustering.start_clustering(sea_level_anomaly_data, [100, 80, 90, 70, 60, 50, 25, 20, 15, 10],
-                                                 distance_function, out_dir)
+                                                 distance_function, current_out_dir)
 
     if use_neighborhood_clustering:  # hierarchical clustering using only the neighborhood of each point
         # plot used data
@@ -96,21 +100,25 @@ async def main():
                                                        sea_level_anomaly_data)
 
     if full_hierarchical_clustering:
+        current_out_dir = f"{out_dir}/full_hierarchical_clustering/"
+        if not os.path.exists(current_out_dir):
+            os.makedirs(current_out_dir)
         # plot used data
-        plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="used_data")
+        plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, current_out_dir, variable_to_plot, name="used_data")
         logger.info("Interpolating to 5 degree grid")
         # interpolate to 5 degree grid
         sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 5),
                                                                longitude=range(-180, 180, 5))
-        plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot,
+        plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, current_out_dir, variable_to_plot,
                                             name="5_degree_grid_filtered")
         k = [100, 50, 25, 20, 15, 10, 8]
-        complete_hierarchical_clustering.start_clustering(k, sea_level_anomaly_data)
+        complete_hierarchical_clustering.start_clustering(k, sea_level_anomaly_data, current_out_dir)
 
     if do_subspace_clustering:
-        out_dir = f"{out_dir}/components_{number_of_components}/"
-        if not os.path.exists(out_dir):
-            os.makedirs(out_dir)
+        for component in number_of_components:
+            current_out_dir = f"{out_dir}/components_{component}/"
+            if not os.path.exists(current_out_dir):
+                os.makedirs(current_out_dir)
         initial_clustering = xr.open_dataset(initial_clustering_path)
         subspace_clustering.start_subspace_clustering(sea_level_anomaly_data, initial_clustering, out_dir,
                                                       number_of_components)

@@ -19,7 +19,7 @@ def apply_gaussian_filter(sea_level_anomaly_data_set: xr.Dataset, half_width: in
     spatial_filter = spherical_gauss_filter.SphericalGaussFilter(sea_level_anomaly_data_set.latitude.values,
                                                                  sea_level_anomaly_data_set.longitude.values,
                                                                  half_width)
-    sea_level_anomaly_data_set = spatial_filter.filter(sea_level_anomaly_data_set)
+    sea_level_anomaly_data_set = spatial_filter.parallelized_filter(sea_level_anomaly_data_set)
     return sea_level_anomaly_data_set
 
 
@@ -88,9 +88,9 @@ def filtering(sea_level_anomaly_data: xr.Dataset, out_dir: str, half_width: int)
             'scale_factor': 0.0001  # Match scale factor for consistency
         }
     }
-    sea_level_anomaly_data.to_netcdf("../data/sea_level_anomaly_data_filtered.nc", encoding=encoding,
+    sea_level_anomaly_data.to_netcdf(f"../data/sea_level_anomaly_data_filtered_{half_width}.nc", encoding=encoding,
                                      format="NETCDF4")
     variable_to_plot = "sla"
-    plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="filtered_sla")
+    plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name=f"filtered_sla_{half_width}")
 
     return sea_level_anomaly_data

@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import List
 
 import geopandas
+import numpy
 import numpy as np
 import shapely
 import xarray
@@ -152,15 +153,14 @@ def hierarchical_clustering(distances: np.array, sea_level_anomaly_data: xarray.
     return all_clusters
 
 
-def save_clustering(clusters: {int: Cluster}, number_of_clusters: int):
+def save_clustering(clusters: {int: Cluster}, number_of_clusters: int, out_dir: str):
     """
     Save the clustering
+    :param out_dir:
     :param clusters:
     :param number_of_clusters:
-    :param sea_level_anomaly_data:
     :return:
     """
-    # TODO: revise this method
     # plot and save clustering
     # create gdf
     colors = plotting.random_color_generator(number_of_clusters + 1)
@@ -192,11 +192,11 @@ def save_clustering(clusters: {int: Cluster}, number_of_clusters: int):
     )
     # save clustering
     plotting.plot_regions(geopandas.read_file("../data/ne_10m_land/ne_10m_land.shp"),
-                          "../output/full_hierarchical_clustering/", cluster_gdf,
+                          f"{out_dir}", cluster_gdf,
                           f"clustering_{number_of_clusters}")
 
 
-def start_clustering(k, sea_level_anomaly_data: xarray.Dataset):
+def start_clustering(k, sea_level_anomaly_data: xarray.Dataset, out_dir):
     """
     Start hierarchical clustering given a 5 degree grid with values for sea level anomaly
     Save each clustering that has a size in k
@@ -208,5 +208,22 @@ def start_clustering(k, sea_level_anomaly_data: xarray.Dataset):
     logger.info(f"Distances calculated")
     all_clusters = hierarchical_clustering(distances, sea_level_anomaly_data, number_of_clusters, k, clusters)
     for clustering in all_clusters.values():
-        save_clustering(clustering, len(clustering))
+        # save clustering
+        # copy xarray dataset
+        # save as netcdf file
+        cluster_data = numpy.zeros((sea_level_anomaly_data.latitude.size, sea_level_anomaly_data.longitude.size))
+        cluster_number = 0
+
+        for cluster in clustering.values():
+            for grid_point in cluster.grid_points:
+                lat_idx = np.where(sea_level_anomaly_data.latitude.values == grid_point.latitude)[0][0]
+                long_idx = np.where(sea_level_anomaly_data.longitude.values == grid_point.longitude)[0][0]
+                cluster_data[lat_idx, long_idx] = cluster_number
+            cluster_number += 1
+        # save clustering as netcdf file
+        cluster_data = xarray.DataArray(cluster_data, dims=["latitude", "longitude"])
+        cluster_data = cluster_data.assign_coords(latitude=sea_level_anomaly_data.latitude,
+                                                  longitude=sea_level_anomaly_data.longitude)
+        cluster_data.to_netcdf(f"{out_dir}/clusters_{len(clustering.values())}.nc")
+        save_clustering(clustering, len(clustering), out_dir)
     logger.info(f"Clustering done")

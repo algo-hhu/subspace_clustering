@@ -316,7 +316,7 @@ def plot_clustering(cluster_dict, out_dir, resolution, name):
     :param name:
     :return:
     """
-    cluster_colors = ["firebrick", "gold", "yellowgreen", "dodgerblue", "rebeccapurple", "orchid", "maroon",
+    cluster_colors = ["gold", "yellowgreen", "dodgerblue", "rebeccapurple", "orchid", "maroon",
                       "darkorange", "palegoldenrod", "darkolivegreen", "forestgreen", "teal", "darkblue", "darkorchid",
                       "deeppink", "red", "yellow", "darkseagreen", "azure", "lightsteelblue", "midnightblue", "plum",
                       "sienna", "chartreuse", "darkslategray", "darkmagenta", "crimson", "cornflowerblue", "chocolate",
