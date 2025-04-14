@@ -111,24 +111,24 @@ def plot_regions(land_gdf: geopandas.GeoDataFrame, output_path: str,
     plt.savefig(os.path.join(output_path, f"{name}.svg"))
     plt.savefig(os.path.join(output_path, f"{name}.png"))
     plt.close()
-    # also plot ranging from 0 to 360 degrees longitude for better comparability of the images
-    land_gdf_360 = land_gdf.copy()
-    land_gdf_360["geometry"] = land_gdf_360["geometry"].apply(shift_all_longitudes)
-    clusters_gdf_360 = clusters_gdf.copy()
-    clusters_gdf_360["geometry"] = clusters_gdf_360["geometry"].apply(shift_all_longitudes)
-    ax = land_gdf_360.plot(color="burlywood", figsize=(20, 12), zorder=0, alpha=0.5)
-    ax.set_facecolor("aliceblue")
-    clusters_gdf_360.plot(ax=ax, color=clusters_gdf_360["color"], zorder=4, linewidth=4)
-    handles = [mpatches.Patch(color=color, label=f"Cluster {cluster_id}")
-               for cluster_id, color in
-               zip(clusters_gdf_360["cluster_id"].unique(), clusters_gdf_360["color"].unique())]
-    # clusters_gdf_360.boundary.plot(ax=ax, color=clusters_gdf_360["color"], zorder=5, linewidth=0.5)
-    plt.xticks([0, 45, 90, 135, 180, 225, 270, 315, 360])
-    plt.yticks([-90, -45, 0, 45, 90])
-    ax.legend(handles=handles, title="Clusters")
-    plt.savefig(os.path.join(output_path, f"{name}_360.svg"))
-    plt.savefig(os.path.join(output_path, f"{name}_360.png"))
-    plt.close()
+    # # also plot ranging from 0 to 360 degrees longitude for better comparability of the images
+    # land_gdf_360 = land_gdf.copy()
+    # land_gdf_360["geometry"] = land_gdf_360["geometry"].apply(shift_all_longitudes)
+    # clusters_gdf_360 = clusters_gdf.copy()
+    # clusters_gdf_360["geometry"] = clusters_gdf_360["geometry"].apply(shift_all_longitudes)
+    # ax = land_gdf_360.plot(color="burlywood", figsize=(20, 12), zorder=0, alpha=0.5)
+    # ax.set_facecolor("aliceblue")
+    # clusters_gdf_360.plot(ax=ax, color=clusters_gdf_360["color"], zorder=4, linewidth=4)
+    # handles = [mpatches.Patch(color=color, label=f"Cluster {cluster_id}")
+    #            for cluster_id, color in
+    #            zip(clusters_gdf_360["cluster_id"].unique(), clusters_gdf_360["color"].unique())]
+    # # clusters_gdf_360.boundary.plot(ax=ax, color=clusters_gdf_360["color"], zorder=5, linewidth=0.5)
+    # plt.xticks([0, 45, 90, 135, 180, 225, 270, 315, 360])
+    # plt.yticks([-90, -45, 0, 45, 90])
+    # ax.legend(handles=handles, title="Clusters")
+    # plt.savefig(os.path.join(output_path, f"{name}_360.svg"))
+    # plt.savefig(os.path.join(output_path, f"{name}_360.png"))
+    # plt.close()
     return
 
 
@@ -277,14 +277,14 @@ def turn_dict_into_gdf(cluster_dict: {float: [(float, float)]}, out_dir: str, na
     else:
         colors = cluster_colors[:len(cluster_dict.keys())]
     # turn clusters into a geopandas dataframe
-    counter = 0
+    # counter = 0
     cluster_ids = []
     polygons = []
     for cluster in cluster_dict.keys():
         # create a polygon from all grid points in the current cluster
         cluster_squares = []
-        cluster_ids.append(counter)
-        counter += 1
+        cluster_ids.append(cluster)
+        # counter += 1
 
         for grid_point in cluster_dict[cluster]:
             square = shapely.Polygon([

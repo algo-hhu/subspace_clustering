@@ -5,9 +5,9 @@ import xarray as xr
 from loguru import logger
 
 from src import plotting, distance
-from src.clustering import hierarchical_clustering, complete_hierarchical_clustering, subspace_clustering, \
+from src.clustering import complete_hierarchical_clustering, subspace_clustering, \
     neighborhood_clustering
-from src.preprocessing import populate_database, preprocessing_data
+from src.preprocessing import preprocessing_data
 
 
 # from prisma.engine import http
@@ -33,13 +33,13 @@ async def main():
     }
     filtering_sla = True
     use_neighborhood_clustering = False
-    full_hierarchical_clustering = True
-    do_subspace_clustering = False
-    do_neighborhood_clustering_without_db = True
-    out_dir = "../output/filter_500/"
+    full_hierarchical_clustering = False
+    do_subspace_clustering = True
+    do_neighborhood_clustering_without_db = False
+    out_dir = "../output/test-thompson-func/"
     number_of_components = [3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
     half_width = 500
-    initial_clustering_path = "../output/thompson_distance/15_cluster/clusters_15.nc"
+    initial_clustering_path = "../output/filter_500/full_hierarchical_clustering/clusters_15.nc"
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     variable_to_plot = "sla"
@@ -79,25 +79,23 @@ async def main():
         neighborhood_clustering.start_clustering(sea_level_anomaly_data, [100, 80, 90, 70, 60, 50, 25, 20, 15, 10],
                                                  distance_function, current_out_dir)
 
-    if use_neighborhood_clustering:  # hierarchical clustering using only the neighborhood of each point
-        # plot used data
-        plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="used_data")
-        # create database tables
-        logger.info(f"Establish connection to database and create tables")
-        await db.connect()
-        logger.info("Database tables created")
-        logger.info(f"Initially populating database with grid points, differences, clusters and merge history")
-        sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 5),
-                                                               longitude=range(-180, 180, 5))
-        # generate grid_point objects for each grid point - only needs to be done once
-        await (populate_database.generate_grid_points_and_initial_clusters(sea_level_anomaly_data, db))
-        # calculate initial differences between grid points
-        await populate_database.calculate_initial_differences(db)
-        logger.info(f"Start hierarchical clustering")
-        # TODO: recalculate the distances between new cluster and neighbors in parallel
-        # TODO: use caching to decrease database queries
-        await hierarchical_clustering.start_clustering(db, [100, 80, 90, 70, 60, 50, 25, 20, 15, 10],
-                                                       sea_level_anomaly_data)
+    # if use_neighborhood_clustering:  # hierarchical clustering using only the neighborhood of each point
+    #     # plot used data
+    #     plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="used_data")
+    #     # create database tables
+    #     logger.info(f"Establish connection to database and create tables")
+    #     await db.connect()
+    #     logger.info("Database tables created")
+    #     logger.info(f"Initially populating database with grid points, differences, clusters and merge history")
+    #     sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 5),
+    #                                                            longitude=range(-180, 180, 5))
+    #     # generate grid_point objects for each grid point - only needs to be done once
+    #     await (populate_database.generate_grid_points_and_initial_clusters(sea_level_anomaly_data, db))
+    #     # calculate initial differences between grid points
+    #     await populate_database.calculate_initial_differences(db)
+    #     logger.info(f"Start hierarchical clustering")
+    #     await hierarchical_clustering.start_clustering(db, [100, 80, 90, 70, 60, 50, 25, 20, 15, 10],
+    #                                                    sea_level_anomaly_data)
 
     if full_hierarchical_clustering:
         current_out_dir = f"{out_dir}/full_hierarchical_clustering/"
@@ -107,12 +105,13 @@ async def main():
         plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, current_out_dir, variable_to_plot, name="used_data")
         logger.info("Interpolating to 5 degree grid")
         # interpolate to 5 degree grid
-        sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 5),
-                                                               longitude=range(-180, 180, 5))
+        sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 2),
+                                                               longitude=range(-180, 180, 2))
         plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, current_out_dir, variable_to_plot,
                                             name="5_degree_grid_filtered")
         k = [100, 50, 25, 20, 15, 10, 8]
-        complete_hierarchical_clustering.start_clustering(k, sea_level_anomaly_data, current_out_dir)
+        complete_hierarchical_clustering.start_clustering(k, sea_level_anomaly_data, current_out_dir,
+                                                          distance_function=distance.distance_function)
 
     if do_subspace_clustering:
         for component in number_of_components:

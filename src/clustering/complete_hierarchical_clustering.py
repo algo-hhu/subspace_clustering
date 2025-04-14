@@ -11,7 +11,6 @@ from loguru import logger
 from shapely.ops import unary_union
 from tqdm import tqdm
 
-import src.distance
 from src import plotting
 
 
@@ -29,7 +28,7 @@ class Cluster:
     grid_points: List[GridPoint]
 
 
-def precalculate_distances(sea_level_anomaly_data: xarray.Dataset):
+def precalculate_distances(sea_level_anomaly_data: xarray.Dataset, distance_function):
     """
     Calculate the distances between each pair of grid points
     :return:
@@ -55,11 +54,11 @@ def precalculate_distances(sea_level_anomaly_data: xarray.Dataset):
     distances = np.full((number_of_clusters, number_of_clusters), np.nan)
     cluster_pairs = [(x, y) for x in clusters.values() for y in clusters.values() if x != y]
     logger.info(f"Calculating distances between {len(cluster_pairs)} pairs of clusters")
-    distances_between_all_pairs(cluster_pairs, distances)
+    distances_between_all_pairs(cluster_pairs, distances, distance_function)
     return distances, number_of_clusters, clusters
 
 
-def distances_between_all_pairs(cluster_pairs, distances):
+def distances_between_all_pairs(cluster_pairs, distances, distance_function):
     """
     Calculate the distances between all pairs of clusters
     :param cluster_pairs:
@@ -77,8 +76,8 @@ def distances_between_all_pairs(cluster_pairs, distances):
         lat2 = grid_point2.latitude
         long2 = grid_point2.longitude
         timeseries2 = grid_point2.timeseries
-        current_distance = src.distance.distance_function(lat1, long1, timeseries1, lat2, long2,
-                                                          timeseries2)
+        current_distance = distance_function(lat1, long1, timeseries1, lat2, long2,
+                                             timeseries2)
         distances[cluster1.id, cluster2.id] = current_distance
         distances[cluster2.id, cluster1.id] = current_distance
     return distances
@@ -196,7 +195,7 @@ def save_clustering(clusters: {int: Cluster}, number_of_clusters: int, out_dir: 
                           f"clustering_{number_of_clusters}")
 
 
-def start_clustering(k, sea_level_anomaly_data: xarray.Dataset, out_dir):
+def start_clustering(k, sea_level_anomaly_data: xarray.Dataset, out_dir, distance_function):
     """
     Start hierarchical clustering given a 5 degree grid with values for sea level anomaly
     Save each clustering that has a size in k
@@ -204,7 +203,7 @@ def start_clustering(k, sea_level_anomaly_data: xarray.Dataset, out_dir):
     """
     logger.info(f"Start hierarchical clustering")
     logger.info(f"Calculating distances")
-    distances, number_of_clusters, clusters = precalculate_distances(sea_level_anomaly_data)
+    distances, number_of_clusters, clusters = precalculate_distances(sea_level_anomaly_data, distance_function)
     logger.info(f"Distances calculated")
     all_clusters = hierarchical_clustering(distances, sea_level_anomaly_data, number_of_clusters, k, clusters)
     for clustering in all_clusters.values():
