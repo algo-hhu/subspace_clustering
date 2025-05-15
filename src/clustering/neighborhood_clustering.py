@@ -1,6 +1,5 @@
 import cProfile
 import multiprocessing.shared_memory as shm
-import pickle
 import pstats
 
 import numpy
@@ -11,6 +10,7 @@ from loguru import logger
 from tqdm import tqdm
 
 from src import helper, plotting
+from src.clustering.connectivity_helper import find_first_last_longitude, ensure_bidirectional_neighbors
 
 MIN_LATITUDE = None
 MIN_LONGITUDE = None
@@ -33,26 +33,8 @@ def find_neighbors(sea_level_anomaly_data: xarray.Dataset, distance_function, la
     longitudes = sea_level_anomaly_data.longitude.values
     data = sea_level_anomaly_data["sla"].values
     unique_pairs = set()
-    # find first and last longitude that has data
-    first_longitude = np.inf
-    lat_for_first_longitude = np.inf
-    last_longitude = 0
-    lat_for_last_longitude = 0
-    for i in range(long_range):
-        for j in range(lat_range):
-            if not nan_mask[j, i]:
-                if i < first_longitude:
-                    first_longitude = i
-                    lat_for_first_longitude = j
-                continue
-
-    for i in reversed(range(long_range)):
-        for j in range(lat_range):
-            if not nan_mask[j, i]:
-                if i > last_longitude:
-                    last_longitude = i
-                    lat_for_last_longitude = j
-                continue
+    first_longitude, last_longitude, lat_for_first_longitude, lat_for_last_longitude = find_first_last_longitude(
+        lat_range, long_range, nan_mask)
 
     print(f"first longitude: {first_longitude}, last longitude: {last_longitude}")
     print(
@@ -60,6 +42,32 @@ def find_neighbors(sea_level_anomaly_data: xarray.Dataset, distance_function, la
 
     # extract all unique pairs of grid points that are neighbors with their time series
     unique_pairs_with_time_series = []
+    neighbors = iteratively_find_neighbors(data, distance_function, first_longitude, last_longitude,
+                                           lat_lon_to_clusters, lat_range, latitudes, long_range, longitudes, nan_mask,
+                                           neighbors, unique_pairs, unique_pairs_with_time_series)
+    return neighbors, unique_pairs_with_time_series
+
+
+def iteratively_find_neighbors(data, distance_function, first_longitude, last_longitude, lat_lon_to_clusters, lat_range,
+                               latitudes, long_range, longitudes, nan_mask, neighbors, unique_pairs,
+                               unique_pairs_with_time_series):
+    """
+    Find neighbors for each grid point
+    :param data:
+    :param distance_function:
+    :param first_longitude:
+    :param last_longitude:
+    :param lat_lon_to_clusters:
+    :param lat_range:
+    :param latitudes:
+    :param long_range:
+    :param longitudes:
+    :param nan_mask:
+    :param neighbors:
+    :param unique_pairs:
+    :param unique_pairs_with_time_series:
+    :return:
+    """
     # iterate through latitudes and longitudes and find neighbors for each grid point
     for i in tqdm(range(lat_range)):
         for j in (range(long_range)):
@@ -107,19 +115,6 @@ def find_neighbors(sea_level_anomaly_data: xarray.Dataset, distance_function, la
                              data[:, pos[0], pos[1]]))
                         unique_pairs.add(((latitudes[i], longitudes[j]), (latitudes[pos[0]], longitudes[pos[1]])))
     neighbors = ensure_bidirectional_neighbors(neighbors)
-    return neighbors, unique_pairs_with_time_series
-
-
-def ensure_bidirectional_neighbors(neighbors: {}):
-    """
-    Ensure that neighbor-relationships are bidirectional
-    :param neighbors:
-    :return:
-    """
-    for key, value in neighbors.items():
-        for neighbor in value:
-            if key not in neighbors[neighbor]:
-                neighbors[neighbor].append(key)
     return neighbors
 
 
@@ -225,16 +220,11 @@ def clustering(clustering_results, sea_level_anomaly_data, k, neighbors, distanc
                                                                   min_distance_pair, neighbors,
                                                                   sea_level_anomaly_data)
         if len(clustering_results.keys()) in k:
-            # save clustering results using pickle
-            with open(f"{output_dir}/{len(clustering_results.keys())}.pkl", "wb") as f:
-                pickle.dump(clustering_results, f)
             solutions_for_k[len(clustering_results.keys())] = clustering_results.copy()
             if len(clustering_results.keys()) == min(k):
                 break
             continue
-    # finally:
-    #     sla_shm.close()
-    #     sla_shm.unlink()
+
     return solutions_for_k
 
 

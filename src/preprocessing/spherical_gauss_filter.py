@@ -106,82 +106,46 @@ class SphericalGaussFilter:
                         distances[i] < self.cut_off]
         return lat_lon_dist
 
-    # def filter(self, data: xarray.Dataset):
-    #     """
-    #     Apply a spherical Gaussian filter to the data.
-    #     Data has the dimensions (time, lat, lon)
-    #     For each point determine all points that are within half_width km of the point and calculate their distances
-    #     Then filter the data at this point using the weights determined by the distances, normalize the weights and apply the filter.
-    #     Filter for every time step using the distances, then select next point
-    #     :param data:
-    #     :return:
-    #     """
-    #     logger.info("Applying Gaussian filter")
-    #     filtered_data = data.copy()
-    #     max_dist_in_degrees = np.ceil(self.cut_off / 111)
-    #     self.lat_lon_grid = self.create_latlon_grid(data)
-    #     logger.info("Begin filtering")
-    #     # Extract data into a numpy array and build lookup table for lat/lon pairs and time_steps
-    #     sla_array = data["sla"].values
-    #     lat_to_index = {lat: i for i, lat in enumerate(self.lat)}
-    #     lon_to_index = {lon: i for i, lon in enumerate(self.lon)}
-    #     idx_to_lat = {i: lat for i, lat in enumerate(self.lat)}
-    #     idx_to_lon = {i: lon for i, lon in enumerate(self.lon)}
-    #     filtered_data_array = np.zeros_like(sla_array)
-    #     # create a list of valid grid points (no NaN values)
-    #     non_nan_mask = ~np.isnan(sla_array).all(axis=0)
-    #     valid_grid_points = list(map(tuple, np.argwhere(non_nan_mask)))
-    #     for lat_idx, lon_idx in tqdm(valid_grid_points):
-    #         lat = idx_to_lat[lat_idx]
-    #         lon = idx_to_lon[lon_idx]
-    #         # calculate distances between all points within the cut-off distance of the current point
-    #         distances = self.distances_between_lat_lon_pairs(
-    #             (lat, lon, max_dist_in_degrees))
-    #         if not distances:
-    #             continue
-    #         id_x, id_y, new_data = self.filter_all_time_steps_at_point(sla_array, filtered_data_array, lat, lon,
-    #                                                                    distances, lat_to_index, lon_to_index)
-    #         filtered_data_array[:, lat_to_index[lat], lon_to_index[lon]] = new_data
-    #     filtered_da = xarray.DataArray(
-    #         filtered_data_array,
-    #         dims=data["sla"].dims,
-    #         coords=data["sla"].coords,
-    #         attrs=data["sla"].attrs
-    #     )
-    #     filtered_data["sla"] = filtered_da
-    #     # put NaN values back
-    #     mask = data.sla.isnull().any(axis=0)
-    #     # Apply mask using `.where()`, replacing with NaNs
-    #     filtered_data["sla"] = filtered_data["sla"].where(~mask, np.nan)
-    #     return filtered_data
-
     def parallelized_filter(self, data: xarray.Dataset):
-        filtered_data = data.copy()
-        max_dist_in_degrees = np.ceil(self.cut_off / 111)
-        sla_array = data["sla"].values
+        """
+        Apply the Gaussian filter to each data point in parallel
+        :param data:
+        :return:
+        """
+        max_dist_in_degrees = np.ceil(self.cut_off / 111)  # determine the farthest distance in degrees for cut off
+        sla_array = data["sla"].values  # extract the data array, shape: (time, lat, lon)
+        # create lat/lon index mapping
         lat_to_index = {lat: i for i, lat in enumerate(self.lat)}
         lon_to_index = {lon: i for i, lon in enumerate(self.lon)}
         idx_to_lat = {i: lat for i, lat in enumerate(self.lat)}
         idx_to_lon = {i: lon for i, lon in enumerate(self.lon)}
-        filtered_data_array = np.zeros_like(sla_array)
+        # extract grid points with valid data
         non_nan_mask = ~np.isnan(sla_array).all(axis=0)
         valid_grid_points = list(map(tuple, np.argwhere(non_nan_mask)))
+        logger.info(f"Processing {len(valid_grid_points)} valid grid points.")
+        # create list of args for parallel processing
         args_list = [(idx_to_lat[grid_point[0]], idx_to_lon[grid_point[1]], lat_to_index, lon_to_index,
                       sla_array, max_dist_in_degrees) for grid_point
                      in valid_grid_points]
-        logger.info(f"Processing {len(valid_grid_points)} valid grid points.")
-        # calculate new data for each grid point in parallel
+        # calculate filtered data for each grid point in parallel
         results = Parallel(n_jobs=-2, verbose=1)(
             delayed(self.call_filtering)(*args) for args in args_list)
+        filtered_data = self.process_filtering_results(data, results, sla_array)
+        return filtered_data
 
-        # Filter out None results
+    def process_filtering_results(self, data, results, sla_array):
+        """
+        Process the results of the filtering
+        :param data:
+        :param results:
+        :param sla_array:
+        :return:
+        """
+        # filter out None results
         results = [r for r in results if r is not None]
-        # for lat_idx, lon_idx in tqdm(valid_grid_points):
-        #     lat = idx_to_lat[lat_idx]
-        #     lon = idx_to_lon[lon_idx]
-        #     result = self.call_filtering(lat, lon, sla_array, lat_to_index, lon_to_index, max_dist_in_degrees)
-        #     results.append(result)
-
+        # write results of filtering to new array
+        filtered_data = data.copy()
+        filtered_data_array = np.zeros_like(sla_array)
         for id_x, id_y, new_data in results:
             filtered_data_array[:, id_x, id_y] = new_data
         filtered_da = xarray.DataArray(
@@ -193,11 +157,21 @@ class SphericalGaussFilter:
         filtered_data["sla"] = filtered_da
         # put NaN values back
         mask = data.sla.isnull().any(axis=0)
-        # Apply mask using `.where()`, replacing with NaNs
+        # apply mask using `.where()`, replacing with NaNs
         filtered_data["sla"] = filtered_data["sla"].where(~mask, np.nan)
         return filtered_data
 
     def call_filtering(self, lat, lon, lat_to_index, lon_to_index, sla_array, max_dist_in_degrees):
+        """
+        Call the filtering function for a given lat/lon pair
+        :param lat:
+        :param lon:
+        :param lat_to_index:
+        :param lon_to_index:
+        :param sla_array:
+        :param max_dist_in_degrees:
+        :return:
+        """
         # calculate distances between all points within the cut-off distance of the current point
         distances = self.distances_between_lat_lon_pairs(
             (lat, lon, max_dist_in_degrees))
@@ -213,7 +187,6 @@ class SphericalGaussFilter:
         Filter all time steps at a given point
         :param lon_to_index:
         :param lat_to_index:
-        :param filtered_data_array:
         :param sla_array:
         :param lat:
         :param lon:
@@ -230,12 +203,9 @@ class SphericalGaussFilter:
         # filter data
         data_values = np.stack(
             [sla_array[:, lat_to_index[key[0]], lon_to_index[key[1]]] for key in neighbor_weights.keys()])
-        # data_values = np.stack(
-        #     [data["sla"].sel(latitude=key[0], longitude=key[1]).values for key in neighbor_weights.keys()])
         # replace nan in data_values with 0
         data_values = np.nan_to_num(data_values)
         weights = np.array(list(neighbor_weights.values()))
+        # take weights-vector, multiply with each row of data_values, then sum over first axis, resulting in a 1D array with length of time steps 
         new_data = np.round(np.einsum('i,ij->j', weights, data_values), 4)
-        # filtered_data["sla"].loc[dict(latitude=lat, longitude=lon)] = new_data
-
         return lat_to_index[lat], lon_to_index[lon], new_data

@@ -9,20 +9,6 @@ from src.plotting import plot_sla_for_point_in_time
 from src.preprocessing import spherical_gauss_filter
 
 
-def apply_gaussian_filter(sea_level_anomaly_data_set: xr.Dataset, half_width: int):
-    """
-    Apply a Gaussian filter of half width 500 to the sea level anomaly data
-    :param half_width:
-    :param sea_level_anomaly_data_set:
-    :return:
-    """
-    spatial_filter = spherical_gauss_filter.SphericalGaussFilter(sea_level_anomaly_data_set.latitude.values,
-                                                                 sea_level_anomaly_data_set.longitude.values,
-                                                                 half_width)
-    sea_level_anomaly_data_set = spatial_filter.parallelized_filter(sea_level_anomaly_data_set)
-    return sea_level_anomaly_data_set
-
-
 def read_satellite_data(data_directory: str):
     """
 
@@ -55,28 +41,27 @@ def filtering(sea_level_anomaly_data: xr.Dataset, out_dir: str, half_width: int)
     :return:
     """
     logger.warning("Filtering data - this may take some time, if this is not wanted, set filtering_sla to False")
-    logger.info("filtering data")
     # check if longitude is correct (-180 to 180)
     if sea_level_anomaly_data.longitude.max() > 180 or sea_level_anomaly_data.longitude.min() < -180:
         logger.warning(
             "Longitude is not correct, it should range from -180 to 180, try deleting the sea_level_anomaly_data.nc file and rerun the program")
 
-    # filter spatially with a symmetric Gaussian filter of half-width 500 km (here the C$S is transformed to meters using a geocentric CRS EPSG:4978)
-    # Store original NaN locations
-    nan_mask = sea_level_anomaly_data["sla"].isnull()
-    current_time = time.time()
-    sea_level_anomaly_data = apply_gaussian_filter(sea_level_anomaly_data, half_width)
-    logger.info(f"Time taken for gaussian filtering {time.time() - current_time}")
-    current_time = time.time()
-    sea_level_anomaly_data["sla"] = (
-        sea_level_anomaly_data["sla"]
-        .rolling(time=15, center=True, min_periods=1)
-        .mean(skipna=True)
-    )
-    # Restore original NaN locations
-    sea_level_anomaly_data["sla"] = sea_level_anomaly_data["sla"].where(~nan_mask)
-    logger.info(f"Time taken for temporal filtering {time.time() - current_time}")
-    # save netcdf
+    # filter spatially with a symmetric Gaussian filter of half-width 500 km (here the CRS is transformed to meters using a geocentric CRS EPSG:4978)
+    # and temporally with a low-pass filter of 15 months
+    sea_level_anomaly_data = apply_filters(sea_level_anomaly_data, half_width)
+    save_and_plot(half_width, out_dir, sea_level_anomaly_data)
+    return sea_level_anomaly_data
+
+
+def save_and_plot(half_width, out_dir, sea_level_anomaly_data):
+    """
+    Save the filtered sea level anomaly data to a netCDF file and plot it
+    :param half_width:
+    :param out_dir:
+    :param sea_level_anomaly_data:
+    :return:
+    """
+    # save to netcdf
     encoding = {
         'sla': {
             'zlib': True,  # Enable compression
@@ -93,4 +78,29 @@ def filtering(sea_level_anomaly_data: xr.Dataset, out_dir: str, half_width: int)
     variable_to_plot = "sla"
     plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name=f"filtered_sla_{half_width}")
 
-    return sea_level_anomaly_data
+
+def apply_filters(sea_level_anomaly_data: xr.Dataset, half_width: int):
+    """
+    Apply a Gaussian filter of half width 500 to the sea level anomaly data and a temporal low-pass filter of 15 months
+    :param sea_level_anomaly_data:
+    :param half_width:
+    :return:
+    """
+    nan_mask = sea_level_anomaly_data["sla"].isnull()
+    current_time = time.time()
+    spatial_filter = spherical_gauss_filter.SphericalGaussFilter(sea_level_anomaly_data.latitude.values,
+                                                                 sea_level_anomaly_data.longitude.values,
+                                                                 half_width)
+    sea_level_anomaly_data_set = spatial_filter.parallelized_filter(sea_level_anomaly_data)
+    logger.info(f"Time taken for gaussian filtering {time.time() - current_time}")
+    current_time = time.time()
+    # Apply temporal low-pass filter
+    sea_level_anomaly_data["sla"] = (
+        sea_level_anomaly_data["sla"]
+        .rolling(time=15, center=True, min_periods=1)
+        .mean(skipna=True)
+    )
+    # Restore original NaN locations
+    sea_level_anomaly_data["sla"] = sea_level_anomaly_data["sla"].where(~nan_mask)
+    logger.info(f"Time taken for temporal filtering {time.time() - current_time}")
+    return sea_level_anomaly_data_set

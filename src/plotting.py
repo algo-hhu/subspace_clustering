@@ -4,13 +4,10 @@ import random
 
 import geopandas
 import matplotlib.patches as mpatches
-import numpy as np
 import shapely
 import xarray as xr
 from cartopy import crs as ccrs
-from loguru import logger
 from matplotlib import pyplot as plt
-from prisma import Prisma
 from shapely.geometry import Polygon, MultiPolygon
 from shapely.ops import transform, unary_union
 
@@ -151,36 +148,36 @@ def plot_one_timeseries(sea_level_anomaly_data, out_dir, id_x, id_y, name: str):
     plt.close()
 
 
-async def save_and_plot_clusters(db: Prisma, number_of_clusters: int, sea_level_anomaly_data: xr.Dataset):
-    """
-    Save and plot clusters
-    :param sea_level_anomaly_data:
-    :param db:
-    :param number_of_clusters:
-    :return:
-    """
-    cluster_data = np.zeros((sea_level_anomaly_data.latitude.size, sea_level_anomaly_data.longitude.size))
-    clusters = await db.cluster.find_many(include={"grid_points": True})
-    # create a netcdf file with the cluster information
-    cluster_number = 0
-    for cluster in clusters:
-        for grid_point in cluster.grid_points:
-            # get index of lat long in sea_level_anomaly_data
-            lat_index = np.where(sea_level_anomaly_data.latitude.values == grid_point.latitude)[0][0]
-            long_index = np.where(sea_level_anomaly_data.longitude.values == grid_point.longitude)[0][0]
-            cluster_data[lat_index, long_index] = cluster_number
-        cluster_number += 1
-    cluster_data = xr.DataArray(cluster_data, dims=["latitude", "longitude"])
-    cluster_data = cluster_data.assign_coords(latitude=sea_level_anomaly_data.latitude,
-                                              longitude=sea_level_anomaly_data.longitude)
-    cluster_data.to_netcdf(f"../output/clusters_{number_of_clusters}.nc")
-    logger.info(f"plot clusters")
-    cluster_gdf, land_gdf = await create_gdf_from_xarray_dataset(clusters, number_of_clusters)
-
-    plot_regions(land_gdf, "../output/", cluster_gdf, f"clusters_{number_of_clusters}")
-
-    logger.info(f"Clusters saved and plotted")
-    return
+# async def save_and_plot_clusters(db: Prisma, number_of_clusters: int, sea_level_anomaly_data: xr.Dataset):
+#     """
+#     Save and plot clusters
+#     :param sea_level_anomaly_data:
+#     :param db:
+#     :param number_of_clusters:
+#     :return:
+#     """
+#     cluster_data = np.zeros((sea_level_anomaly_data.latitude.size, sea_level_anomaly_data.longitude.size))
+#     clusters = await db.cluster.find_many(include={"grid_points": True})
+#     # create a netcdf file with the cluster information
+#     cluster_number = 0
+#     for cluster in clusters:
+#         for grid_point in cluster.grid_points:
+#             # get index of lat long in sea_level_anomaly_data
+#             lat_index = np.where(sea_level_anomaly_data.latitude.values == grid_point.latitude)[0][0]
+#             long_index = np.where(sea_level_anomaly_data.longitude.values == grid_point.longitude)[0][0]
+#             cluster_data[lat_index, long_index] = cluster_number
+#         cluster_number += 1
+#     cluster_data = xr.DataArray(cluster_data, dims=["latitude", "longitude"])
+#     cluster_data = cluster_data.assign_coords(latitude=sea_level_anomaly_data.latitude,
+#                                               longitude=sea_level_anomaly_data.longitude)
+#     cluster_data.to_netcdf(f"../output/clusters_{number_of_clusters}.nc")
+#     logger.info(f"plot clusters")
+#     cluster_gdf, land_gdf = await create_gdf_from_xarray_dataset(clusters, number_of_clusters)
+#
+#     plot_regions(land_gdf, "../output/", cluster_gdf, f"clusters_{number_of_clusters}")
+#
+#     logger.info(f"Clusters saved and plotted")
+#     return
 
 
 async def create_gdf_from_xarray_dataset(clusters, number_of_clusters):

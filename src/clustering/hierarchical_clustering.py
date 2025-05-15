@@ -17,7 +17,6 @@ async def ensure_bidirectional_neighbors(db: Prisma, cluster_id: int, neighbor_i
     # Get both clusters
     cluster = await db.cluster.find_first(where={"id": cluster_id})
     neighbor = await db.cluster.find_first(where={"id": neighbor_id})
-
     if not cluster or not neighbor:
         return False
 

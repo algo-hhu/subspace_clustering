@@ -31,15 +31,19 @@ async def main():
             'scale_factor': 0.0001  # Match scale factor for consistency
         }
     }
-    filtering_sla = True
-    use_neighborhood_clustering = False
-    full_hierarchical_clustering = False
-    do_subspace_clustering = True
-    do_neighborhood_clustering_without_db = False
-    out_dir = "../output/test-thompson-func/"
-    number_of_components = [3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
+    # set parameters for filtering
+    filtering_sla = False
     half_width = 500
-    initial_clustering_path = "../output/filter_500/full_hierarchical_clustering/clusters_15.nc"
+    # set parameters for initial clustering
+    out_dir = "../output/test_multiple_rounds_subspace_clustering/"
+    resolution = 2  # resolution of the grid
+    full_hierarchical_clustering = False  # Clustering all grid points hierarchically with a given distance function
+    do_neighborhood_clustering = False  # Clustering the grid points hierarchically that are neighbors to each other
+    # parameters for subspace clustering
+    do_subspace_clustering = True  # Given a start clustering, perform subspace clustering
+    number_of_components = [3]  # set the dimension of the subspaces
+    initial_clustering_path = "../output/no_filter/neighborhood_clustering_euclidean_distance_no_filter/clusters_15.nc"
+    # create output directory
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     variable_to_plot = "sla"
@@ -58,45 +62,28 @@ async def main():
     else:
         sea_level_anomaly_data = xr.open_dataset("../data/sea_level_anomaly_data.nc")
 
+    # filtering
     if filtering_sla:  # apply Gaussian filter & temporal low-pass filter
         if not os.path.exists(f"../data/sea_level_anomaly_data_filtered_{half_width}.nc"):
             # filter spatially with a symmetric Gaussian filter of half-width 500 km
             sea_level_anomaly_data = preprocessing_data.filtering(sea_level_anomaly_data, out_dir, half_width)
             # plot
             plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot,
-                                                name="gaussian_filtered")
+                                                name=f"gaussian_filtered_{half_width}")
         else:
             sea_level_anomaly_data = xr.open_dataset(f"../data/sea_level_anomaly_data_filtered_{half_width}.nc")
 
-    if do_neighborhood_clustering_without_db:
+    # initial clustering either with hierarchical clustering or neighborhood clustering
+    if do_neighborhood_clustering:
         current_out_dir = f"{out_dir}/neighborhood_clustering/"
         if not os.path.exists(current_out_dir):
             os.makedirs(current_out_dir)
         distance_function = distance.euclidean_distance
 
-        sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 1),
-                                                               longitude=range(-180, 180, 1))
+        sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, resolution),
+                                                               longitude=range(-180, 180, resolution))
         neighborhood_clustering.start_clustering(sea_level_anomaly_data, [100, 80, 90, 70, 60, 50, 25, 20, 15, 10],
                                                  distance_function, current_out_dir)
-
-    # if use_neighborhood_clustering:  # hierarchical clustering using only the neighborhood of each point
-    #     # plot used data
-    #     plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name="used_data")
-    #     # create database tables
-    #     logger.info(f"Establish connection to database and create tables")
-    #     await db.connect()
-    #     logger.info("Database tables created")
-    #     logger.info(f"Initially populating database with grid points, differences, clusters and merge history")
-    #     sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 5),
-    #                                                            longitude=range(-180, 180, 5))
-    #     # generate grid_point objects for each grid point - only needs to be done once
-    #     await (populate_database.generate_grid_points_and_initial_clusters(sea_level_anomaly_data, db))
-    #     # calculate initial differences between grid points
-    #     await populate_database.calculate_initial_differences(db)
-    #     logger.info(f"Start hierarchical clustering")
-    #     await hierarchical_clustering.start_clustering(db, [100, 80, 90, 70, 60, 50, 25, 20, 15, 10],
-    #                                                    sea_level_anomaly_data)
-
     if full_hierarchical_clustering:
         current_out_dir = f"{out_dir}/full_hierarchical_clustering/"
         if not os.path.exists(current_out_dir):
@@ -105,14 +92,15 @@ async def main():
         plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, current_out_dir, variable_to_plot, name="used_data")
         logger.info("Interpolating to 5 degree grid")
         # interpolate to 5 degree grid
-        sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, 2),
-                                                               longitude=range(-180, 180, 2))
+        sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, resolution),
+                                                               longitude=range(-180, 180, resolution))
         plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, current_out_dir, variable_to_plot,
                                             name="5_degree_grid_filtered")
         k = [100, 50, 25, 20, 15, 10, 8]
         complete_hierarchical_clustering.start_clustering(k, sea_level_anomaly_data, current_out_dir,
                                                           distance_function=distance.distance_function)
 
+    # subspace clustering
     if do_subspace_clustering:
         for component in number_of_components:
             current_out_dir = f"{out_dir}/components_{component}/"
@@ -122,14 +110,6 @@ async def main():
         subspace_clustering.start_subspace_clustering(sea_level_anomaly_data, initial_clustering, out_dir,
                                                       number_of_components)
 
-
-# filter spatially with a symmetric Gaussian filter of half-width 500 km
-# interpolate to 5 degree grid
-# Apply a convolution low-pass filter passing 90% of the amplitude at 24 months to each time series.  (To emphasize inter annual and longer variability)
-# implement distance function between two grid points x_i and x_j - D(x_i, x_j) = 1 - exp(- d(x_i, x_j)/2a^2) r(x_i, x_j)
-# d is Euclidean distance, r is temporal correlation coefficient, a is constant such that the value of the exponential is 0.5, when d=3000 km
-# calculate distances between each pair of grid points
-# hierarchical clustering
 
 if __name__ == "__main__":
     asyncio.run(main())

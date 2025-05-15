@@ -1,4 +1,8 @@
+import uuid
+
 import matplotlib.pyplot as plt
+import networkx as nx
+import numpy
 import numpy as np
 import xarray
 from loguru import logger
@@ -6,6 +10,7 @@ from sklearn.decomposition import PCA
 from tqdm import tqdm
 
 from src import helper, plotting
+from src.clustering import connectivity_helper
 from src.plotting import plot_clustering
 
 OUT_DIR = None
@@ -18,6 +23,8 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
                               components: []):
     """
     Start the subspace clustering
+    TODO: want the cluster-numbering (and coloring) to be the same for all iterations
+    TODO: want more iterations
     :param components:
     :param out_dir:
     :param sea_level_anomaly_data:
@@ -53,28 +60,44 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
     # assign nans where there are all nans in the sla data
     cluster_data[~non_nan_mask] = np.nan
     unique_numbers, counts = np.unique(cluster_data, return_counts=True)
+
+    # perform the subspace clustering for each wanted number of components
     for number_of_components in components:
+        cluster_dict, cluster_id_dict = extract_original_clusters(cluster_data, clustering, min_lat, min_lon,
+                                                                  resolution, unique_numbers)
+        reestablish_connectivity(sea_level_anomaly_data, clustering)
         logger.info(f"assigning subspaces for {number_of_components} components")
         current_out_dir = f"{out_dir}/components_{number_of_components}/"
         OUT_DIR = current_out_dir
         EXPLAINED_VARIANCE[number_of_components] = []
         # get start clustering dictionary from initial clustering netcdf data and plot
-        cluster_dict, cluster_id_dict = extract_original_clusters(cluster_data, clustering, min_lat, min_lon,
-                                                                  resolution, unique_numbers)
+
         plot_clustering(cluster_dict, current_out_dir, resolution, name="initial_clustering")
-        # for each cluster, determine its subspace
-        subspaces = calculate_subspaces_for_clusters(cluster_id_dict, number_of_components, sla_data)
-        # calculate how similar/different the subspaces are
-        similarities = calculate_principal_angles(subspaces)
-        AVG_DIFF_BETWEEN_SUBSPACES[number_of_components] = similarities
-        # assign each grid point to its closest subspace
-        grid_point_assignment = determine_closest_subspace(sla_data, subspaces, number_of_components)
-        # map the grid point assignment to the lat/lon coordinates and plot
-        grid_point_assignment_lat_lon = convert_idx_idy_to_lat_lon(grid_point_assignment, min_lat, min_lon, resolution)
-        plot_clustering(grid_point_assignment_lat_lon, current_out_dir, resolution,
-                        name=f"grid_point_assignment{number_of_components}")
+
+        change = True
+        counter = 0
+        while change:
+            # for each cluster, determine its subspace
+            subspaces = calculate_subspaces_for_clusters(cluster_id_dict, number_of_components, sla_data)
+            # calculate how similar/different the subspaces are
+            similarities = calculate_principal_angles(subspaces)
+            AVG_DIFF_BETWEEN_SUBSPACES[number_of_components] = similarities
+            grid_point_assignment = cluster_id_dict.copy()
+            # assign each grid point to its closest subspace
+            grid_point_assignment, change = determine_closest_subspace(sla_data, subspaces, number_of_components,
+                                                                       grid_point_assignment)
+            # map the grid point assignment to the lat/lon coordinates and plot
+            grid_point_assignment_lat_lon = convert_idx_idy_to_lat_lon(grid_point_assignment, min_lat, min_lon,
+                                                                       resolution)
+            plot_clustering(grid_point_assignment_lat_lon, current_out_dir, resolution,
+                            name=f"grid_point_assignment{number_of_components}_round_{counter}")
+            cluster_dict = grid_point_assignment_lat_lon.copy()
+            cluster_id_dict = grid_point_assignment.copy()
+            counter += 1
+            if counter >= 50:
+                break
     # plot the explained variance, difference between subspaces and distance between points and subspaces for each number of components
-    plot_explained_variance_and_distances(out_dir)
+    # plot_explained_variance_and_distances(out_dir)
 
 
 def determine_subspace_per_cluster(cluster_grid_point_ids: [(int, int)], data: np.ndarray,
@@ -111,17 +134,20 @@ def determine_subspace_per_cluster(cluster_grid_point_ids: [(int, int)], data: n
     return components, mean
 
 
-def determine_closest_subspace(data: np.ndarray, subspaces: {int: np.array}, number_of_components: int):
+def determine_closest_subspace(data: np.ndarray, subspaces: {int: np.array}, number_of_components: int,
+                               previous_grid_point_assignment: {int: [(int, int)]}):
     """
     For each point in the cluster determine the distance to the closest subspace
     Project each time series onto each subspace
     Compute the reconstruction error
     Return a graph where each point is marked with its closest subspace
+    :param previous_grid_point_assignment:
     :param number_of_components:
     :param data:
     :param subspaces:
     :return:
     """
+    change = False  # check if the subspaces have changed
     grid_point_assignment = {cluster_id: [] for cluster_id in subspaces}
     # create a dictionary for each cluster id, to store the average distance to the subspace for plotting
     all_average_distances = [0] * len(subspaces)
@@ -141,10 +167,13 @@ def determine_closest_subspace(data: np.ndarray, subspaces: {int: np.array}, num
             for ind in range(len(sorted_distances)):
                 all_average_distances[ind] += sorted_distances[ind]
             grid_point_assignment[closest_cluster].append((id_x, id_y))
+            # check if the cluster id has changed
+            if not (id_x, id_y) in previous_grid_point_assignment[closest_cluster]:
+                change = True
     # plotting
     plot_distances_to_subspaces(all_average_distances, average_distances_to_each_subspace, number_of_components,
                                 number_of_data_points)
-    return grid_point_assignment
+    return grid_point_assignment, change
 
 
 def plot_distances_to_subspaces(all_average_distances, average_distances_to_each_subspace, number_of_components,
@@ -385,3 +414,38 @@ def plot_explained_variance_and_distances(out_dir):
     plt.xlabel("number of components")
     plt.savefig(f"{out_dir}/max_dist_between_subspaces.png")
     plt.close()
+
+
+def reestablish_connectivity(sea_level_anomaly_data, clustering):
+    """
+    Reestablish connectivity in the clusters
+    :return:
+    """
+    data = sea_level_anomaly_data["sla"].values
+    lat_lon_to_grid_point_id = {}  # {lat, lon: grid_point_id}
+    latitude = sea_level_anomaly_data.latitude.values
+    longitudes = sea_level_anomaly_data.longitude.values
+    lat_range = len(latitude)
+    long_range = len(longitudes)
+    nan_mask = numpy.isnan(data).any(axis=0)
+    for i in tqdm(range(lat_range)):
+        for j in (range(long_range)):
+            if nan_mask[i, j]:  # points without valid data can be skipped
+                continue
+            lat_lon_to_grid_point_id[(latitude[i], longitudes[j])] = uuid.uuid4()
+
+    # create grid graph that contains neighborhood information
+    grid_graph = nx.Graph()
+    neighbors = connectivity_helper.find_neighbors(sea_level_anomaly_data, nan_mask, lat_lon_to_grid_point_id)
+    grid_graph.add_nodes_from(neighbors.keys())
+    exit()
+    for neighbor in neighbors:
+        for neighbor2 in neighbors[neighbor]:
+            if neighbor != neighbor2:
+                grid_graph.add_edge(neighbor, neighbor2)
+    # create graph from clustering - each pair of nodes should be connected, if they belong to the same cluster and are neighbors
+    # maybe each node is an object? node has id, coordinates, cluster id, time series
+    # component: id. nodes. edges, cluster_id. size?
+    # cluster: id, components, size?
+
+    pass
