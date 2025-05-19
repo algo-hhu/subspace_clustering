@@ -1,5 +1,11 @@
+import uuid
+
+import networkx as nx
 import numpy as np
+from loguru import logger
 from tqdm import tqdm
+
+from src.clustering.cluster_entities.connected_component import ConnectedComponent
 
 
 def find_neighbors(sea_level_anomaly_data, nan_mask, lat_lon_to_grid_point_id):
@@ -23,8 +29,10 @@ def find_neighbors(sea_level_anomaly_data, nan_mask, lat_lon_to_grid_point_id):
 
     first_longitude, last_longitude, lat_for_first_longitude, lat_for_last_longitude = find_first_last_longitude(
         lat_range, long_range, nan_mask)
-    iteratively_find_neighbors(data, latitudes, longitudes, lat_range, long_range, first_longitude, last_longitude,
-                               nan_mask, lat_lon_to_grid_point_id)
+    neighbors = iteratively_find_neighbors(data, latitudes, longitudes, lat_range, long_range, first_longitude,
+                                           last_longitude,
+                                           nan_mask, lat_lon_to_grid_point_id)
+    return neighbors
 
 
 def iteratively_find_neighbors(data, latitudes, longitudes, lat_range, long_range, first_longitude, last_longitude,
@@ -119,3 +127,88 @@ def ensure_bidirectional_neighbors(neighbors: {}):
             if key not in neighbors[neighbor]:
                 neighbors[neighbor].append(key)
     return neighbors
+
+
+def generate_grid_graph(lat_lon_to_grid_point_id, nan_mask, sea_level_anomaly_data):
+    """
+    Generate a grid graph from the sea level anomaly data to capture the neighborhood information
+    :param lat_lon_to_grid_point_id:
+    :param nan_mask:
+    :param sea_level_anomaly_data:
+    :return:
+    """
+    # create grid graph that contains neighborhood information
+    grid_graph = nx.Graph()
+    neighbors = find_neighbors(sea_level_anomaly_data, nan_mask, lat_lon_to_grid_point_id)
+    grid_graph.add_nodes_from(neighbors.keys())
+    counter = 0
+    for neighbor in neighbors:
+        for neighbor2 in neighbors[neighbor]:
+            if neighbor != neighbor2:
+                counter += 1
+                try:
+                    grid_graph.add_edge(neighbor, neighbor2)
+                except nx.NetworkXError:
+                    logger.warning(f"Edge between {neighbor} and {neighbor2} already exists or is invalid")
+    return grid_graph
+
+
+def generate_cluster_graph(clustering, grid_graph, lat_lon_to_grid_point_id):
+    """
+    Generate a graph from the clustering data and the grid graph, in which there is an edge between two nodes if they belong to the same cluster and are neighbors in the grid graph
+    :param clustering:
+    :param grid_graph:
+    :param lat_lon_to_grid_point_id:
+    :return:
+    """
+    # map lat/lon to grid point id in clustering
+    clustering_with_grid_points = {}
+    for cluster in clustering.keys():
+        cluster_id = cluster
+        clustering_with_grid_points[cluster_id] = []
+        for lat_lon in clustering[cluster]:
+            grid_point_id = lat_lon_to_grid_point_id[lat_lon]
+            clustering_with_grid_points[cluster_id].append(grid_point_id)
+    # create cluster graph where a pair of nodes is connected if they belong to the same cluster and have an edge in the grid graph
+    cluster_graph = nx.Graph()
+    for cluster in clustering_with_grid_points.keys():
+        cluster_id = cluster
+        for grid_point in clustering_with_grid_points[cluster]:
+            cluster_graph.add_node(grid_point, cluster_id=cluster_id)
+            neighbors = grid_graph.neighbors(grid_point)  # get potential neighbors from grid graph
+            for neighbor in neighbors:
+                if neighbor in clustering_with_grid_points[
+                    cluster]:  # check if neighbor is in the same cluster and is already in the cluster graph
+                    if cluster_graph.has_node(neighbor):
+                        cluster_graph.add_edge(grid_point, neighbor)
+    return cluster_graph
+
+
+def generate_connected_component_graph(cluster_graph, grid_graph):
+    """
+    Generate a connected component graph from the cluster graph, in which each node is a connected component and there
+    is an edge between nodes if any of their nodes are neighbors in the grid graph
+    :param cluster_graph:
+    :param grid_graph:
+    :return:
+    """
+    connected_component_graph = nx.Graph()
+    counter = 0
+    connected_components = {}
+    for connected_component in nx.connected_components(cluster_graph):
+        counter += 1
+        first_node = next(iter(connected_component))
+        cluster_id = cluster_graph.nodes[first_node]["cluster_id"]
+        current_component = ConnectedComponent(uuid.uuid4(), connected_component, cluster_id, len(connected_component))
+        connected_component_graph.add_node(current_component.id, component=current_component)
+        connected_components[current_component.id] = current_component
+    # there should be an edge between each pair of connected components in the graph, if any of their nodes are neighbors in the grid graph
+    for connected_component_1 in connected_components.values():
+        for connected_component_2 in connected_components.values():
+            for node in connected_component_1.nodes:
+                neighbors = grid_graph.neighbors(node)
+                for neighbor in neighbors:
+                    if neighbor in connected_component_2.nodes:
+                        connected_component_graph.add_edge(connected_component_1.id, connected_component_2.id)
+                        break
+    return connected_component_graph, connected_components

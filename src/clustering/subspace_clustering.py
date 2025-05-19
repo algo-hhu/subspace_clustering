@@ -1,5 +1,3 @@
-import uuid
-
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy
@@ -10,7 +8,8 @@ from sklearn.decomposition import PCA
 from tqdm import tqdm
 
 from src import helper, plotting
-from src.clustering import connectivity_helper
+from src.clustering.connectivity_helper import generate_grid_graph, generate_cluster_graph, \
+    generate_connected_component_graph
 from src.plotting import plot_clustering
 
 OUT_DIR = None
@@ -65,7 +64,6 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
     for number_of_components in components:
         cluster_dict, cluster_id_dict = extract_original_clusters(cluster_data, clustering, min_lat, min_lon,
                                                                   resolution, unique_numbers)
-        reestablish_connectivity(sea_level_anomaly_data, clustering)
         logger.info(f"assigning subspaces for {number_of_components} components")
         current_out_dir = f"{out_dir}/components_{number_of_components}/"
         OUT_DIR = current_out_dir
@@ -93,6 +91,13 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
                             name=f"grid_point_assignment{number_of_components}_round_{counter}")
             cluster_dict = grid_point_assignment_lat_lon.copy()
             cluster_id_dict = grid_point_assignment.copy()
+            # create map containing the cluster id for each grid point
+            cluster_map = np.full(cluster_data.shape, np.nan)
+            for cluster_id in grid_point_assignment.keys():
+                for (id_x, id_y) in grid_point_assignment[cluster_id]:
+                    cluster_map[id_x, id_y] = cluster_id
+            reestablish_connectivity(sea_level_anomaly_data, grid_point_assignment_lat_lon, cluster_map, subspaces)
+
             counter += 1
             if counter >= 50:
                 break
@@ -224,22 +229,27 @@ def compare_distances_to_subspaces(average_distances_to_each_subspace: {int: int
     all_distances = []
     # iterate over all subspaces and calculate the distance to the current time series
     for cluster_id, (subspace, mean) in subspaces.items():
-        distance = 0
-        current_time_series_for_cluster = current_time_series - mean
-        # project current time series onto subspace
-        projection = subspace.T @ (subspace @ current_time_series_for_cluster)
-        # use squared Euclidean distance
-        residual = current_time_series_for_cluster - projection
-        distance = np.sum(residual ** 2)
-        all_distances.append(distance)
-        # otherwise could use the norm
-        # distance = np.linalg.norm(current_time_series_for_cluster - x_proj)
-        # if distance is less than the previous ones, update the minimum
+        distance = subspace_timeseries_distance_calculation(all_distances, current_time_series, mean, subspace)
         if distance < min_error:
             min_error = distance
             closest_cluster = cluster_id
         average_distances_to_each_subspace[cluster_id] += distance
     return all_distances, closest_cluster
+
+
+def subspace_timeseries_distance_calculation(all_distances, current_time_series, mean, subspace):
+    distance = 0
+    current_time_series_for_cluster = current_time_series - mean
+    # project current time series onto subspace
+    projection = subspace.T @ (subspace @ current_time_series_for_cluster)
+    # use squared Euclidean distance
+    residual = current_time_series_for_cluster - projection
+    distance = np.sum(residual ** 2)
+    all_distances.append(distance)
+    # otherwise could use the norm
+    # distance = np.linalg.norm(current_time_series_for_cluster - x_proj)
+    # if distance is less than the previous ones, update the minimum
+    return distance
 
 
 def calculate_subspaces_for_clusters(cluster_id_dict, number_of_components, sla_data):
@@ -416,36 +426,90 @@ def plot_explained_variance_and_distances(out_dir):
     plt.close()
 
 
-def reestablish_connectivity(sea_level_anomaly_data, clustering):
+def reestablish_connectivity(sea_level_anomaly_data, clustering, cluster_array, subspaces):
     """
     Reestablish connectivity in the clusters
     :return:
     """
+    print(f"cluster array {cluster_array.shape}")
+    print(f"nans in cluster array {np.isnan(cluster_array).sum()}")
+    print(f"non-nans in cluster array {np.isfinite(cluster_array).sum()}")
+    print(
+        f"values in array {np.isfinite(cluster_array).sum() + np.isnan(cluster_array).sum()}, should be {cluster_array.size}")
+
     data = sea_level_anomaly_data["sla"].values
     lat_lon_to_grid_point_id = {}  # {lat, lon: grid_point_id}
-    latitude = sea_level_anomaly_data.latitude.values
+    latitudes = sea_level_anomaly_data.latitude.values
     longitudes = sea_level_anomaly_data.longitude.values
-    lat_range = len(latitude)
+    lat_range = len(latitudes)
     long_range = len(longitudes)
     nan_mask = numpy.isnan(data).any(axis=0)
     for i in tqdm(range(lat_range)):
         for j in (range(long_range)):
             if nan_mask[i, j]:  # points without valid data can be skipped
                 continue
-            lat_lon_to_grid_point_id[(latitude[i], longitudes[j])] = uuid.uuid4()
+            lat_lon_to_grid_point_id[(latitudes[i], longitudes[j])] = (i, j)
+    grid_point_to_lat_lon = {v: k for k, v in lat_lon_to_grid_point_id.items()}
 
-    # create grid graph that contains neighborhood information
-    grid_graph = nx.Graph()
-    neighbors = connectivity_helper.find_neighbors(sea_level_anomaly_data, nan_mask, lat_lon_to_grid_point_id)
-    grid_graph.add_nodes_from(neighbors.keys())
-    exit()
+    grid_graph = generate_grid_graph(lat_lon_to_grid_point_id, nan_mask, sea_level_anomaly_data)
+
+    cluster_graph = generate_cluster_graph(clustering, grid_graph, lat_lon_to_grid_point_id)
+    print(f"number of connected components in cluster graph: {nx.number_connected_components(cluster_graph)}")
+    # find the smallest connected component and merge with neighbor that fits best for most of its points
+    connected_component_graph, connected_components = generate_connected_component_graph(cluster_graph, grid_graph)
+    # extract the smallest component
+    sorted_connected_components_list = sorted(connected_components.values(), key=lambda c: c.size)
+    smallest_connected_component = sorted_connected_components_list[0]
+    print(f"smallest connected component size: {smallest_connected_component.size}")
+    neighbors = connected_component_graph.neighbors(smallest_connected_component.id)
+    sum = 0
+    for element in sorted_connected_components_list:
+        # print(f"connected component size: {element.size}")
+        sum += element.size
+    print(f"sum of all connected components: {sum}")
+    print(
+        f"number of connected components in connected component graph: {nx.number_connected_components(connected_component_graph)}")
+    # determine which neighbor is best to be merged with for the smallest connected component
+    # iterate over all nodes in component and find out which subspace is closest for most of its points
+    best_neighbor = None
+    neighbor_count = {}
     for neighbor in neighbors:
-        for neighbor2 in neighbors[neighbor]:
-            if neighbor != neighbor2:
-                grid_graph.add_edge(neighbor, neighbor2)
-    # create graph from clustering - each pair of nodes should be connected, if they belong to the same cluster and are neighbors
-    # maybe each node is an object? node has id, coordinates, cluster id, time series
-    # component: id. nodes. edges, cluster_id. size?
-    # cluster: id, components, size?
+        print(f" neighbors {neighbor}")
+        subspace_id = connected_components[neighbor].cluster_id
+        print(subspace_id)
+        neighbor_count[subspace_id] = 0
+    print(f"neighbor_count: {neighbor_count}")
+    for node in smallest_connected_component.nodes:
+        print(f"node: {node}")
+        time_series = data[:, node[0], node[1]]
+        # find the closest subspace
+        min_error = np.inf
+        closest_cluster = None
+        best_component = None
+        for subspace_id in neighbor_count:
+            subspace, mean = subspaces[subspace_id]
+            distance = subspace_timeseries_distance_calculation([], time_series, mean, subspace)
+            print(f"distance: {distance}")
+            if distance < min_error:
+                min_error = distance
+                closest_cluster = subspace_id
+        if closest_cluster is None:
+            logger.warning(f"no closest cluster found for node {node}")
+            neighbor_count[closest_cluster] += 1
+    # assign the current connected component to the neighbor that it is most similar to
+    best_neighbor = max(neighbor_count, key=neighbor_count.get)
+    print(f"best neighbor: {best_neighbor}")
+    # assign the cluster id of the best neighbor to all points in the smallest connected component
+    for node in smallest_connected_component.nodes:
+        cluster_array[node[0], node[1]] = best_neighbor
+        # TODO: change edges of node in cluster graph
+        # TODO: remove node from original cluster and add it to the best neighbor
+        (lat, lon) = grid_point_to_lat_lon[node]
+        clustering[smallest_connected_component.id].remove((lat, lon))
+        clustering[best_neighbor].append((lat, lon))
+
+    # recalculate connected components & connected component graph and start again
+
+    exit()
 
     pass
