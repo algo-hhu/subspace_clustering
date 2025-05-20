@@ -143,7 +143,13 @@ def generate_grid_graph(lat_lon_to_grid_point_id, nan_mask, sea_level_anomaly_da
     grid_graph.add_nodes_from(neighbors.keys())
     counter = 0
     for neighbor in neighbors:
+        # # check if neighbor is valid point
+        # if not nan_mask[neighbor[0], neighbor[1]]:
+        #     continue
         for neighbor2 in neighbors[neighbor]:
+            # # check if neighbor2 is valid point
+            # if not nan_mask[neighbor2[0], neighbor2[1]]:
+            #     continue
             if neighbor != neighbor2:
                 counter += 1
                 try:
@@ -153,7 +159,7 @@ def generate_grid_graph(lat_lon_to_grid_point_id, nan_mask, sea_level_anomaly_da
     return grid_graph
 
 
-def generate_cluster_graph(clustering, grid_graph, lat_lon_to_grid_point_id):
+def generate_cluster_graph(clustering, grid_graph, lat_lon_to_grid_point_id, nan_mask):
     """
     Generate a graph from the clustering data and the grid graph, in which there is an edge between two nodes if they belong to the same cluster and are neighbors in the grid graph
     :param clustering:

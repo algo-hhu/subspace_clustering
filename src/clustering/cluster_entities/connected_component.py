@@ -9,5 +9,5 @@ class ConnectedComponent:
     """
     id: uuid.UUID
     nodes: set[uuid.UUID]
-    cluster_id: int
+    cluster_id: float
     size: int

@@ -9,6 +9,7 @@ import xarray as xr
 from cartopy import crs as ccrs
 from matplotlib import pyplot as plt
 from shapely.geometry import Polygon, MultiPolygon
+from shapely.geometry.point import Point
 from shapely.ops import transform, unary_union
 
 
@@ -258,14 +259,12 @@ def plot_nan_values(data, time_step):
     plt.savefig(f'../output/nan_distribution_{time_step}.png')
 
 
-def turn_dict_into_gdf(cluster_dict: {float: [(float, float)]}, out_dir: str, name: str, grid_point_area: float,
-                       cluster_colors: [str]):
+def turn_dict_into_gdf(cluster_dict: {float: [(float, float)]}, grid_point_area: float, cluster_colors: [str]):
     """
     Turn a dictionary into a geopandas dataframe
+    :param cluster_colors:
     :param grid_point_area:
     :param cluster_dict:
-    :param out_dir:
-    :param name:
     :return:
     """
     land_gdf = geopandas.read_file("../data/ne_10m_land/ne_10m_land.shp")
@@ -318,6 +317,242 @@ def plot_clustering(cluster_dict, out_dir, resolution, name):
                       "deeppink", "red", "yellow", "darkseagreen", "azure", "lightsteelblue", "midnightblue", "plum",
                       "sienna", "chartreuse", "darkslategray", "darkmagenta", "crimson", "cornflowerblue", "chocolate",
                       "lemonchiffon", "lavenderblush", "navy", "purple"]
-    cluster_gdf, land_gdf = turn_dict_into_gdf(cluster_dict, out_dir, name, resolution / 2,
+    cluster_gdf, land_gdf = turn_dict_into_gdf(cluster_dict, resolution / 2,
                                                cluster_colors)
     plot_regions(land_gdf, out_dir, cluster_gdf, name)
+
+
+def plot_clustering_with_component_graph(cluster_dict, out_dir, resolution, name, connected_component_graph,
+                                         connected_components, grid_point_to_lat_lon):
+    """
+    Plot the clustering
+    :param grid_point_to_lat_lon:
+    :param connected_components:
+    :param connected_component_graph:
+    :param cluster_dict:
+    :param out_dir:
+    :param resolution:
+    :param name:
+    :return:
+    """
+    cluster_colors = ["gold", "yellowgreen", "dodgerblue", "rebeccapurple", "orchid", "maroon",
+                      "darkorange", "palegoldenrod", "darkolivegreen", "forestgreen", "teal", "darkblue", "darkorchid",
+                      "deeppink", "red", "yellow", "darkseagreen", "azure", "lightsteelblue", "midnightblue", "plum",
+                      "sienna", "chartreuse", "darkslategray", "darkmagenta", "crimson", "cornflowerblue", "chocolate",
+                      "lemonchiffon", "lavenderblush", "navy", "purple"]
+    cluster_gdf, land_gdf = turn_dict_into_gdf(cluster_dict, resolution / 2,
+                                               cluster_colors)
+    # calculate the middle coordinates for each connected component
+    mean_points = {}
+    connected_components_points_dict = {'name': [], 'geometry': [], 'color': []}
+    for connected_component in connected_components.values():
+        latitudes = []
+        longitudes = []
+        cluster_id = connected_component.cluster_id
+        matching_rows = cluster_gdf[cluster_gdf['cluster_id'] == cluster_id]
+        if not matching_rows.empty:
+            cluster_color = matching_rows.iloc[0]['color']
+        else:
+            # If no matching rows are found, assign a default color
+            cluster_color = "gray"
+        connected_components_points_dict['color'].append(cluster_color)
+        for node in connected_component.nodes:
+            (lat, lon) = grid_point_to_lat_lon[node]
+            longitudes.append(lon)
+            latitudes.append(lat)
+        # if the longitude crosses the -180/180 boundary, shift the longitudes
+        # to the 0/360 format and calculate the mean, and then shift back to -180/180
+        if min(longitudes) < -170 and max(longitudes) > 170:
+            longitudes = [lon + 360 if lon < 0 else lon for lon in longitudes]
+            mean_longitude = sum(longitudes) / len(longitudes)
+            if mean_longitude > 180:
+                mean_longitude -= 360
+        else:
+            mean_longitude = sum(longitudes) / len(longitudes)
+        mean_latitude = sum(latitudes) / len(latitudes)
+
+        mean_point = Point(mean_longitude, mean_latitude)
+        mean_points[connected_component.id] = mean_point
+        connected_components_points_dict['name'].append(connected_component.id)
+        connected_components_points_dict['geometry'].append(mean_point)
+        # create geodataframe with point in the center of the connected component
+    connected_component_lines_dict = {'name': [], 'geometry': []}
+    for connected_component_id in connected_components.keys():
+        neighbors = connected_component_graph.neighbors(connected_component_id)
+        for neighbor in neighbors:
+            # check if the line crosses the longitude -180/180 boundary, if it does, draw the line to the other side
+            if abs(mean_points[connected_component_id].x - mean_points[neighbor].x) > 100:
+                if mean_points[connected_component_id].x < 0:
+                    current_line = shapely.geometry.LineString(
+                        [mean_points[connected_component_id],
+                         shapely.geometry.Point(-178, mean_points[connected_component_id].y)])
+                elif mean_points[connected_component_id].x >= 0:
+                    current_line = shapely.geometry.LineString(
+                        [mean_points[connected_component_id],
+                         shapely.geometry.Point(178, mean_points[connected_component_id].y)])
+            else:
+                current_line = shapely.geometry.LineString([mean_points[neighbor], mean_points[connected_component_id]])
+            connected_component_lines_dict['name'].append(connected_component_id)
+            connected_component_lines_dict['geometry'].append(current_line)
+    connected_component_graph_nodes_gdf = geopandas.GeoDataFrame(connected_components_points_dict, geometry='geometry')
+    connected_component_graph_gdf = geopandas.GeoDataFrame(connected_component_lines_dict, geometry='geometry')
+    plot_regions_with_component_graph(land_gdf, out_dir, cluster_gdf, name, connected_component_graph_gdf,
+                                      connected_component_graph_nodes_gdf)
+
+
+def plot_regions_with_component_graph(land_gdf: geopandas.GeoDataFrame, output_path: str,
+                                      clusters_gdf: geopandas.GeoDataFrame, name: str, connected_component_graph_gdf,
+                                      connected_component_graph_nodes_gdf):
+    """
+    Plot the regions on a map
+    :param connected_component_graph_nodes_gdf:
+    :param connected_component_graph_gdf:
+    :param name:
+    :param land_gdf:
+    :param output_path:
+    :param clusters_gdf:
+    :return:
+    """
+
+    ax = land_gdf.plot(color="burlywood", figsize=(20, 12), zorder=0, alpha=0.5)
+    ax.set_facecolor("aliceblue")
+    clusters_gdf.plot(ax=ax, color=clusters_gdf["color"], zorder=4, linewidth=4)
+    # clusters_gdf.boundary.plot(ax=ax, color=clusters_gdf["color"], zorder=5, linewidth=0.5)
+    connected_component_graph_gdf.plot(ax=ax, color="black", zorder=5, linewidth=0.5)
+    connected_component_graph_nodes_gdf.plot(ax=ax, marker='o',
+                                             facecolor=connected_component_graph_nodes_gdf["color"],
+                                             edgecolor="black", zorder=6, markersize=8)
+    plt.xticks([-180, -135, -90, -45, 0, 45, 90, 135, 180])
+    plt.yticks([-90, -45, 0, 45, 90])
+    handles = [mpatches.Patch(color=color, label=f"Cluster {cluster_id}")
+               for cluster_id, color in
+               zip(clusters_gdf["cluster_id"].unique(), clusters_gdf["color"].unique())]
+    ax.legend(handles=handles, title="Clusters")
+    plt.savefig(os.path.join(output_path, f"{name}.svg"))
+    plt.savefig(os.path.join(output_path, f"{name}.png"))
+    plt.close()
+
+
+def plot_graph_on_clustering_map(cluster_dict, grid_graph, grid_point_to_lat_lon, resolution, out_dir,
+                                 name):
+    """
+    Plot the grid graph on the clustering map
+    :param grid_point_to_lat_lon:
+    :param out_dir:
+    :param cluster_dict:
+    :param grid_graph:
+    :param resolution:
+    :param name:
+    :return:
+    """
+    cluster_colors = ["gold", "yellowgreen", "dodgerblue", "rebeccapurple", "orchid", "maroon",
+                      "darkorange", "palegoldenrod", "darkolivegreen", "forestgreen", "teal", "darkblue", "darkorchid",
+                      "deeppink", "red", "yellow", "darkseagreen", "azure", "lightsteelblue", "midnightblue", "plum",
+                      "sienna", "chartreuse", "darkslategray", "darkmagenta", "crimson", "cornflowerblue", "chocolate",
+                      "lemonchiffon", "lavenderblush", "navy", "purple"]
+    cluster_gdf, land_gdf = turn_dict_into_gdf(cluster_dict, resolution / 2,
+                                               cluster_colors)
+    lines_dict = {'name': [], 'geometry': []}
+    nodes_dict = {'name': [], 'geometry': [], 'color': []}
+    for node in grid_graph.nodes:
+        lat, lon = grid_point_to_lat_lon[node]
+        nodes_dict['name'].append(node)
+        nodes_dict['geometry'].append(Point(lon, lat))
+        nodes_dict['color'].append('black')
+        for neighbors in grid_graph.neighbors(node):
+            lat2, lon2 = grid_point_to_lat_lon[neighbors]
+            # check if the line crosses the longitude -180/180 boundary, if it does, do not draw the line
+            if (lon < - 170 and lon2 > 170) or (lon > 170 and lon2 < -170):
+                continue
+            # create a line between the two points
+            line = shapely.geometry.LineString([(lon, lat), (lon2, lat2)])
+            lines_dict['geometry'].append(line)
+            lines_dict['name'].append(node)
+    edges_gdf = geopandas.GeoDataFrame(lines_dict, geometry='geometry')
+    nodes_gdf = geopandas.GeoDataFrame(nodes_dict, geometry='geometry')
+    plot_regions_with_component_graph(land_gdf, out_dir, cluster_gdf, name, edges_gdf, nodes_gdf)
+
+
+def plot_with_highlighting_of_component(clustering, smallest_component, neighbors, out_dir, name, resolution,
+                                        connected_components, grid_point_to_lat_lon):
+    """
+    Plot the clustering with highlighting of the smallest component and its neighbors
+    :param connected_components:
+    :param clustering:
+    :param smallest_component:
+    :param neighbors:
+    :param out_dir:
+    :param name:
+    :param resolution:
+    :return:
+    """
+    cluster_colors = ["gold", "yellowgreen", "dodgerblue", "rebeccapurple", "orchid", "maroon",
+                      "darkorange", "palegoldenrod", "darkolivegreen", "forestgreen", "teal", "darkblue", "darkorchid",
+                      "deeppink", "red", "yellow", "darkseagreen", "azure", "lightsteelblue", "midnightblue", "plum",
+                      "sienna", "chartreuse", "darkslategray", "darkmagenta", "crimson", "cornflowerblue", "chocolate",
+                      "lemonchiffon", "lavenderblush", "navy", "purple"]
+    clusters_gdf, land_gdf = turn_dict_into_gdf(clustering, resolution / 2,
+                                                cluster_colors)
+    latitudes = []
+    longitudes = []
+    smallest_component_dict = {'name': [], 'geometry': [], 'color': []}
+    for node in smallest_component.nodes:
+        latitudes.append(grid_point_to_lat_lon[node][0])
+        longitudes.append(grid_point_to_lat_lon[node][1])
+    mean_coordinates_smallest_component = (sum(latitudes) / len(latitudes), sum(longitudes) / len(longitudes))
+    smallest_component_dict['name'].append(smallest_component.id)
+    smallest_component_dict['geometry'].append(Point(mean_coordinates_smallest_component[1],
+                                                     mean_coordinates_smallest_component[0]))
+    # extract the color of the smallest component
+    matching_rows = clusters_gdf[clusters_gdf['cluster_id'] == smallest_component.cluster_id]
+    if not matching_rows.empty:
+        cluster_color = matching_rows.iloc[0]['color']
+    else:
+        # If no matching rows are found, assign a default color
+        cluster_color = "gray"
+    smallest_component_dict['color'].append(cluster_color)
+    smallest_component_gdf = geopandas.GeoDataFrame(smallest_component_dict, geometry='geometry')
+
+    neighbors_dict = {'name': [], 'geometry': [], 'color': []}
+    for neighbor in neighbors:
+        neighbor_component = connected_components[neighbor]
+        latitudes = []
+        longitudes = []
+        for node in neighbor_component.nodes:
+            latitudes.append(grid_point_to_lat_lon[node][0])
+            longitudes.append(grid_point_to_lat_lon[node][1])
+        # shift longitudes to 0/360 format if they cross the -180/180 boundary and back to -180/180 format
+        if min(longitudes) < -170 and max(longitudes) > 170:
+            longitudes = [lon + 360 if lon < 0 else lon for lon in longitudes]
+            mean_longitude = sum(longitudes) / len(longitudes)
+            if mean_longitude > 180:
+                mean_longitude -= 360
+        else:
+            mean_longitude = sum(longitudes) / len(longitudes)
+        mean_coordinates_neighbor = (sum(latitudes) / len(latitudes), mean_longitude)
+        # extract the color of the neighbor component
+        matching_rows = clusters_gdf[clusters_gdf['cluster_id'] == neighbor_component.cluster_id]
+        if not matching_rows.empty:
+            cluster_color = matching_rows.iloc[0]['color']
+        else:
+            cluster_color = "gray"
+        neighbors_dict['color'].append(cluster_color)
+        neighbors_dict['name'].append(neighbor_component.id)
+        neighbors_dict['geometry'].append(Point(mean_coordinates_neighbor[1], mean_coordinates_neighbor[0]))
+    neighbors_gdf = geopandas.GeoDataFrame(neighbors_dict, geometry='geometry')
+
+    ax = land_gdf.plot(color="burlywood", figsize=(20, 12), zorder=0, alpha=0.5)
+    ax.set_facecolor("aliceblue")
+    clusters_gdf.plot(ax=ax, color=clusters_gdf["color"], zorder=4, linewidth=4)
+    # clusters_gdf.boundary.plot(ax=ax, color=clusters_gdf["color"], zorder=5, linewidth=0.5)
+    smallest_component_gdf.plot(ax=ax, marker='o', facecolor=smallest_component_gdf['color'], edgecolor='red',
+                                zorder=5, markersize=10)
+    neighbors_gdf.plot(ax=ax, marker='o', facecolor=neighbors_gdf['color'], edgecolor="black", zorder=6, markersize=10)
+    plt.xticks([-180, -135, -90, -45, 0, 45, 90, 135, 180])
+    plt.yticks([-90, -45, 0, 45, 90])
+    handles = [mpatches.Patch(color=color, label=f"Cluster {cluster_id}")
+               for cluster_id, color in
+               zip(clusters_gdf["cluster_id"].unique(), clusters_gdf["color"].unique())]
+    ax.legend(handles=handles, title="Clusters")
+    plt.savefig(os.path.join(out_dir, f"{name}.png"))
+    plt.close()
