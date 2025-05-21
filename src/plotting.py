@@ -1,6 +1,7 @@
 import colorsys
 import os
 import random
+from statistics import median
 
 import geopandas
 import matplotlib.patches as mpatches
@@ -106,7 +107,7 @@ def plot_regions(land_gdf: geopandas.GeoDataFrame, output_path: str,
                for cluster_id, color in
                zip(clusters_gdf["cluster_id"].unique(), clusters_gdf["color"].unique())]
     ax.legend(handles=handles, title="Clusters")
-    plt.savefig(os.path.join(output_path, f"{name}.svg"))
+    # plt.savefig(os.path.join(output_path, f"{name}.svg"))
     plt.savefig(os.path.join(output_path, f"{name}.png"))
     plt.close()
     # # also plot ranging from 0 to 360 degrees longitude for better comparability of the images
@@ -364,14 +365,14 @@ def plot_clustering_with_component_graph(cluster_dict, out_dir, resolution, name
         # to the 0/360 format and calculate the mean, and then shift back to -180/180
         if min(longitudes) < -170 and max(longitudes) > 170:
             longitudes = [lon + 360 if lon < 0 else lon for lon in longitudes]
-            mean_longitude = sum(longitudes) / len(longitudes)
-            if mean_longitude > 180:
-                mean_longitude -= 360
+            median_longitude = median(longitudes)
+            if median_longitude > 180:
+                median_longitude -= 360
         else:
-            mean_longitude = sum(longitudes) / len(longitudes)
-        mean_latitude = sum(latitudes) / len(latitudes)
+            median_longitude = median(longitudes)
+        median_latitude = median(latitudes)
 
-        mean_point = Point(mean_longitude, mean_latitude)
+        mean_point = Point(median_longitude, median_latitude)
         mean_points[connected_component.id] = mean_point
         connected_components_points_dict['name'].append(connected_component.id)
         connected_components_points_dict['geometry'].append(mean_point)
@@ -428,7 +429,6 @@ def plot_regions_with_component_graph(land_gdf: geopandas.GeoDataFrame, output_p
                for cluster_id, color in
                zip(clusters_gdf["cluster_id"].unique(), clusters_gdf["color"].unique())]
     ax.legend(handles=handles, title="Clusters")
-    plt.savefig(os.path.join(output_path, f"{name}.svg"))
     plt.savefig(os.path.join(output_path, f"{name}.png"))
     plt.close()
 
@@ -524,12 +524,12 @@ def plot_with_highlighting_of_component(clustering, smallest_component, neighbor
         # shift longitudes to 0/360 format if they cross the -180/180 boundary and back to -180/180 format
         if min(longitudes) < -170 and max(longitudes) > 170:
             longitudes = [lon + 360 if lon < 0 else lon for lon in longitudes]
-            mean_longitude = sum(longitudes) / len(longitudes)
-            if mean_longitude > 180:
-                mean_longitude -= 360
+            median_longitude = median(longitudes)
+            if median_longitude > 180:
+                median_longitude -= 360
         else:
-            mean_longitude = sum(longitudes) / len(longitudes)
-        mean_coordinates_neighbor = (sum(latitudes) / len(latitudes), mean_longitude)
+            median_longitude = median(longitudes)
+        mean_coordinates_neighbor = (median(latitudes), median_longitude)
         # extract the color of the neighbor component
         matching_rows = clusters_gdf[clusters_gdf['cluster_id'] == neighbor_component.cluster_id]
         if not matching_rows.empty:

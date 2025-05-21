@@ -49,3 +49,26 @@ def euclidean_distance(lat1: float, long1: float, timeseries1: [float], lat2: fl
     """
     distance = np.linalg.norm(np.array(timeseries1) - np.array(timeseries2))
     return distance
+
+
+def subspace_timeseries_distance_calculation(all_distances, current_time_series, mean, subspace):
+    """
+    Calculate the distance of the current time series to the subspace
+    :param all_distances:
+    :param current_time_series:
+    :param mean:
+    :param subspace:
+    :return:
+    """
+    distance = 0
+    current_time_series_for_cluster = current_time_series - mean
+    # project current time series onto subspace
+    projection = subspace.T @ (subspace @ current_time_series_for_cluster)
+    # use squared Euclidean distance
+    residual = current_time_series_for_cluster - projection
+    distance = np.sum(residual ** 2)
+    all_distances.append(distance)
+    # otherwise could use the norm
+    # distance = np.linalg.norm(current_time_series_for_cluster - x_proj)
+    # if distance is less than the previous ones, update the minimum
+    return distance

@@ -211,10 +211,12 @@ def generate_connected_component_graph(cluster_graph, grid_graph):
     # there should be an edge between each pair of connected components in the graph, if any of their nodes are neighbors in the grid graph
     for connected_component_1 in connected_components.values():
         for connected_component_2 in connected_components.values():
-            for node in connected_component_1.nodes:
-                neighbors = grid_graph.neighbors(node)
-                for neighbor in neighbors:
-                    if neighbor in connected_component_2.nodes:
-                        connected_component_graph.add_edge(connected_component_1.id, connected_component_2.id)
-                        break
+            if connected_component_1.id != connected_component_2.id:
+                # check if any of the nodes in the two connected components are neighbors in the grid graph
+                for node in connected_component_1.nodes:
+                    neighbors = grid_graph.neighbors(node)
+                    for neighbor in neighbors:
+                        if neighbor in connected_component_2.nodes:
+                            connected_component_graph.add_edge(connected_component_1.id, connected_component_2.id)
+                            break
     return connected_component_graph, connected_components
