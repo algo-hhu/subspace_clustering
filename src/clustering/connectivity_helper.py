@@ -29,16 +29,23 @@ def find_neighbors(sea_level_anomaly_data, nan_mask, lat_lon_to_grid_point_id):
 
     first_longitude, last_longitude, lat_for_first_longitude, lat_for_last_longitude = find_first_last_longitude(
         lat_range, long_range, nan_mask)
-    neighbors = iteratively_find_neighbors(data, latitudes, longitudes, lat_range, long_range, first_longitude,
+    neighbors = iteratively_find_neighbors(latitudes, longitudes, lat_range, long_range, first_longitude,
                                            last_longitude,
                                            nan_mask, lat_lon_to_grid_point_id)
     return neighbors
 
 
-def iteratively_find_neighbors(data, latitudes, longitudes, lat_range, long_range, first_longitude, last_longitude,
+def iteratively_find_neighbors(latitudes, longitudes, lat_range, long_range, first_longitude, last_longitude,
                                nan_mask, lat_lon_to_grid_point_id):
     """
-
+    :param latitudes:
+    :param longitudes:
+    :param lat_range:
+    :param long_range:
+    :param first_longitude:
+    :param last_longitude:
+    :param nan_mask:
+    :param lat_lon_to_grid_point_id:
     :return:
     """
     neighbors = {}  # {grid_point_id: {neighbor_grid_point1, neighbor_grid_point2, ...}}
@@ -137,17 +144,17 @@ def generate_grid_graph(lat_lon_to_grid_point_id, nan_mask, sea_level_anomaly_da
     :param sea_level_anomaly_data:
     :return:
     """
-    # create grid graph that contains neighborhood information
+    # create a grid graph that contains neighborhood information
     grid_graph = nx.Graph()
     neighbors = find_neighbors(sea_level_anomaly_data, nan_mask, lat_lon_to_grid_point_id)
     grid_graph.add_nodes_from(neighbors.keys())
     counter = 0
     for neighbor in neighbors:
-        # # check if neighbor is valid point
+        # # check if neighbor is a valid point
         # if not nan_mask[neighbor[0], neighbor[1]]:
         #     continue
         for neighbor2 in neighbors[neighbor]:
-            # # check if neighbor2 is valid point
+            # # check if neighbor2 is a valid point
             # if not nan_mask[neighbor2[0], neighbor2[1]]:
             #     continue
             if neighbor != neighbor2:
@@ -159,64 +166,97 @@ def generate_grid_graph(lat_lon_to_grid_point_id, nan_mask, sea_level_anomaly_da
     return grid_graph
 
 
-def generate_cluster_graph(clustering, grid_graph, lat_lon_to_grid_point_id, nan_mask):
+def generate_cluster_graph(clustering, grid_graph, lat_lon_to_grid_point_id):
     """
-    Generate a graph from the clustering data and the grid graph, in which there is an edge between two nodes if they belong to the same cluster and are neighbors in the grid graph
-    :param clustering:
-    :param grid_graph:
-    :param lat_lon_to_grid_point_id:
-    :return:
+    Generate a graph from the clustering data and the grid graph, in which there is an edge between two nodes if they
+    belong to the same cluster and are neighbors in the grid graph
+    :param clustering: Mapping of cluster_id to a list of (lat, lon) coordinates
+    :param grid_graph: grid graph with spatial relationships
+    :param lat_lon_to_grid_point_id: Mapping from (lat, lon) to grid point IDs
+    :return: Cluster graph where edges connect same-cluster neighbors
     """
+    # Step 1: Create a mapping of lat/lon to grid point id
     # map lat/lon to grid point id in clustering
-    clustering_with_grid_points = {}
-    for cluster in clustering.keys():
-        cluster_id = cluster
-        clustering_with_grid_points[cluster_id] = []
-        for lat_lon in clustering[cluster]:
-            grid_point_id = lat_lon_to_grid_point_id[lat_lon]
-            clustering_with_grid_points[cluster_id].append(grid_point_id)
-    # create cluster graph where a pair of nodes is connected if they belong to the same cluster and have an edge in the grid graph
+    cluster_id_to_grid_point_set = {}
+    # List to store (node_id, attribute_dict) for batch node addition.
+    # Ensures each node is added once with its cluster_id.
+    nodes_to_add_to_graph = []
+    # Keep track of grid_points already prepared for nodes_to_add_to_graph
+    processed_grid_points = set()
+    for cluster_id, lat_lon_list in clustering.items():
+        current_cluster_grid_points_set = set()
+        for lat_lon in lat_lon_list:
+            grid_point_id = lat_lon_to_grid_point_id.get(lat_lon)
+            if grid_point_id is not None:
+                current_cluster_grid_points_set.add(grid_point_id)
+                if grid_point_id not in processed_grid_points:
+                    nodes_to_add_to_graph.append((grid_point_id, {"cluster_id": cluster_id}))
+                    processed_grid_points.add(grid_point_id)
+
+            if current_cluster_grid_points_set:  # Only store if the cluster has valid grid points
+                cluster_id_to_grid_point_set[cluster_id] = current_cluster_grid_points_set
+
+    # Step 2: Create the cluster graph
+    # create a cluster graph where a pair of nodes is connected if they belong to the same cluster and have an edge in the grid graph
     cluster_graph = nx.Graph()
-    for cluster in clustering_with_grid_points.keys():
-        cluster_id = cluster
-        for grid_point in clustering_with_grid_points[cluster]:
-            cluster_graph.add_node(grid_point, cluster_id=cluster_id)
+    # Add all nodes to the graph in one batch operation
+    if nodes_to_add_to_graph:
+        cluster_graph.add_nodes_from(nodes_to_add_to_graph)
+
+    edges_to_add_to_graph = set()
+    for cluster_id, grid_points_in_cluster_set in cluster_id_to_grid_point_set.items():
+        for grid_point in grid_points_in_cluster_set:
             neighbors = grid_graph.neighbors(grid_point)  # get potential neighbors from grid graph
             for neighbor in neighbors:
-                if neighbor in clustering_with_grid_points[
-                    cluster]:  # check if neighbor is in the same cluster and is already in the cluster graph
-                    if cluster_graph.has_node(neighbor):
-                        cluster_graph.add_edge(grid_point, neighbor)
+                if neighbor in grid_points_in_cluster_set:  # check if a neighbor is in the same cluster and is already in the cluster graph
+                    # Add edge. Ensure consistent order to avoid (u,v) and (v,u) duplicates in the set.
+                    # NetworkX's add_edges_from handles this, but for the set, it's good practice.
+                    if grid_point < neighbor:
+                        edges_to_add_to_graph.add((grid_point, neighbor))
+                    else:
+                        edges_to_add_to_graph.add((neighbor, grid_point))
+    # Add all collected edges in one batch operation
+    if edges_to_add_to_graph:
+        cluster_graph.add_edges_from(list(edges_to_add_to_graph))
     return cluster_graph
 
 
 def generate_connected_component_graph(cluster_graph, grid_graph):
     """
-    Generate a connected component graph from the cluster graph, in which each node is a connected component and there
+    Generate a connected component graph from the cluster graph, in which each node is a connected component, and there
     is an edge between nodes if any of their nodes are neighbors in the grid graph
     :param cluster_graph:
     :param grid_graph:
     :return:
     """
     connected_component_graph = nx.Graph()
-    counter = 0
-    connected_components = {}
-    for connected_component in nx.connected_components(cluster_graph):
-        counter += 1
-        first_node = next(iter(connected_component))
+
+    component_id_to_object_map = {}  # Stores ConnectedComponent objects by their ID
+    node_to_component_id_map = {}  # Maps original grid node ID to its component's UUID
+
+    # Step 1: Identify components, create ConnectedComponent objects, and populate maps
+    for node_set_for_component in nx.connected_components(cluster_graph):
+        if not node_set_for_component:  # Should not happen with non-empty components
+            logger.warning("Empty node set found in connected components. Skipping...")
+            continue
+        first_node = next(iter(node_set_for_component))
         cluster_id = cluster_graph.nodes[first_node]["cluster_id"]
-        current_component = ConnectedComponent(uuid.uuid4(), connected_component, cluster_id, len(connected_component))
+        # ConnectedComponent class takes (id, nodes_set, original_cluster_attr, size)
+        current_component = ConnectedComponent(uuid.uuid4(), node_set_for_component, cluster_id,
+                                               len(node_set_for_component))
         connected_component_graph.add_node(current_component.id, component=current_component)
-        connected_components[current_component.id] = current_component
-    # there should be an edge between each pair of connected components in the graph, if any of their nodes are neighbors in the grid graph
-    for connected_component_1 in connected_components.values():
-        for connected_component_2 in connected_components.values():
-            if connected_component_1.id != connected_component_2.id:
-                # check if any of the nodes in the two connected components are neighbors in the grid graph
-                for node in connected_component_1.nodes:
-                    neighbors = grid_graph.neighbors(node)
-                    for neighbor in neighbors:
-                        if neighbor in connected_component_2.nodes:
-                            connected_component_graph.add_edge(connected_component_1.id, connected_component_2.id)
-                            break
-    return connected_component_graph, connected_components
+        component_id_to_object_map[current_component.id] = current_component
+        for node in node_set_for_component:
+            node_to_component_id_map[node] = current_component.id
+
+    # Step 2: Add edges between components if their constituent nodes are neighbors in the grid
+    for edge in grid_graph.edges():
+        node1 = edge[0]
+        node2 = edge[1]
+        if node1 in node_to_component_id_map and node2 in node_to_component_id_map:
+            connected_component_1_id = node_to_component_id_map[node1]
+            connected_component_2_id = node_to_component_id_map[node2]
+            if connected_component_1_id != connected_component_2_id:
+                connected_component_graph.add_edge(connected_component_1_id, connected_component_2_id)
+
+    return connected_component_graph, component_id_to_object_map

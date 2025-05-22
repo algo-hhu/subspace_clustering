@@ -35,7 +35,7 @@ async def main():
     filtering_sla = False
     half_width = 500
     # set parameters for initial clustering
-    out_dir = "../output/test_reestablishing_connectivity4/"
+    out_dir = "../output/test_reestablishing_connectivity5/"
     resolution = 2  # resolution of the grid
     full_hierarchical_clustering = False  # Clustering all grid points hierarchically with a given distance function
     do_neighborhood_clustering = False  # Clustering the grid points hierarchically that are neighbors to each other

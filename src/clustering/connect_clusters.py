@@ -1,9 +1,12 @@
-import numpy
+import cProfile
+import pstats
+import time
+
+import networkx as nx
 import numpy
 import numpy as np
 from loguru import logger
 from tqdm import tqdm
-import time
 
 from src.clustering.connectivity_helper import generate_grid_graph, generate_cluster_graph, \
     generate_connected_component_graph
@@ -14,9 +17,13 @@ from src.plotting import plot_graph_on_clustering_map, plot_with_highlighting_of
 def reestablish_connectivity(sea_level_anomaly_data, clustering, cluster_array, subspaces, number, out_dir):
     """
     Reestablish connectivity in the clusters
+    TODO: change grid-point-id to lat, lon? 
     :return:
     """
-    time = time.time()
+    # # use profiler to find bottlenecks
+    profiler = cProfile.Profile()
+    profiler.enable()
+    current_time = time.time()
     print(f"cluster array {cluster_array.shape}")
     print(f"nans in cluster array {np.isnan(cluster_array).sum()}")
     print(f"non-nans in cluster array {np.isfinite(cluster_array).sum()}")
@@ -44,7 +51,7 @@ def reestablish_connectivity(sea_level_anomaly_data, clustering, cluster_array, 
     # plot_graph_on_clustering_map(clustering, grid_graph, grid_point_to_lat_lon, resolution, out_dir,
     #                              name="grid_graph")
 
-    cluster_graph = generate_cluster_graph(clustering, grid_graph, lat_lon_to_grid_point_id, nan_mask)
+    cluster_graph = generate_cluster_graph(clustering, grid_graph, lat_lon_to_grid_point_id)
     # plot_graph_on_clustering_map(clustering, cluster_graph, grid_point_to_lat_lon, resolution, out_dir,
     #                              name="cluster_graph")
     # print(f"number of connected components in cluster graph: {nx.number_connected_components(cluster_graph)}")
@@ -58,7 +65,7 @@ def reestablish_connectivity(sea_level_anomaly_data, clustering, cluster_array, 
         counter += 1
         current_number_of_components = len(connected_components)
         # recalculate connected components & connected component graph and start again
-        cluster_graph = generate_cluster_graph(clustering, grid_graph, lat_lon_to_grid_point_id, nan_mask)
+        cluster_graph = generate_cluster_graph(clustering, grid_graph, lat_lon_to_grid_point_id)
         connected_component_graph, connected_components = generate_connected_component_graph(cluster_graph, grid_graph)
 
         # extract the smallest component
@@ -108,7 +115,9 @@ def reestablish_connectivity(sea_level_anomaly_data, clustering, cluster_array, 
                                          name=f"{number}cluster_graph_{counter}_error")
             exit()
 
-        # if counter % 50 == 0:
+        if counter % 50 == 0:
+            print(
+                f"number of connected components in cluster graph: {nx.number_connected_components(cluster_graph)} and are in the component graph: {len(connected_component_graph.nodes)}")
         #     name = f"connected_clustering_{len(connected_components)}"
         #     plot_clustering_with_component_graph(clustering, out_dir, resolution,
         #                                          name, connected_component_graph, connected_components,
@@ -131,15 +140,12 @@ def reestablish_connectivity(sea_level_anomaly_data, clustering, cluster_array, 
             (lat, lon) = grid_point_to_lat_lon[node]
             clustering[smallest_connected_component.cluster_id].remove((lat, lon))
             clustering[best_neighbor].append((lat, lon))
-            # cluster_graph.remove_node(node)
-            # cluster_graph.add_node(node, cluster_id=best_neighbor)
-            # for neighbor in grid_graph.neighbors(node):
-            #     if neighbor in smallest_connected_component.nodes:
-            #         cluster_graph.add_edge(neighbor, node)
-            #         if (lat, lon) in clustering[best_neighbor]:
-            #             cluster_graph.add_edge(neighbor, node)
-            #         else:
-            #             continue
+            # change edges in cluster graph
+            # for neighbor in list(grid_graph.neighbors(node)):
+            #     if grid_point_to_lat_lon[neighbor] in clustering[best_neighbor]:
+            #         cluster_graph.add_edge(node, neighbor)
+            # print(f"neighbors of node {node}: {list(cluster_graph.neighbors(node))}")
+        # exit()
 
     # for connected_component in connected_components.values():
     #     print(f"cluster: {connected_component.cluster_id}")
@@ -178,6 +184,9 @@ def reestablish_connectivity(sea_level_anomaly_data, clustering, cluster_array, 
     # plot clustering
     plot_clustering(new_clustering, out_dir, resolution, name=f"{number}_connected_clustering_new_colors")
     plot_clustering(clustering, out_dir, resolution, name=f"{number}connected_clustering_old_colors")
-    print(f"time taken for reestablishing connectivity: {time.time() - time}")
+    print(f"time taken for reestablishing connectivity: {time.time() - current_time}")
+    profiler.disable()
+    stats = pstats.Stats(profiler).sort_stats('cumtime')
+    stats.print_stats()
     exit()
     return new_clustering
