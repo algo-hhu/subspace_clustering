@@ -1,5 +1,3 @@
-import cProfile
-import pstats
 import time
 
 import networkx as nx
@@ -14,22 +12,30 @@ from src.distance import subspace_timeseries_distance_calculation
 from src.plotting import plot_graph_on_clustering_map, plot_with_highlighting_of_component, plot_clustering
 
 
-def reestablish_connectivity(sea_level_anomaly_data, clustering, cluster_array, subspaces, number, out_dir):
+def reestablish_connectivity(sea_level_anomaly_data, clustering, cluster_array, subspaces, number, out_dir,
+                             cluster_id_to_color):
     """
     Reestablish connectivity in the clusters
-    TODO: change grid-point-id to lat, lon? 
+    TODO: change grid-point-id to lat, lon?
+    :param sea_level_anomaly_data: xarray dataset with sea level anomaly data
+    :param clustering: dictionary with cluster ids as keys and list of grid points as values
+    :param cluster_array: 2D numpy array with cluster ids for each grid point
+    :param subspaces: dictionary with cluster ids as keys and tuple of (subspace, mean) as values
+    :param number: number of clusters to reduce to
+    :param out_dir: output directory to save plots
+    :param cluster_id_to_color: dictionary with cluster ids as keys and colors as values
     :return:
     """
     # # use profiler to find bottlenecks
-    profiler = cProfile.Profile()
-    profiler.enable()
+    # profiler = cProfile.Profile()
+    # profiler.enable()
     current_time = time.time()
-    print(f"cluster array {cluster_array.shape}")
-    print(f"nans in cluster array {np.isnan(cluster_array).sum()}")
-    print(f"non-nans in cluster array {np.isfinite(cluster_array).sum()}")
-    print(
-        f"values in array {np.isfinite(cluster_array).sum() + np.isnan(cluster_array).sum()}, should be {cluster_array.size}")
-    print(f"cluster ids:  {clustering.keys()}")
+    # print(f"cluster array {cluster_array.shape}")
+    # print(f"nans in cluster array {np.isnan(cluster_array).sum()}")
+    # print(f"non-nans in cluster array {np.isfinite(cluster_array).sum()}")
+    # print(
+    #     f"values in array {np.isfinite(cluster_array).sum() + np.isnan(cluster_array).sum()}, should be {cluster_array.size}")
+    # print(f"cluster ids:  {clustering.keys()}")
     k = len(clustering)
     data = sea_level_anomaly_data["sla"].values
     lat_lon_to_grid_point_id = {}  # {lat, lon: grid_point_id}
@@ -115,7 +121,7 @@ def reestablish_connectivity(sea_level_anomaly_data, clustering, cluster_array, 
                                          name=f"{number}cluster_graph_{counter}_error")
             exit()
 
-        if counter % 50 == 0:
+        if counter % 100 == 0:
             print(
                 f"number of connected components in cluster graph: {nx.number_connected_components(cluster_graph)} and are in the component graph: {len(connected_component_graph.nodes)}")
         #     name = f"connected_clustering_{len(connected_components)}"
@@ -160,6 +166,8 @@ def reestablish_connectivity(sea_level_anomaly_data, clustering, cluster_array, 
             empty_cluster_ids.add(cluster)
 
     new_clustering = {}
+    new_clustering_with_lat_lon = {}
+
     counter = 0
     print(f"cluster ids: {cluster_ids}")
     print(f"empty cluster ids: {empty_cluster_ids}")
@@ -175,18 +183,21 @@ def reestablish_connectivity(sea_level_anomaly_data, clustering, cluster_array, 
                 counter += 1
             else:
                 current_cluster_id = empty_cluster_ids.pop()
-        print(current_cluster_id)
         new_clustering[current_cluster_id] = []
+        new_clustering_with_lat_lon[current_cluster_id] = []
         for node in connected_component.nodes:
-            lat_lon = grid_point_to_lat_lon[node]
-            new_clustering[current_cluster_id].append(lat_lon)
+            grid_point = tuple(node)
+            lat_lon = grid_point_to_lat_lon[grid_point]
+            new_clustering[current_cluster_id].append(grid_point)
+            new_clustering_with_lat_lon[current_cluster_id].append(lat_lon)
 
     # plot clustering
-    plot_clustering(new_clustering, out_dir, resolution, name=f"{number}_connected_clustering_new_colors")
-    plot_clustering(clustering, out_dir, resolution, name=f"{number}connected_clustering_old_colors")
+    name = f"{number}"
+    plot_clustering(new_clustering_with_lat_lon, out_dir, resolution, name, cluster_id_to_color)
+    name = f"{number}old_colors"
+    plot_clustering(clustering, out_dir, resolution, name, cluster_id_to_color)
     print(f"time taken for reestablishing connectivity: {time.time() - current_time}")
-    profiler.disable()
-    stats = pstats.Stats(profiler).sort_stats('cumtime')
-    stats.print_stats()
-    exit()
+    # profiler.disable()
+    # stats = pstats.Stats(profiler).sort_stats('cumtime')
+    # stats.print_stats()
     return new_clustering

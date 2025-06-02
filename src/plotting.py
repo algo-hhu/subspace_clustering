@@ -260,23 +260,22 @@ def plot_nan_values(data, time_step):
     plt.savefig(f'../output/nan_distribution_{time_step}.png')
 
 
-def turn_dict_into_gdf(cluster_dict: {float: [(float, float)]}, grid_point_area: float, cluster_colors: [str]):
+def turn_dict_into_gdf(cluster_dict: {float: [(float, float)]}, grid_point_area: float,
+                       cluster_id_to_color: {int: str}):
     """
     Turn a dictionary into a geopandas dataframe
-    :param cluster_colors:
+    :param cluster_id_to_color:
     :param grid_point_area:
     :param cluster_dict:
     :return:
     """
     land_gdf = geopandas.read_file("../data/ne_10m_land/ne_10m_land.shp")
-    if not len(cluster_colors) >= len(cluster_dict.keys()):
-        colors = random_color_generator(len(cluster_dict.keys()) + 1)
-    else:
-        colors = cluster_colors[:len(cluster_dict.keys())]
+
     # turn clusters into a geopandas dataframe
     # counter = 0
     cluster_ids = []
     polygons = []
+    colors = []
     for cluster in cluster_dict.keys():
         # create a polygon from all grid points in the current cluster
         cluster_squares = []
@@ -291,7 +290,7 @@ def turn_dict_into_gdf(cluster_dict: {float: [(float, float)]}, grid_point_area:
                 (grid_point[1] - grid_point_area, grid_point[0] + grid_point_area)
             ])
             cluster_squares.append(square)
-
+        colors.append(cluster_id_to_color[cluster])
         # Merge all squares in the cluster using unary_union
         merged_polygon = unary_union(cluster_squares)
         polygons.append(merged_polygon)
@@ -304,22 +303,44 @@ def turn_dict_into_gdf(cluster_dict: {float: [(float, float)]}, grid_point_area:
     return cluster_gdf, land_gdf
 
 
-def plot_clustering(cluster_dict, out_dir, resolution, name):
+def plot_clustering_without_preassigned_colors(cluster_dict, out_dir, resolution, name):
     """
-    Plot the clustering
+    Plot the clustering without preassigned colors
     :param cluster_dict:
     :param out_dir:
     :param resolution:
     :param name:
     :return:
     """
+    cluster_dict = dict(sorted(cluster_dict.items(), key=lambda item: item[0]))
     cluster_colors = ["gold", "yellowgreen", "dodgerblue", "rebeccapurple", "orchid", "maroon",
-                      "darkorange", "palegoldenrod", "darkolivegreen", "forestgreen", "teal", "darkblue", "darkorchid",
-                      "deeppink", "red", "yellow", "darkseagreen", "azure", "lightsteelblue", "midnightblue", "plum",
-                      "sienna", "chartreuse", "darkslategray", "darkmagenta", "crimson", "cornflowerblue", "chocolate",
+                      "darkorange", "palegoldenrod", "darkolivegreen", "forestgreen", "teal", "darkblue",
+                      "darkorchid",
+                      "deeppink", "red", "yellow", "darkseagreen", "azure", "lightsteelblue", "midnightblue",
+                      "plum",
+                      "sienna", "chartreuse", "darkslategray", "darkmagenta", "crimson", "cornflowerblue",
+                      "chocolate",
                       "lemonchiffon", "lavenderblush", "navy", "purple"]
+    if len(cluster_dict) > len(cluster_colors):
+        cluster_colors = random_color_generator(len(cluster_dict) + 1)
+    cluster_id_to_color = {cluster_id: cluster_colors[i] for i, cluster_id in enumerate(cluster_dict.keys())}
+    plot_clustering(cluster_dict, out_dir, resolution, name, cluster_id_to_color)
+
+
+def plot_clustering(cluster_dict, out_dir, resolution, name, cluster_id_to_color):
+    """
+    Plot the clustering
+    :param cluster_id_to_color:
+    :param cluster_dict:
+    :param out_dir:
+    :param resolution:
+    :param name:
+    :return:
+    """
+    # sort cluster_dict by cluster_id
+    cluster_dict = dict(sorted(cluster_dict.items(), key=lambda item: item[0]))
     cluster_gdf, land_gdf = turn_dict_into_gdf(cluster_dict, resolution / 2,
-                                               cluster_colors)
+                                               cluster_id_to_color)
     plot_regions(land_gdf, out_dir, cluster_gdf, name)
 
 

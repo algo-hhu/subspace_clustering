@@ -2,12 +2,11 @@ import math
 
 import haversine
 import numpy as np
-import xarray
 from joblib import Parallel, delayed
 from loguru import logger
 
 
-class SphericalGaussFilter:
+class SphericalGaussFilterClustering:
     def __init__(self, lat: np.ndarray, lon: np.ndarray, half_width: int):
         """
         Initialize gauss filter with given coordinate system
@@ -106,69 +105,71 @@ class SphericalGaussFilter:
                         distances[i] < self.cut_off]
         return lat_lon_dist
 
-    def parallelized_filter(self, data: xarray.Dataset):
+    def parallelized_filter(self, clustering_array: np.array):
         """
         Apply the Gaussian filter to each data point in parallel
-        :param data:
+        :param clustering_array:
         :return:
         """
-        max_dist_in_degrees = np.ceil(self.cut_off / 111)  # determine the farthest distance in degrees for cut off
-        sla_array = data["sla"].values  # extract the data array, shape: (time, lat, lon)
+        max_dist_in_degrees = np.ceil(self.cut_off / 111)  # determine the farthest distance in degrees for cutoff
         # create lat/lon index mapping
         lat_to_index = {lat: i for i, lat in enumerate(self.lat)}
         lon_to_index = {lon: i for i, lon in enumerate(self.lon)}
         idx_to_lat = {i: lat for i, lat in enumerate(self.lat)}
         idx_to_lon = {i: lon for i, lon in enumerate(self.lon)}
         # extract grid points with valid data
-        non_nan_mask = ~np.isnan(sla_array).all(axis=0)
+        non_nan_mask = ~np.isnan(clustering_array)
         valid_grid_points = list(map(tuple, np.argwhere(non_nan_mask)))
         logger.info(f"Processing {len(valid_grid_points)} valid grid points.")
-        # create list of args for parallel processing
+        # create a list of args for parallel processing
         args_list = [(idx_to_lat[grid_point[0]], idx_to_lon[grid_point[1]], lat_to_index, lon_to_index,
-                      sla_array, max_dist_in_degrees) for grid_point
+                      clustering_array, max_dist_in_degrees) for grid_point
                      in valid_grid_points]
         # calculate filtered data for each grid point in parallel
         results = Parallel(n_jobs=-2, verbose=1)(
             delayed(self.call_filtering)(*args) for args in args_list)
-        filtered_data = self.process_filtering_results(data, results, sla_array)
-        return filtered_data
+        # extract the clustering data from the results
+        filtered_data, clustering_dict = self.process_filtered_results(results, clustering_array, non_nan_mask)
 
-    def process_filtering_results(self, data, results, sla_array):
+        return clustering_dict
+
+    def process_filtered_results(self, results, clustering_array, non_nan_mask):
         """
         Process the results of the filtering
-        :param data:
+        :param non_nan_mask:
+        :param clustering_array:
         :param results:
-        :param sla_array:
         :return:
         """
         # filter out None results
         results = [r for r in results if r is not None]
-        # write results of filtering to new array
-        filtered_data = data.copy()
-        filtered_data_array = np.zeros_like(sla_array)
-        for id_x, id_y, new_data in results:
-            filtered_data_array[:, id_x, id_y] = new_data
-        filtered_da = xarray.DataArray(
-            filtered_data_array,
-            dims=data["sla"].dims,
-            coords=data["sla"].coords,
-            attrs=data["sla"].attrs
-        )
-        filtered_data["sla"] = filtered_da
-        # put NaN values back
-        mask = data.sla.isnull().any(axis=0)
+        # write results of filtering to a new array
+        filtered_data_array = np.zeros_like(clustering_array)
+        for id_x, id_y, new_value in results:
+            filtered_data_array[id_x, id_y] = new_value
         # apply mask using `.where()`, replacing with NaNs
-        filtered_data["sla"] = filtered_data["sla"].where(~mask, np.nan)
-        return filtered_data
+        filtered_data_array = np.where(non_nan_mask, filtered_data_array, np.nan)
+        clustering_dict = {}
+        # create a dictionary with the filtered data where the keys are the cluster ids and the values are the indices of the grid points
+        for i in range(filtered_data_array.shape[0]):
+            for j in range(filtered_data_array.shape[1]):
+                if not np.isnan(filtered_data_array[i, j]):
+                    cluster_id = filtered_data_array[i, j]
+                    if cluster_id not in clustering_dict:
+                        clustering_dict[cluster_id] = []
+                    clustering_dict[cluster_id].append((i, j))
+        # sort the clustering_dict by cluster id
+        clustering_dict = dict(sorted(clustering_dict.items()))
+        return filtered_data_array, clustering_dict
 
-    def call_filtering(self, lat, lon, lat_to_index, lon_to_index, sla_array, max_dist_in_degrees):
+    def call_filtering(self, lat, lon, lat_to_index, lon_to_index, clustering_array, max_dist_in_degrees):
         """
         Call the filtering function for a given lat/lon pair
         :param lat:
         :param lon:
         :param lat_to_index:
         :param lon_to_index:
-        :param sla_array:
+        :param clustering_array:
         :param max_dist_in_degrees:
         :return:
         """
@@ -177,17 +178,17 @@ class SphericalGaussFilter:
             (lat, lon, max_dist_in_degrees))
         if not distances:
             return None
-        id_x, id_y, new_data = self.filter_all_time_steps_at_point(sla_array, lat, lon,
-                                                                   distances, lat_to_index, lon_to_index)
-        return (id_x, id_y, new_data)
+        id_x, id_y, new_value = self.filter_at_point(clustering_array, lat, lon,
+                                                     distances, lat_to_index, lon_to_index)
+        return (id_x, id_y, new_value)
 
-    def filter_all_time_steps_at_point(self, sla_array: np.array, lat: float,
-                                       lon: float, distances: list, lat_to_index: dict, lon_to_index: dict):
+    def filter_at_point(self, clustering_array: np.array, lat: float,
+                        lon: float, distances: list, lat_to_index: dict, lon_to_index: dict):
         """
         Filter all time steps at a given point
         :param lon_to_index:
         :param lat_to_index:
-        :param sla_array:
+        :param clustering_array:
         :param lat:
         :param lon:
         :param distances:
@@ -201,16 +202,20 @@ class SphericalGaussFilter:
         total_weight = sum([weight for weight in neighbor_weights.values()])
         neighbor_weights = {key: value / total_weight for key, value in neighbor_weights.items()}
         # filter data
-        data_values = np.stack(
-            [sla_array[:, lat_to_index[key[0]], lon_to_index[key[1]]] for key in neighbor_weights.keys()])
-        for i, values in enumerate(data_values):
-            if np.isnan(values).all():
-                # if the all values are NaN, we do not consider it so set the weight to 0
+        neighboring_clustering_values = (
+            [clustering_array[lat_to_index[key[0]], lon_to_index[key[1]]] for key in neighbor_weights.keys()])
+        for i, value in enumerate(neighboring_clustering_values):
+            if np.isnan(value):
+                # if the value is NaN, we do not consider it for the weighted vote, so set the weight to 0
                 neighbor_weights[list(neighbor_weights.keys())[i]] = 0
-
         # replace nan in data_values with 0
-        data_values = np.nan_to_num(data_values)
+        neighboring_clustering_values = np.nan_to_num(neighboring_clustering_values)
         weights = np.array(list(neighbor_weights.values()))
-        # take weights-vector, multiply with each row of data_values, then sum over first axis, resulting in a 1D array with length of time steps 
-        new_data = np.round(np.einsum('i,ij->j', weights, data_values), 4)
-        return lat_to_index[lat], lon_to_index[lon], new_data
+        # Calculate the weighted "vote" for each unique value
+        cumulative_weights = {}
+        for value, weight in zip(neighboring_clustering_values, weights):
+            cumulative_weights[value] = cumulative_weights.get(value, 0) + weight
+
+        # Find the value with the highest cumulative weight
+        new_value = max(cumulative_weights, key=cumulative_weights.get)
+        return lat_to_index[lat], lon_to_index[lon], new_value

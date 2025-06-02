@@ -468,7 +468,8 @@ def start_clustering(sea_level_anomaly_data: xarray.Dataset, k: [int], distance_
     stats.strip_dirs().sort_stats("cumulative").print_stats(20)
     for current_k in clusters.keys():
         # plot results
-        plotting.plot_clustering(clusters[current_k], out_dir, RESOLUTION, name=f"clustering_{current_k}")
+        name = f"clustering_{current_k}"
+        plotting.plot_clustering_without_preassigned_colors(clusters[current_k], out_dir, RESOLUTION, name)
 
         # save as netcdf file
         cluster_data = numpy.zeros((sea_level_anomaly_data.latitude.size, sea_level_anomaly_data.longitude.size))
