@@ -165,7 +165,7 @@ def save_clustering(clusters: {int: Cluster}, number_of_clusters: int, out_dir: 
     colors = plotting.random_color_generator(number_of_clusters + 1)
     cluster_ids = []
     counter = 0
-    grid_point_area = 2.5
+    grid_point_area = 2
     polygons = []
     for cluster in clusters.values():
         # create a polygon from all grid points in the current cluster
@@ -199,6 +199,10 @@ def start_clustering(k, sea_level_anomaly_data: xarray.Dataset, out_dir, distanc
     """
     Start hierarchical clustering given a 5 degree grid with values for sea level anomaly
     Save each clustering that has a size in k
+    :param distance_function: function to calculate the distance between two grid points
+    :param sea_level_anomaly_data: xarray dataset with sea level anomaly data
+    :param k: list of numbers of clusters to reduce to
+    :param out_dir: output directory to save the clustering
     :return:
     """
     logger.info(f"Start hierarchical clustering")
@@ -223,6 +227,6 @@ def start_clustering(k, sea_level_anomaly_data: xarray.Dataset, out_dir, distanc
         cluster_data = xarray.DataArray(cluster_data, dims=["latitude", "longitude"])
         cluster_data = cluster_data.assign_coords(latitude=sea_level_anomaly_data.latitude,
                                                   longitude=sea_level_anomaly_data.longitude)
-        cluster_data.to_netcdf(f"{out_dir}/clusters_{len(clustering.values())}.nc")
+        cluster_data.to_netcdf(f"{out_dir}/{len(clustering.values())}_clusters.nc")
         save_clustering(clustering, len(clustering), out_dir)
     logger.info(f"Clustering done")

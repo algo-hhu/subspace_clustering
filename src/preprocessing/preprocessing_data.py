@@ -5,7 +5,7 @@ import tqdm
 import xarray as xr
 from loguru import logger
 
-from src.plotting import plot_sla_for_point_in_time
+from src.helper import save_xarray_dataset
 from src.preprocessing import spherical_gauss_filter
 
 
@@ -32,7 +32,7 @@ def read_satellite_data(data_directory: str):
     return satellite_altimeter_data
 
 
-def filtering(sea_level_anomaly_data: xr.Dataset, out_dir: str, half_width: int):
+def filtering(sea_level_anomaly_data: xr.Dataset, filtered_data_path: str, half_width: int):
     """
     Filter the sea level anomaly data
     :param half_width:
@@ -49,34 +49,8 @@ def filtering(sea_level_anomaly_data: xr.Dataset, out_dir: str, half_width: int)
     # filter spatially with a symmetric Gaussian filter of half-width 500 km (here the CRS is transformed to meters using a geocentric CRS EPSG:4978)
     # and temporally with a low-pass filter of 15 months
     sea_level_anomaly_data = apply_filters(sea_level_anomaly_data, half_width)
-    save_and_plot(half_width, out_dir, sea_level_anomaly_data)
+    save_xarray_dataset(filtered_data_path, sea_level_anomaly_data)
     return sea_level_anomaly_data
-
-
-def save_and_plot(half_width, out_dir, sea_level_anomaly_data):
-    """
-    Save the filtered sea level anomaly data to a netCDF file and plot it
-    :param half_width:
-    :param out_dir:
-    :param sea_level_anomaly_data:
-    :return:
-    """
-    # save to netcdf
-    encoding = {
-        'sla': {
-            'zlib': True,  # Enable compression
-            'complevel': 4,  # Compression level (1-9, trade-off between speed and compression ratio)
-            'shuffle': True,  # Improve compression efficiency
-            'dtype': 'float32',  # Convert from float64 to float32 to save space (optional)
-            'chunksizes': (73, 144, 288),  # Use the same efficient chunking as in the smaller dataset
-            '_FillValue': -2147483648,  # Match fill value from the smaller dataset
-            'scale_factor': 0.0001  # Match scale factor for consistency
-        }
-    }
-    sea_level_anomaly_data.to_netcdf(f"../data/sea_level_anomaly_data_filtered_{half_width}.nc", encoding=encoding,
-                                     format="NETCDF4")
-    variable_to_plot = "sla"
-    plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, variable_to_plot, name=f"filtered_sla_{half_width}")
 
 
 def apply_filters(sea_level_anomaly_data: xr.Dataset, half_width: int):

@@ -100,7 +100,7 @@ def plot_regions(land_gdf: geopandas.GeoDataFrame, output_path: str,
     ax = land_gdf.plot(color="burlywood", figsize=(20, 12), zorder=0, alpha=0.5)
     ax.set_facecolor("aliceblue")
     clusters_gdf.plot(ax=ax, color=clusters_gdf["color"], zorder=4, linewidth=4)
-    # clusters_gdf.boundary.plot(ax=ax, color=clusters_gdf["color"], zorder=5, linewidth=0.5)
+    clusters_gdf.boundary.plot(ax=ax, color="black", zorder=5, linewidth=0.5)
     plt.xticks([-180, -135, -90, -45, 0, 45, 90, 135, 180])
     plt.yticks([-90, -45, 0, 45, 90])
     handles = [mpatches.Patch(color=color, label=f"Cluster {cluster_id}")
@@ -306,24 +306,14 @@ def turn_dict_into_gdf(cluster_dict: {float: [(float, float)]}, grid_point_area:
 def plot_clustering_without_preassigned_colors(cluster_dict, out_dir, resolution, name):
     """
     Plot the clustering without preassigned colors
-    :param cluster_dict:
-    :param out_dir:
-    :param resolution:
-    :param name:
+    :param cluster_dict: dict with cluster_id as key and list of grid points as value
+    :param out_dir: the output directory to save the plot
+    :param resolution: resolution of the grid in degrees
+    :param name: name of the plot file (without extension)
     :return:
     """
     cluster_dict = dict(sorted(cluster_dict.items(), key=lambda item: item[0]))
-    cluster_colors = ["gold", "yellowgreen", "dodgerblue", "rebeccapurple", "orchid", "maroon",
-                      "darkorange", "palegoldenrod", "darkolivegreen", "forestgreen", "teal", "darkblue",
-                      "darkorchid",
-                      "deeppink", "red", "yellow", "darkseagreen", "azure", "lightsteelblue", "midnightblue",
-                      "plum",
-                      "sienna", "chartreuse", "darkslategray", "darkmagenta", "crimson", "cornflowerblue",
-                      "chocolate",
-                      "lemonchiffon", "lavenderblush", "navy", "purple"]
-    if len(cluster_dict) > len(cluster_colors):
-        cluster_colors = random_color_generator(len(cluster_dict) + 1)
-    cluster_id_to_color = {cluster_id: cluster_colors[i] for i, cluster_id in enumerate(cluster_dict.keys())}
+    cluster_id_to_color = assign_color_to_cluster(cluster_dict)
     plot_clustering(cluster_dict, out_dir, resolution, name, cluster_id_to_color)
 
 
@@ -345,7 +335,7 @@ def plot_clustering(cluster_dict, out_dir, resolution, name, cluster_id_to_color
 
 
 def plot_clustering_with_component_graph(cluster_dict, out_dir, resolution, name, connected_component_graph,
-                                         connected_components, grid_point_to_lat_lon):
+                                         connected_components, grid_point_to_lat_lon, cluster_id_to_color):
     """
     Plot the clustering
     :param grid_point_to_lat_lon:
@@ -357,13 +347,8 @@ def plot_clustering_with_component_graph(cluster_dict, out_dir, resolution, name
     :param name:
     :return:
     """
-    cluster_colors = ["gold", "yellowgreen", "dodgerblue", "rebeccapurple", "orchid", "maroon",
-                      "darkorange", "palegoldenrod", "darkolivegreen", "forestgreen", "teal", "darkblue", "darkorchid",
-                      "deeppink", "red", "yellow", "darkseagreen", "azure", "lightsteelblue", "midnightblue", "plum",
-                      "sienna", "chartreuse", "darkslategray", "darkmagenta", "crimson", "cornflowerblue", "chocolate",
-                      "lemonchiffon", "lavenderblush", "navy", "purple"]
     cluster_gdf, land_gdf = turn_dict_into_gdf(cluster_dict, resolution / 2,
-                                               cluster_colors)
+                                               cluster_id_to_color)
     # calculate the middle coordinates for each connected component
     mean_points = {}
     connected_components_points_dict = {'name': [], 'geometry': [], 'color': []}
@@ -455,7 +440,7 @@ def plot_regions_with_component_graph(land_gdf: geopandas.GeoDataFrame, output_p
 
 
 def plot_graph_on_clustering_map(cluster_dict, grid_graph, grid_point_to_lat_lon, resolution, out_dir,
-                                 name):
+                                 name, cluster_id_to_color):
     """
     Plot the grid graph on the clustering map
     :param grid_point_to_lat_lon:
@@ -472,7 +457,7 @@ def plot_graph_on_clustering_map(cluster_dict, grid_graph, grid_point_to_lat_lon
                       "sienna", "chartreuse", "darkslategray", "darkmagenta", "crimson", "cornflowerblue", "chocolate",
                       "lemonchiffon", "lavenderblush", "navy", "purple"]
     cluster_gdf, land_gdf = turn_dict_into_gdf(cluster_dict, resolution / 2,
-                                               cluster_colors)
+                                               cluster_id_to_color)
     lines_dict = {'name': [], 'geometry': []}
     nodes_dict = {'name': [], 'geometry': [], 'color': []}
     for node in grid_graph.nodes:
@@ -495,7 +480,7 @@ def plot_graph_on_clustering_map(cluster_dict, grid_graph, grid_point_to_lat_lon
 
 
 def plot_with_highlighting_of_component(clustering, smallest_component, neighbors, out_dir, name, resolution,
-                                        connected_components, grid_point_to_lat_lon):
+                                        connected_components, grid_point_to_lat_lon, cluster_id_to_color):
     """
     Plot the clustering with highlighting of the smallest component and its neighbors
     :param connected_components:
@@ -507,13 +492,8 @@ def plot_with_highlighting_of_component(clustering, smallest_component, neighbor
     :param resolution:
     :return:
     """
-    cluster_colors = ["gold", "yellowgreen", "dodgerblue", "rebeccapurple", "orchid", "maroon",
-                      "darkorange", "palegoldenrod", "darkolivegreen", "forestgreen", "teal", "darkblue", "darkorchid",
-                      "deeppink", "red", "yellow", "darkseagreen", "azure", "lightsteelblue", "midnightblue", "plum",
-                      "sienna", "chartreuse", "darkslategray", "darkmagenta", "crimson", "cornflowerblue", "chocolate",
-                      "lemonchiffon", "lavenderblush", "navy", "purple"]
     clusters_gdf, land_gdf = turn_dict_into_gdf(clustering, resolution / 2,
-                                                cluster_colors)
+                                                cluster_id_to_color)
     latitudes = []
     longitudes = []
     smallest_component_dict = {'name': [], 'geometry': [], 'color': []}
@@ -577,3 +557,25 @@ def plot_with_highlighting_of_component(clustering, smallest_component, neighbor
     ax.legend(handles=handles, title="Clusters")
     plt.savefig(os.path.join(out_dir, f"{name}.png"))
     plt.close()
+
+
+def assign_color_to_cluster(cluster_to_grid_point_ids_dict):
+    """
+    Assign a color to each cluster based on the cluster id
+    :param cluster_to_grid_point_ids_dict:
+    :return:
+    """
+    cluster_colors = ["gold", "yellowgreen", "dodgerblue", "rebeccapurple", "orchid", "maroon",
+                      "darkorange", "palegoldenrod", "darkolivegreen", "forestgreen", "teal", "darkblue",
+                      "darkorchid",
+                      "deeppink", "red", "yellow", "darkseagreen", "azure", "lightsteelblue", "midnightblue",
+                      "plum",
+                      "sienna", "chartreuse", "darkslategray", "darkmagenta", "crimson", "cornflowerblue",
+                      "chocolate",
+                      "lemonchiffon", "lavenderblush", "navy", "purple"]
+    if not len(cluster_to_grid_point_ids_dict.keys()) < (len(cluster_colors)):
+        cluster_colors = random_color_generator(len(cluster_to_grid_point_ids_dict.keys()) + 1)
+    # create a dictionary that maps the cluster id to the color
+    cluster_id_to_color = {cluster_id: cluster_colors[int(i)] for i, cluster_id in
+                           enumerate(cluster_to_grid_point_ids_dict.keys())}
+    return cluster_id_to_color

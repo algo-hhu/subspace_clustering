@@ -3,6 +3,7 @@
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
       <excludeFolder url="file://$MODULE_DIR$/data" />
+      <excludeFolder url="file://$MODULE_DIR$/output/test_multiple_rounds_subspace_clustering/components_3/img" />
       <excludePattern pattern="./data/*" />
     </content>
     <orderEntry type="jdk" jdkName="Poetry (subspace_clustering)" jdkType="Python SDK" />
