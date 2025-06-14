@@ -467,6 +467,9 @@ def start_clustering(sea_level_anomaly_data: xarray.Dataset, k: [int], distance_
     stats = pstats.Stats(profiler)
     stats.strip_dirs().sort_stats("cumulative").print_stats(20)
     for current_k in clusters.keys():
+        # change cluster ids to start from 0 to k
+        clusters[current_k] = {i: clusters[current_k][cluster_id] for i, cluster_id in
+                               enumerate(clusters[current_k].keys())}
         # plot results
         name = f"clustering_{current_k}"
         plotting.plot_clustering_without_preassigned_colors(clusters[current_k], out_dir, RESOLUTION, name)
