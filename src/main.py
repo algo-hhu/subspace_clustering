@@ -32,7 +32,7 @@ async def main():
     }
     # set parameters for filtering
     filtering_sla = True
-    half_width = 500
+    half_width = 250
     # set parameters for initial clustering
     resolution = 2  # resolution of the grid
     number_of_clusters = 15  # number of clusters to reduce to
