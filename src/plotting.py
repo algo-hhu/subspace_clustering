@@ -99,8 +99,9 @@ def plot_regions(land_gdf: geopandas.GeoDataFrame, output_path: str,
 
     ax = land_gdf.plot(color="burlywood", figsize=(20, 12), zorder=0, alpha=0.5)
     ax.set_facecolor("aliceblue")
-    clusters_gdf.plot(ax=ax, color=clusters_gdf["color"], zorder=4, linewidth=4)
-    clusters_gdf.boundary.plot(ax=ax, color="black", zorder=5, linewidth=0.5)
+    clusters_gdf.plot(ax=ax, color=clusters_gdf["color"], zorder=4, linewidth=4, edgecolor="none")
+
+    # clusters_gdf.boundary.plot(ax=ax, color="black", zorder=5, linewidth=0.5)
     plt.xticks([-180, -135, -90, -45, 0, 45, 90, 135, 180])
     plt.yticks([-90, -45, 0, 45, 90])
     handles = [mpatches.Patch(color=color, label=f"Cluster {cluster_id}")
@@ -270,9 +271,8 @@ def turn_dict_into_gdf(cluster_dict: {float: [(float, float)]}, grid_point_area:
     :return:
     """
     land_gdf = geopandas.read_file("../data/ne_10m_land/ne_10m_land.shp")
-
+    print(f"number of clusters {len(cluster_dict.keys())}")
     # turn clusters into a geopandas dataframe
-    # counter = 0
     cluster_ids = []
     polygons = []
     colors = []
@@ -283,16 +283,17 @@ def turn_dict_into_gdf(cluster_dict: {float: [(float, float)]}, grid_point_area:
         # counter += 1
 
         for grid_point in cluster_dict[cluster]:
-            square = shapely.Polygon([
-                (grid_point[1] + grid_point_area, grid_point[0] + grid_point_area),
-                (grid_point[1] + grid_point_area, grid_point[0] - grid_point_area),
-                (grid_point[1] - grid_point_area, grid_point[0] - grid_point_area),
-                (grid_point[1] - grid_point_area, grid_point[0] + grid_point_area)
-            ])
+            square = shapely.box(
+                grid_point[1] - grid_point_area,  # minx (lon)
+                grid_point[0] - grid_point_area,  # miny (lat)
+                grid_point[1] + grid_point_area,  # maxx
+                grid_point[0] + grid_point_area  # maxy
+            )
+
             cluster_squares.append(square)
         colors.append(cluster_id_to_color[cluster])
         # Merge all squares in the cluster using unary_union
-        merged_polygon = unary_union(cluster_squares)
+        merged_polygon = unary_union(cluster_squares).buffer(0)
         polygons.append(merged_polygon)
 
         # Create GeoDataFrame with merged polygons
@@ -300,6 +301,9 @@ def turn_dict_into_gdf(cluster_dict: {float: [(float, float)]}, grid_point_area:
         {'cluster_id': cluster_ids, 'color': colors, 'geometry': polygons}
         # ,crs="EPSG:4326"  # WGS 84 coordinate system
     )
+    print(cluster_gdf.geometry.apply(lambda g: len(g.geoms) if g.geom_type == "MultiPolygon" else 1))
+    cluster_gdf['color'] = cluster_gdf['cluster_id'].map(cluster_id_to_color)
+    print(f"number of polygons {len(cluster_gdf)}")
     return cluster_gdf, land_gdf
 
 
