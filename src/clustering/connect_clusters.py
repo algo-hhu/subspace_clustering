@@ -1,6 +1,5 @@
 import time
 
-import networkx as nx
 import numpy
 import numpy as np
 from loguru import logger
@@ -105,9 +104,9 @@ def reestablish_connectivity(sea_level_anomaly_data, clustering, cluster_array, 
                                          f"{number}cluster_graph_{counter}_error", cluster_id_to_color)
             exit()
 
-        if counter % 100 == 0:
-            print(
-                f"number of connected components in cluster graph: {nx.number_connected_components(cluster_graph)} and are in the component graph: {len(connected_component_graph.nodes)}")
+        # if counter % 100 == 0:
+        #     print(
+        #         f"number of connected components in cluster graph: {nx.number_connected_components(cluster_graph)} and are in the component graph: {len(connected_component_graph.nodes)}")
 
         for node in smallest_connected_component.nodes:
             # change assignment in cluster array

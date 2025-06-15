@@ -126,7 +126,7 @@ class SphericalGaussFilterClustering:
                       clustering_array, max_dist_in_degrees) for grid_point
                      in valid_grid_points]
         # calculate filtered data for each grid point in parallel
-        results = Parallel(n_jobs=-2, verbose=1)(
+        results = Parallel(n_jobs=-2)(
             delayed(self.call_filtering)(*args) for args in args_list)
         # extract the clustering data from the results
         filtered_data, clustering_dict = self.process_filtered_results(results, clustering_array, non_nan_mask)

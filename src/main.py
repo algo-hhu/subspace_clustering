@@ -31,25 +31,31 @@ async def main():
         }
     }
     # set parameters for filtering
-    filtering_sla = False
-    half_width = 100
+    filtering_sla = True
+    half_width = 500
     # set parameters for initial clustering
     resolution = 2  # resolution of the grid
     number_of_clusters = 15  # number of clusters to reduce to
     full_hierarchical_clustering = False  # Clustering all grid points hierarchically with a given distance function
-    do_neighborhood_clustering = True  # Clustering the grid points hierarchically that are neighbors to each other
+    do_neighborhood_clustering = False  # Clustering the grid points hierarchically that are neighbors to each other
     # parameters for subspace clustering
-    do_subspace_clustering = False  # Given a start clustering, perform subspace clustering
+    do_subspace_clustering = True  # Given a start clustering, perform subspace clustering
     number_of_components = [3]  # set the dimension of the subspaces
     out_dir = (
-        f"../output/initial_clustering/")
+        f"../output")
     if filtering_sla:
-        out_dir = f"{out_dir}/filter_{half_width}/{resolution}_degree_grid/"
+        out_dir = f"{out_dir}/filter_{half_width}/{resolution}_degree_grid"
     else:
-        out_dir = f"{out_dir}/no_filtering/{resolution}_degree_grid/"
+        out_dir = f"{out_dir}/no_filtering/{resolution}_degree_grid"
+    # thompson clustering: full_hierarchical_clustering_thompson_distance_function
+    # neighborhood_clustering_thompson_distance_function
+    # neighborhood_clustering_euclidean_distance
     initial_clustering_path = (
-        f"../output/initial_clustering/filter_{half_width}/{resolution}_degree_grid/{number_of_clusters}_clusters.nc")
+        f"{out_dir}/full_hierarchical_clustering_thompson_distance_function/{number_of_clusters}_clusters.nc")
     filtered_data_path = f"../output/spherical_gaussian_filtering/sea_level_anomaly_data_filtered_{half_width}.nc"
+    if subspace_clustering:
+        out_dir = initial_clustering_path.rsplit('/', 1)[0]
+        out_dir = f"{out_dir}/subspace_clustering"
     # create output directory
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
@@ -70,7 +76,7 @@ async def main():
         sea_level_anomaly_data = xr.open_dataset("../data/sea_level_anomaly_data.nc")
 
     # filtering
-    if filtering_sla:  # apply Gaussian filter & temporal low-pass filter
+    if filtering_sla and not do_subspace_clustering:  # apply Gaussian filter & temporal low-pass filter
         if not os.path.exists(filtered_data_path):
             # filter spatially with a symmetric Gaussian filter of half-width 500 km
             sea_level_anomaly_data = preprocessing_data.filtering(sea_level_anomaly_data, filtered_data_path,
@@ -83,7 +89,7 @@ async def main():
 
     # initial clustering either with hierarchical clustering or neighborhood clustering
     if do_neighborhood_clustering:
-        distance_function = distance.euclidean_distance
+        distance_function = distance.thompson_distance_function
         name = distance_function.__name__
         current_out_dir = f"{out_dir}/neighborhood_clustering_{name}/"
         if not os.path.exists(current_out_dir):
@@ -115,12 +121,9 @@ async def main():
 
     # subspace clustering
     if do_subspace_clustering:
-        for component in number_of_components:
-            current_out_dir = f"{out_dir}/components_{component}/"
-            if not os.path.exists(current_out_dir):
-                os.makedirs(current_out_dir)
         initial_clustering = xr.open_dataset(initial_clustering_path)
-        subspace_clustering.start_subspace_clustering(sea_level_anomaly_data, initial_clustering, out_dir,
+        subspace_clustering.start_subspace_clustering(sea_level_anomaly_data, initial_clustering,
+                                                      f"{out_dir}",
                                                       number_of_components)
 
 
