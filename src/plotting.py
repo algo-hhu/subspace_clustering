@@ -271,7 +271,7 @@ def turn_dict_into_gdf(cluster_dict: {float: [(float, float)]}, grid_point_area:
     :return:
     """
     land_gdf = geopandas.read_file("../data/ne_10m_land/ne_10m_land.shp")
-    print(f"number of clusters {len(cluster_dict.keys())}")
+    # print(f"number of clusters {len(cluster_dict.keys())}")
     # turn clusters into a geopandas dataframe
     cluster_ids = []
     polygons = []
@@ -301,9 +301,9 @@ def turn_dict_into_gdf(cluster_dict: {float: [(float, float)]}, grid_point_area:
         {'cluster_id': cluster_ids, 'color': colors, 'geometry': polygons}
         # ,crs="EPSG:4326"  # WGS 84 coordinate system
     )
-    print(cluster_gdf.geometry.apply(lambda g: len(g.geoms) if g.geom_type == "MultiPolygon" else 1))
+    # print(cluster_gdf.geometry.apply(lambda g: len(g.geoms) if g.geom_type == "MultiPolygon" else 1))
     cluster_gdf['color'] = cluster_gdf['cluster_id'].map(cluster_id_to_color)
-    print(f"number of polygons {len(cluster_gdf)}")
+    # print(f"number of polygons {len(cluster_gdf)}")
     return cluster_gdf, land_gdf
 
 
@@ -583,3 +583,22 @@ def assign_color_to_cluster(cluster_to_grid_point_ids_dict):
     cluster_id_to_color = {cluster_id: cluster_colors[int(i)] for i, cluster_id in
                            enumerate(cluster_to_grid_point_ids_dict.keys())}
     return cluster_id_to_color
+
+
+def plot_summed_distances_to_subspaces(sum_distances_to_subspaces, current_out_dir, number_of_components):
+    """
+    Plot the summed distances to subspaces
+    :param sum_distances_to_subspaces:
+    :param current_out_dir:
+    :param number_of_components:
+    :return:
+    """
+    plt.figure()
+    ids = list(sum_distances_to_subspaces.keys())
+    values = list(sum_distances_to_subspaces.values())
+    plt.plot(ids, values, marker='o', linestyle='-', color='b')
+    plt.xlabel('Iteration')
+    plt.ylabel('Sum of Distances to Subspaces')
+    plt.title(f'Summed Distances to Subspaces for {number_of_components} Components')
+    plt.savefig(os.path.join(current_out_dir, f'summed_distances_to_subspaces_{number_of_components}.png'))
+    return None
