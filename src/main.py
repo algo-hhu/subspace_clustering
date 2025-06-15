@@ -32,23 +32,24 @@ async def main():
     }
     # set parameters for filtering
     filtering_sla = False
-    half_width = 100
+    half_width = 250
     # set parameters for initial clustering
     resolution = 2  # resolution of the grid
     number_of_clusters = 15  # number of clusters to reduce to
     full_hierarchical_clustering = False  # Clustering all grid points hierarchically with a given distance function
-    do_neighborhood_clustering = True  # Clustering the grid points hierarchically that are neighbors to each other
+    do_neighborhood_clustering = False  # Clustering the grid points hierarchically that are neighbors to each other
     # parameters for subspace clustering
-    do_subspace_clustering = False  # Given a start clustering, perform subspace clustering
+    do_subspace_clustering = True  # Given a start clustering, perform subspace clustering
     number_of_components = [3]  # set the dimension of the subspaces
     out_dir = (
-        f"../output/initial_clustering/")
+        f"../output/subspace_clustering/")
     if filtering_sla:
         out_dir = f"{out_dir}/filter_{half_width}/{resolution}_degree_grid/"
     else:
         out_dir = f"{out_dir}/no_filtering/{resolution}_degree_grid/"
+    # thompson: f"../output/initial_clustering/no_filtering/{resolution}_degree_grid/full_hierarchical_clustering_thompson_distance_function/{number_of_clusters}_clusters.nc")
     initial_clustering_path = (
-        f"../output/initial_clustering/filter_{half_width}/{resolution}_degree_grid/{number_of_clusters}_clusters.nc")
+        f"../output/initial_clustering/no_filtering/{resolution}_degree_grid/full_hierarchical_clustering_thompson_distance_function/{number_of_clusters}_clusters.nc")
     filtered_data_path = f"../output/spherical_gaussian_filtering/sea_level_anomaly_data_filtered_{half_width}.nc"
     # create output directory
     if not os.path.exists(out_dir):
@@ -83,7 +84,7 @@ async def main():
 
     # initial clustering either with hierarchical clustering or neighborhood clustering
     if do_neighborhood_clustering:
-        distance_function = distance.euclidean_distance
+        distance_function = distance.thompson_distance_function
         name = distance_function.__name__
         current_out_dir = f"{out_dir}/neighborhood_clustering_{name}/"
         if not os.path.exists(current_out_dir):
