@@ -161,13 +161,15 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
                 if counter >= 50:
                     break
             counter += 1
-            if establish_connectivity_afterwards == True:
+            if establish_connectivity_afterwards == True or filter_grid_point_assignment == True:
                 cluster_to_grid_point_ids_dict = reestablish_connectivity(sea_level_anomaly_data,
                                                                           grid_point_assignment_lat_lon,
                                                                           cluster_map, subspaces,
                                                                           counter, OUT_DIR, cluster_id_to_color)
                 cluster_to_lat_lon = convert_idx_idy_to_lat_lon(cluster_to_grid_point_ids_dict, min_lat, min_lon,
                                                                 resolution)
+                name = f"reconnected_{counter}"
+                plot_clustering(cluster_to_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
             # calculate resulting value
             name = f"final_clustering_{number_of_components}"
             summed_distances = determine_final_distances_to_subspaces(cluster_to_grid_point_ids_dict, sla_data,

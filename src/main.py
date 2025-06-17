@@ -51,7 +51,7 @@ async def main():
     # neighborhood_clustering_thompson_distance_function
     # neighborhood_clustering_euclidean_distance
     initial_clustering_path = (
-        f"{out_dir}/full_hierarchical_clustering_thompson_distance_function/{number_of_clusters}_clusters.nc")
+        f"{out_dir}/neighborhood_clustering_euclidean_distance/{number_of_clusters}_clusters.nc")
     filtered_data_path = f"../output/spherical_gaussian_filtering/sea_level_anomaly_data_filtered_{half_width}.nc"
     if subspace_clustering:
         out_dir = initial_clustering_path.rsplit('/', 1)[0]
