@@ -95,8 +95,8 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
             # evaluate startclustering
             initial_clustering_outdir = f"{out_dir}/components_{number_of_components}/initial_clustering"
             name = f"initial_clustering_{number_of_components}"
-            determine_final_distances_to_subspaces(cluster_to_grid_point_ids_dict, sla_data, number_of_components,
-                                                   initial_clustering_outdir, name)
+            evaluate_distances_to_subspaces(cluster_to_grid_point_ids_dict, sla_data, number_of_components,
+                                            initial_clustering_outdir, name)
             name = f"initial_clustering_{number_of_components}"
             plot_clustering(cluster_dict, current_out_dir, resolution, name, cluster_id_to_color)
             change = True
@@ -161,18 +161,20 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
                 if counter >= 50:
                     break
             counter += 1
-            if establish_connectivity_afterwards == True:
+            if establish_connectivity_afterwards == True or filter_grid_point_assignment == True:
                 cluster_to_grid_point_ids_dict = reestablish_connectivity(sea_level_anomaly_data,
                                                                           grid_point_assignment_lat_lon,
                                                                           cluster_map, subspaces,
                                                                           counter, OUT_DIR, cluster_id_to_color)
                 cluster_to_lat_lon = convert_idx_idy_to_lat_lon(cluster_to_grid_point_ids_dict, min_lat, min_lon,
                                                                 resolution)
+                name = f"reconnected_{counter}"
+                plot_clustering(cluster_to_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
             # calculate resulting value
             name = f"final_clustering_{number_of_components}"
-            summed_distances = determine_final_distances_to_subspaces(cluster_to_grid_point_ids_dict, sla_data,
-                                                                      number_of_components, out_dir,
-                                                                      name)
+            summed_distances = evaluate_distances_to_subspaces(cluster_to_grid_point_ids_dict, sla_data,
+                                                               number_of_components, out_dir,
+                                                               name)
             sum_distances_to_subspaces[counter] = summed_distances
             # plot the summed distances to the subspaces
             plotting.plot_summed_distances_to_subspaces(sum_distances_to_subspaces, current_out_dir,
@@ -198,8 +200,8 @@ def adjust_resolution(clustering: xarray.Dataset, sea_level_anomaly_data: xarray
     return min_lat, min_lon, resolution, sea_level_anomaly_data
 
 
-def determine_final_distances_to_subspaces(cluster_to_grid_point_ids_dict, sla_data, number_of_components, out_dir,
-                                           name):
+def evaluate_distances_to_subspaces(cluster_to_grid_point_ids_dict, sla_data, number_of_components, out_dir,
+                                    name):
     """
 
     :param out_dir:
@@ -556,3 +558,39 @@ def plot_explained_variance_and_distances(out_dir):
     plt.xlabel("number of components")
     plt.savefig(f"{out_dir}/max_dist_between_subspaces.png")
     plt.close()
+
+
+def start_subspace_clustering_with_integrated_connectivity(sea_level_anomaly_data: xarray.Dataset,
+                                                           initial_clustering: xarray.Dataset, out_dir: str,
+                                                           number_of_components: list):
+    """
+    Start the subspace clustering with integrated connectivity
+    :param out_dir:
+    :param sea_level_anomaly_data:
+    :param initial_clustering:
+    :param number_of_components:
+    :return:
+    """
+    global OUT_DIR
+    OUT_DIR = out_dir
+    # adjust resolution, such that it is the same for the sea level anomaly data as it is for the clustering
+    min_lat, min_lon, resolution, sea_level_anomaly_data = adjust_resolution(initial_clustering, sea_level_anomaly_data)
+    plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, "sla", name="input_data")
+    sla_data = sea_level_anomaly_data["sla"].values
+    # nan mask
+    non_nan_mask = ~np.isnan(sla_data).any(axis=0)
+    # apply nan mask to clustering data
+    cluster_data = initial_clustering["__xarray_dataarray_variable__"].values
+    # assign nans where there are all nans in the cluster data
+    cluster_data[~non_nan_mask] = np.nan
+    unique_numbers, counts = np.unique(cluster_data, return_counts=True)
+    unique_numbers = unique_numbers[~np.isnan(unique_numbers)]
+    for current_number_of_components in number_of_components:
+        cluster_dict, cluster_to_grid_point_ids_dict = extract_original_clusters(
+            cluster_data, initial_clustering, min_lat, min_lon, resolution, unique_numbers)
+        cluster_id_to_color = assign_color_to_cluster(cluster_to_grid_point_ids_dict)
+
+        evaluate_distances_to_subspaces(cluster_to_grid_point_ids_dict, sla_data, current_number_of_components, out_dir,
+                                        name)
+
+    return None

@@ -39,7 +39,9 @@ async def main():
     full_hierarchical_clustering = False  # Clustering all grid points hierarchically with a given distance function
     do_neighborhood_clustering = False  # Clustering the grid points hierarchically that are neighbors to each other
     # parameters for subspace clustering
-    do_subspace_clustering = True  # Given a start clustering, perform subspace clustering
+    do_subspace_clustering = False  # Given a start clustering, perform subspace clustering
+    do_subspace_clustering_with_integrated_connectivity = True  # In each iteration of the subspace clustering, only
+    # the border of a cluster is allowed to change its cluster
     number_of_components = [3]  # set the dimension of the subspaces
     out_dir = (
         f"../output")
@@ -51,7 +53,7 @@ async def main():
     # neighborhood_clustering_thompson_distance_function
     # neighborhood_clustering_euclidean_distance
     initial_clustering_path = (
-        f"{out_dir}/full_hierarchical_clustering_thompson_distance_function/{number_of_clusters}_clusters.nc")
+        f"{out_dir}/neighborhood_clustering_euclidean_distance/{number_of_clusters}_clusters.nc")
     filtered_data_path = f"../output/spherical_gaussian_filtering/sea_level_anomaly_data_filtered_{half_width}.nc"
     if subspace_clustering:
         out_dir = initial_clustering_path.rsplit('/', 1)[0]
@@ -125,6 +127,13 @@ async def main():
         subspace_clustering.start_subspace_clustering(sea_level_anomaly_data, initial_clustering,
                                                       f"{out_dir}",
                                                       number_of_components)
+
+    if do_subspace_clustering_with_integrated_connectivity:
+        initial_clustering = xr.open_dataset(initial_clustering_path)
+        subspace_clustering.start_subspace_clustering_with_integrated_connectivity(sea_level_anomaly_data,
+                                                                                   initial_clustering,
+                                                                                   f"{out_dir}",
+                                                                                   number_of_components)
 
 
 if __name__ == "__main__":
