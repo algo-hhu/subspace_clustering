@@ -2,10 +2,12 @@ import asyncio
 import os
 
 import xarray as xr
+from loguru import logger
 
 from src import plotting, distance, helper
 from src.clustering import complete_hierarchical_clustering, subspace_clustering, \
     neighborhood_clustering
+from src.helper import adjust_resolution
 from src.preprocessing import preprocessing_data
 
 
@@ -55,7 +57,7 @@ async def main():
     initial_clustering_path = (
         f"{out_dir}/neighborhood_clustering_euclidean_distance/{number_of_clusters}_clusters.nc")
     filtered_data_path = f"../output/spherical_gaussian_filtering/sea_level_anomaly_data_filtered_{half_width}.nc"
-    if subspace_clustering:
+    if do_subspace_clustering or do_subspace_clustering_with_integrated_connectivity:
         out_dir = initial_clustering_path.rsplit('/', 1)[0]
         out_dir = f"{out_dir}/subspace_clustering"
     # create output directory
@@ -67,6 +69,7 @@ async def main():
     # There are 720 latitude points and 1440 longitude points => 1036800 grid points (the resolution is 0.25 degrees)
     # Merge the data from all files into one xarray dataset
     if not os.path.exists("../data/sea_level_anomaly_data.nc"):
+        logger.info(f"Reading sea level anomaly data from files in ../data/SEALEVEL_GLO_PHY_L4_MY_008_047")
         sea_level_anomaly_data = preprocessing_data.read_satellite_data("../data/SEALEVEL_GLO_PHY_L4_MY_008_047")
         # change longitude from 0-360 to -180-180
         sea_level_anomaly_data = sea_level_anomaly_data.assign_coords(
@@ -78,7 +81,9 @@ async def main():
         sea_level_anomaly_data = xr.open_dataset("../data/sea_level_anomaly_data.nc")
 
     # filtering
-    if filtering_sla and not do_subspace_clustering:  # apply Gaussian filter & temporal low-pass filter
+    if filtering_sla and (
+            not do_subspace_clustering and not do_subspace_clustering_with_integrated_connectivity):  # apply Gaussian
+        # filter & temporal low-pass filter
         if not os.path.exists(filtered_data_path):
             # filter spatially with a symmetric Gaussian filter of half-width 500 km
             sea_level_anomaly_data = preprocessing_data.filtering(sea_level_anomaly_data, filtered_data_path,
@@ -88,6 +93,13 @@ async def main():
                                                 name=f"gaussian_filtered_{half_width}")
         else:
             sea_level_anomaly_data = xr.open_dataset(filtered_data_path)
+        # adjust resolution
+        resolution_path = f"../output/resolutions/sea_level_anomaly_data_filtered_{half_width}_{resolution}_degree.nc"
+        sea_level_anomaly_data = await adjust_resolution(resolution, resolution_path, sea_level_anomaly_data)
+    else:
+        resolution_path = f"../output/resolutions/sea_level_anomaly_data_no_filter_{resolution}_degree.nc"
+        # check for correct resolution
+        sea_level_anomaly_data = await adjust_resolution(resolution, resolution_path, sea_level_anomaly_data)
 
     # initial clustering either with hierarchical clustering or neighborhood clustering
     if do_neighborhood_clustering:
@@ -129,11 +141,16 @@ async def main():
                                                       number_of_components)
 
     if do_subspace_clustering_with_integrated_connectivity:
+
+        current_out_dir = f"{out_dir}/integrated_connectivity"
+        print(f"output directory: {current_out_dir}")
+        if not os.path.exists(current_out_dir):
+            os.makedirs(current_out_dir)
         initial_clustering = xr.open_dataset(initial_clustering_path)
         subspace_clustering.start_subspace_clustering_with_integrated_connectivity(sea_level_anomaly_data,
                                                                                    initial_clustering,
-                                                                                   f"{out_dir}",
-                                                                                   number_of_components)
+                                                                                   current_out_dir,
+                                                                                   number_of_components, resolution)
 
 
 if __name__ == "__main__":
