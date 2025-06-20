@@ -618,6 +618,8 @@ Modify the clustering with subspaces by checking if the grid points are closer t
                 continue
             current_time_series = sla_data[:, id_x, id_y]
             current_cluster = cluster_map[id_x, id_y]
+            if current_cluster not in subspaces.keys():
+                continue
             possible_clusters = []
             # find all clusters that are neighbors of the current cluster
             # check the 4 neighbors (up, down, left, right)
@@ -643,7 +645,9 @@ Modify the clustering with subspaces by checking if the grid points are closer t
             closest_cluster = current_cluster
             closest_distance = np.inf
             for neighbor_cluster in possible_clusters:
-                subspace, mean = subspaces[neighbor_cluster]
+                if neighbor_cluster not in subspaces.keys():
+                    continue
+                subspace, mean = subspaces[int(neighbor_cluster)]
                 distance = subspace_timeseries_distance_calculation([], current_time_series, mean, subspace)
                 if distance < min_distance:
                     min_distance = distance
