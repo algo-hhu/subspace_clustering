@@ -73,6 +73,12 @@ async def adjust_resolution(resolution: int, resolution_path: str, sea_level_ano
     :return:
     """
     if resolution != sea_level_anomaly_data.latitude[1] - sea_level_anomaly_data.latitude[0]:
+        if resolution < sea_level_anomaly_data.latitude[1] - sea_level_anomaly_data.latitude[0]:
+            logger.warning("The desired resolution is smaller than the current resolution. This is not supported.")
+            exit()
+        if resolution < 1:
+            logger.warning("The desired resolution is smaller than 1 degree. This is not supported.")
+            exit()
         # interpolate the data to the desired resolution
         if not os.path.exists(resolution_path):
             logger.info(f"Interpolating sea level anomaly data to {resolution} degree resolution")

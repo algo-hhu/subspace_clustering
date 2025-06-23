@@ -47,16 +47,7 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
     # plot first time step
     plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, original_out_dir, "sla", name="input_data")
     sla_data = sea_level_anomaly_data["sla"].values
-
-    # nan mask
-    non_nan_mask = ~np.isnan(sla_data).any(axis=0)
-    # apply nan mask to clustering data
     cluster_data = clustering["__xarray_dataarray_variable__"].values
-    # assign nans where there are all nans in the cluster data
-    cluster_data[~non_nan_mask] = np.nan
-    unique_numbers, counts = np.unique(cluster_data, return_counts=True)
-
-    unique_numbers = unique_numbers[~np.isnan(unique_numbers)]
     # perform the subspace clustering for each wanted number of components
     # perform this three times, once with filtering, once with connectivity after the clustering and once with
     # connectivity every round
@@ -87,9 +78,9 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
             logger.info("Filtering every round and establishing connectivity once after clustering")
         for number_of_components in components:
             # get start clustering dictionary from initial clustering netcdf data and plot
-            cluster_dict, cluster_to_grid_point_ids_dict = extract_original_clusters(cluster_data, clustering, min_lat,
+            cluster_dict, cluster_to_grid_point_ids_dict = extract_original_clusters(clustering, min_lat,
                                                                                      min_lon,
-                                                                                     resolution, unique_numbers)
+                                                                                     resolution)
             cluster_id_to_color = assign_color_to_cluster(cluster_to_grid_point_ids_dict)
             logger.info(f"assigning subspaces for {number_of_components} components")
             current_out_dir = f"{out_dir}/components_{number_of_components}/"
@@ -458,7 +449,7 @@ def convert_idx_idy_to_lat_lon(grid_point_assignment, min_lat, min_lon, resoluti
     return grid_point_assignment_lat_lon
 
 
-def extract_original_clusters(cluster_data, clustering, min_lat, min_lon, resolution, unique_numbers):
+def extract_original_clusters(clustering, min_lat, min_lon, resolution):
     """
     Extract the original clusters from the clustering data
     :param cluster_data:
@@ -469,6 +460,15 @@ def extract_original_clusters(cluster_data, clustering, min_lat, min_lon, resolu
     :param unique_numbers:
     :return:
     """
+    # nan mask
+    non_nan_mask = ~np.isnan(sla_data).any(axis=0)
+    # apply nan mask to clustering data
+    cluster_data = clustering["__xarray_dataarray_variable__"].values
+    # assign nans where there are all nans in the cluster data
+    cluster_data[~non_nan_mask] = np.nan
+    unique_numbers, counts = np.unique(cluster_data, return_counts=True)
+
+    unique_numbers = unique_numbers[~np.isnan(unique_numbers)]
     # 2D array of size lat x lon that contains only the lat or lon values at each point
     extended_lats = np.tile(clustering["latitude"].values[:, np.newaxis],
                             (1, clustering["longitude"].values.shape[0]))

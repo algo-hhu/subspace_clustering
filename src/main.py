@@ -108,9 +108,6 @@ async def main():
         current_out_dir = f"{out_dir}/neighborhood_clustering_{name}/"
         if not os.path.exists(current_out_dir):
             os.makedirs(current_out_dir)
-        # interpolate the grid to match the desired resolution, this is mainly a performance consideration
-        sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, resolution),
-                                                               longitude=range(-180, 180, resolution))
         # calculate the neighborhood clustering
         neighborhood_clustering.start_clustering(sea_level_anomaly_data, [100, 80, 90, 70, 60, 50, 25, 20, 15, 10],
                                                  distance_function, current_out_dir)
@@ -124,9 +121,6 @@ async def main():
         # plot used data
         plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, current_out_dir, variable_to_plot, name="used_data")
 
-        # interpolate to 5 degree grid
-        sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, resolution),
-                                                               longitude=range(-180, 180, resolution))
         plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, current_out_dir, variable_to_plot,
                                             name=f"{resolution}_degree_grid_filtered")
         k = [100, 50, 25, 20, 15, 10, 8]
