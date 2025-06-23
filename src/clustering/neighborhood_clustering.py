@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 from src import helper, plotting
 from src.clustering.connectivity_helper import find_first_last_longitude, ensure_bidirectional_neighbors
+from src.helper import save_clustering
 
 MIN_LATITUDE = None
 MIN_LONGITUDE = None
@@ -408,7 +409,7 @@ def lat_lon_to_index(lat, lon, lat_min, lon_min, resolution) -> (int, int):
     return x, y
 
 
-def start_clustering(sea_level_anomaly_data: xarray.Dataset, k: [int], distance_function, out_dir: str):
+def start_clustering(sea_level_anomaly_data: xarray.Dataset, k: list[int], distance_function, out_dir: str):
     """
     start hierarchical neighborhood clustering
     :param out_dir:
@@ -475,18 +476,8 @@ def start_clustering(sea_level_anomaly_data: xarray.Dataset, k: [int], distance_
         plotting.plot_clustering_without_preassigned_colors(clusters[current_k], out_dir, RESOLUTION, name)
 
         # save as netcdf file
-        cluster_data = numpy.zeros((sea_level_anomaly_data.latitude.size, sea_level_anomaly_data.longitude.size))
-        cluster_number = 0
+
         clustering_dict = clusters[current_k]
-        for cluster in clustering_dict.keys():
-            for grid_point in clustering_dict[cluster]:
-                # get index of lat long in sea_level_anomaly_data
-                lat_index = numpy.where(sea_level_anomaly_data.latitude.values == grid_point[0])[0][0]
-                long_index = numpy.where(sea_level_anomaly_data.longitude.values == grid_point[1])[0][0]
-                cluster_data[lat_index, long_index] = cluster_number
-            cluster_number += 1
-        cluster_data = xarray.DataArray(cluster_data, dims=["latitude", "longitude"])
-        cluster_data = cluster_data.assign_coords(latitude=sea_level_anomaly_data.latitude,
-                                                  longitude=sea_level_anomaly_data.longitude)
-        cluster_data.to_netcdf(f"{out_dir}/{len(clustering_dict.keys())}_clusters.nc")
+        filename = f"clustering_{current_k}.nc"
+        save_clustering(clustering_dict, out_dir, sea_level_anomaly_data, filename)
     return

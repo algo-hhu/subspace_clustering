@@ -7,6 +7,7 @@ from loguru import logger
 from src import plotting, distance, helper
 from src.clustering import complete_hierarchical_clustering, subspace_clustering, \
     neighborhood_clustering
+from src.evaluation import evaluate
 from src.helper import adjust_resolution
 from src.preprocessing import preprocessing_data
 
@@ -36,13 +37,15 @@ async def main():
     filtering_sla = True
     half_width = 500
     # set parameters for initial clustering
-    resolution = 0.25  # resolution of the grid
+    resolution = 2  # resolution of the grid
     number_of_clusters = 15  # number of clusters to reduce to
-    full_hierarchical_clustering = True  # Clustering all grid points hierarchically with a given distance function
-    do_neighborhood_clustering = True  # Clustering the grid points hierarchically that are neighbors to each other
+    k = [100, 50, 25, 20, 15, 10, 8]  # number of clusters for initial clustering
+    full_hierarchical_clustering = False  # Clustering all grid points hierarchically with a given distance function
+    do_neighborhood_clustering = False  # Clustering the grid points hierarchically that are neighbors to each other
     # parameters for subspace clustering
     do_subspace_clustering = False  # Given a start clustering, perform subspace clustering
     do_subspace_clustering_with_integrated_connectivity = False  # In each iteration of the subspace clustering, only
+    evaluate_clustering = True
     # the border of a cluster is allowed to change its cluster
     number_of_components = [3]  # set the dimension of the subspaces
     out_dir = (
@@ -60,6 +63,9 @@ async def main():
     if do_subspace_clustering or do_subspace_clustering_with_integrated_connectivity:
         out_dir = initial_clustering_path.rsplit('/', 1)[0]
         out_dir = f"{out_dir}/subspace_clustering"
+
+    # path to clustering that should be evaluated
+    eval_clustering_path = f"{out_dir}/full_hierarchical_clustering_thompson_distance_function/subspace_clustering/establish_connectivity_every_iteration/components_3/.nc"
     # create output directory
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
@@ -108,9 +114,16 @@ async def main():
         current_out_dir = f"{out_dir}/neighborhood_clustering_{name}/"
         if not os.path.exists(current_out_dir):
             os.makedirs(current_out_dir)
-        # calculate the neighborhood clustering
-        neighborhood_clustering.start_clustering(sea_level_anomaly_data, [100, 80, 90, 70, 60, 50, 25, 20, 15, 10],
-                                                 distance_function, current_out_dir)
+        # check if this has already been done
+        for current_k in k:  # check if the clustering for this k already exists
+            clustering_path = f"{current_out_dir}/clustering_{current_k}.nc"
+            if not os.path.exists(clustering_path):
+                # calculate the neighborhood clustering
+                neighborhood_clustering.start_clustering(sea_level_anomaly_data, k,
+                                                         distance_function, current_out_dir)
+                break
+            else:
+                logger.info(f"Neighborhood clustering for k={current_k} already exists. Skipping.")
 
     if full_hierarchical_clustering:
         distance_function = distance.thompson_distance_function
@@ -123,10 +136,16 @@ async def main():
 
         plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, current_out_dir, variable_to_plot,
                                             name=f"{resolution}_degree_grid_filtered")
-        k = [100, 50, 25, 20, 15, 10, 8]
-        complete_hierarchical_clustering.start_clustering(k, sea_level_anomaly_data, current_out_dir,
-                                                          distance_function)
-
+        # check if this has already been done
+        for current_k in k:
+            clustering_path = f"{current_out_dir}/clustering_{current_k}.nc"
+            if not os.path.exists(clustering_path):
+                # calculate the hierarchical clustering
+                complete_hierarchical_clustering.start_clustering(k, sea_level_anomaly_data, current_out_dir,
+                                                                  distance_function)
+                break
+            else:
+                logger.info(f"Hierarchical clustering for k={current_k} already exists. Skipping.")
     # subspace clustering
     if do_subspace_clustering:
         initial_clustering = xr.open_dataset(initial_clustering_path)
@@ -145,6 +164,10 @@ async def main():
                                                                                    initial_clustering,
                                                                                    current_out_dir,
                                                                                    number_of_components, resolution)
+
+    if evaluate_clustering:
+        clustering = xr.open_dataset(initial_clustering_path)
+        evaluate.start_evaluation(clustering, out_dir, sea_level_anomaly_data)
 
 
 if __name__ == "__main__":
