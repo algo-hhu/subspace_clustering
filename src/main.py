@@ -33,16 +33,16 @@ async def main():
         }
     }
     # set parameters for filtering
-    filtering_sla = False
+    filtering_sla = True
     half_width = 500
     # set parameters for initial clustering
-    resolution = 2  # resolution of the grid
+    resolution = 0.25  # resolution of the grid
     number_of_clusters = 15  # number of clusters to reduce to
-    full_hierarchical_clustering = False  # Clustering all grid points hierarchically with a given distance function
-    do_neighborhood_clustering = False  # Clustering the grid points hierarchically that are neighbors to each other
+    full_hierarchical_clustering = True  # Clustering all grid points hierarchically with a given distance function
+    do_neighborhood_clustering = True  # Clustering the grid points hierarchically that are neighbors to each other
     # parameters for subspace clustering
     do_subspace_clustering = False  # Given a start clustering, perform subspace clustering
-    do_subspace_clustering_with_integrated_connectivity = True  # In each iteration of the subspace clustering, only
+    do_subspace_clustering_with_integrated_connectivity = False  # In each iteration of the subspace clustering, only
     # the border of a cluster is allowed to change its cluster
     number_of_components = [3]  # set the dimension of the subspaces
     out_dir = (
