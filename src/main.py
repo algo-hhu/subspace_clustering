@@ -40,14 +40,14 @@ async def main():
     resolution = 2  # resolution of the grid
     number_of_clusters = 15  # number of clusters to reduce to
     k = [100, 50, 25, 20, 15, 10, 8]  # number of clusters for initial clustering
-    full_hierarchical_clustering = False  # Clustering all grid points hierarchically with a given distance function
+    full_hierarchical_clustering = True  # Clustering all grid points hierarchically with a given distance function
     do_neighborhood_clustering = False  # Clustering the grid points hierarchically that are neighbors to each other
     # parameters for subspace clustering
     do_subspace_clustering = False  # Given a start clustering, perform subspace clustering
     do_subspace_clustering_with_integrated_connectivity = False  # In each iteration of the subspace clustering, only
-    evaluate_clustering = True
+    evaluate_clustering = False
     # the border of a cluster is allowed to change its cluster
-    number_of_components = [3]  # set the dimension of the subspaces
+    number_of_components = [3, 5, 7]  # set the dimension of the subspaces
     out_dir = (
         f"../output")
     if filtering_sla:
