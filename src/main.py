@@ -108,7 +108,7 @@ async def main():
 
     # initial clustering either with hierarchical clustering or neighborhood clustering
     if do_neighborhood_clustering:
-        distance_function = distance.thompson_distance_function
+        distance_function = distance.euclidean_distance
         name = distance_function.__name__
         current_out_dir = f"{out_dir}/neighborhood_clustering_{name}/"
         if not os.path.exists(current_out_dir):
