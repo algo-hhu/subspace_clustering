@@ -7,7 +7,6 @@ from loguru import logger
 from src import plotting, distance, helper
 from src.clustering import complete_hierarchical_clustering, subspace_clustering, \
     neighborhood_clustering
-from src.evaluation import evaluate
 from src.helper import adjust_resolution
 from src.preprocessing import preprocessing_data
 
@@ -167,7 +166,7 @@ async def main():
 
     if evaluate_clustering:
         clustering = xr.open_dataset(initial_clustering_path)
-        evaluate.start_evaluation(clustering, out_dir, sea_level_anomaly_data)
+        # evaluate.start_evaluation(clustering, out_dir, sea_level_anomaly_data)
 
 
 if __name__ == "__main__":
