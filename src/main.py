@@ -36,7 +36,7 @@ async def main():
     filtering_sla = True
     half_width = 500
     # set parameters for initial clustering
-    resolution = 2  # resolution of the grid
+    resolution = 0.25  # resolution of the grid
     number_of_clusters = 15  # number of clusters to reduce to
     k = [100, 50, 25, 20, 15, 10, 8]  # number of clusters for initial clustering
     full_hierarchical_clustering = True  # Clustering all grid points hierarchically with a given distance function
