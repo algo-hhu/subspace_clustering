@@ -167,14 +167,14 @@ def generate_grid_graph(lat_lon_to_grid_point_id, nan_mask, sea_level_anomaly_da
 
 
 def map_locations_to_ids(
-        cluster_to_locations: Dict[int, List[Tuple[float, float]]],
-        location_to_id: Dict[Tuple[float, float], int]
-) -> Dict[int, Set[int]]:
+        cluster_to_locations: dict[int, list[tuple[float, float]]],
+        location_to_id: dict[tuple[float, float], int]
+) -> dict[int, set[int]]:
     """
     Turn a clustering of (lat, lon) → cluster_id into
     cluster_id → set of grid_point_id.
     """
-    cluster_id_to_grid_point_set: Dict[int, Set[int]] = {}
+    cluster_id_to_grid_point_set: dict[int, set[int]] = {}
     for cluster_id, locations in cluster_to_locations.items():
         ids = {location_to_id[loc]
                for loc in locations
@@ -198,8 +198,8 @@ def build_cluster_graph_nodes(
     ]
 
 
-def build_cluster_graph_edges(cluster_id_to_grid_point_set: Dict[int, Set[int]], grid_graph: nx.Graph) -> Set[
-    Tuple[int, int]]:
+def build_cluster_graph_edges(cluster_id_to_grid_point_set: dict[int, set[int]], grid_graph: nx.Graph) -> set[
+    tuple[int, int]]:
     """
     For each cluster, collect edges between same-cluster neighbors
     by set-intersecting adjacency keys.

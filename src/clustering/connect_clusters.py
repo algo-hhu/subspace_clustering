@@ -48,9 +48,11 @@ def reestablish_connectivity(sea_level_anomaly_data, clustering, cluster_array, 
 
     grid_graph = generate_grid_graph(lat_lon_to_grid_point_id, nan_mask, sea_level_anomaly_data)
 
-    cluster_graph = generate_cluster_graph(clustering, grid_graph, lat_lon_to_grid_point_id)
+    cluster_graph = generate_cluster_graph(clustering, grid_graph,
+                                           lat_lon_to_grid_point_id)  # graph with grid points as nodes and edges between points in the same cluster
 
-    connected_component_graph, connected_components = generate_connected_component_graph(cluster_graph, grid_graph)
+    connected_component_graph, connected_components = generate_connected_component_graph(cluster_graph,
+                                                                                         grid_graph)  # connected component graph with connected components (i.e. clusters) as nodes and edges between connected components that are neighbors
 
     counter = 0
     while len(connected_components) > k:
@@ -83,8 +85,28 @@ def reestablish_connectivity(sea_level_anomaly_data, clustering, cluster_array, 
                     closest_cluster = subspace_id
             if closest_cluster is None:
                 logger.warning(f"no closest cluster found for node {node}")
+                continue
             neighbor_count[closest_cluster] += 1
         # assign the current connected component to the neighbor that it is most similar to
+        if not neighbor_count:
+            # plot the image with the smallest connected component highlighted
+            plot_with_highlighting_of_component(clustering, smallest_connected_component, neighbors,
+                                                f"{out_dir}/deleted_nodes",
+                                                f"{number}smallest_component_{counter}_error", resolution,
+                                                connected_components, grid_point_to_lat_lon, cluster_id_to_color)
+            # if there are no neighbors, it means that the smallest connected component is isolated, then it can be removed and ignored in further iterations
+            grid_graph.remove_nodes_from(smallest_connected_component.nodes)
+            # remove the smallest connected component from the clustering
+            for node in smallest_connected_component.nodes:
+                lat, lon = grid_point_to_lat_lon[node]
+                if smallest_connected_component.cluster_id in clustering:
+                    if (lat, lon) in clustering[smallest_connected_component.cluster_id]:
+                        # remove the node from the cluster
+                        clustering[smallest_connected_component.cluster_id].remove((lat, lon))
+                    else:
+                        logger.warning(f"node {node} not found in cluster {smallest_connected_component.cluster_id}")
+            continue
+
         best_neighbor = max(neighbor_count, key=neighbor_count.get)
         # assign the cluster id of the best neighbor to all points in the smallest connected component
 

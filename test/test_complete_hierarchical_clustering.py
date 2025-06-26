@@ -3,7 +3,7 @@ from unittest import TestCase
 
 import numpy as np
 
-from src.clustering.complete_hierarchical_clustering import GridPoint, Cluster, hierarchical_clustering
+from src.clustering.complete_hierarchical_clustering import GridPoint, Cluster, clustering
 
 
 class Test(TestCase):
@@ -25,7 +25,7 @@ class Test(TestCase):
         sea_level_anomaly_data = None
         number_of_clusters = len(clusters.values())
         k = [1]
-        clusterings = hierarchical_clustering(distances, sea_level_anomaly_data, number_of_clusters, k, clusters)
+        clusterings = clustering(distances, number_of_clusters, k, clusters)
         self.assertEqual(1, len(clusterings))
         self.assertEqual(1, len(clusterings[1]))
         self.assertEqual(3, len(clusterings[1][0].grid_points))
@@ -86,6 +86,6 @@ class Test(TestCase):
         sea_level_anomaly_data = None
         number_of_clusters = len(clusters.values())
         k = [3]
-        clusterings = hierarchical_clustering(distances, sea_level_anomaly_data, number_of_clusters, k, clusters)
+        clusterings = clustering(distances, number_of_clusters, k, clusters)
         self.assertEqual(1, len(clusterings))
         self.assertEqual(3, len(clusterings[3]))

@@ -3,11 +3,13 @@ import os
 import random
 from statistics import median
 
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 import geopandas
 import matplotlib.patches as mpatches
+import numpy as np
 import shapely
 import xarray as xr
-from cartopy import crs as ccrs
 from matplotlib import pyplot as plt
 from shapely.geometry import Polygon, MultiPolygon
 from shapely.geometry.point import Point
@@ -496,6 +498,8 @@ def plot_with_highlighting_of_component(clustering, smallest_component, neighbor
     :param resolution:
     :return:
     """
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
     clusters_gdf, land_gdf = turn_dict_into_gdf(clustering, resolution / 2,
                                                 cluster_id_to_color)
     latitudes = []
@@ -519,32 +523,33 @@ def plot_with_highlighting_of_component(clustering, smallest_component, neighbor
     smallest_component_gdf = geopandas.GeoDataFrame(smallest_component_dict, geometry='geometry')
 
     neighbors_dict = {'name': [], 'geometry': [], 'color': []}
-    for neighbor in neighbors:
-        neighbor_component = connected_components[neighbor]
-        latitudes = []
-        longitudes = []
-        for node in neighbor_component.nodes:
-            latitudes.append(grid_point_to_lat_lon[node][0])
-            longitudes.append(grid_point_to_lat_lon[node][1])
-        # shift longitudes to 0/360 format if they cross the -180/180 boundary and back to -180/180 format
-        if min(longitudes) < -170 and max(longitudes) > 170:
-            longitudes = [lon + 360 if lon < 0 else lon for lon in longitudes]
-            median_longitude = median(longitudes)
-            if median_longitude > 180:
-                median_longitude -= 360
-        else:
-            median_longitude = median(longitudes)
-        mean_coordinates_neighbor = (median(latitudes), median_longitude)
-        # extract the color of the neighbor component
-        matching_rows = clusters_gdf[clusters_gdf['cluster_id'] == neighbor_component.cluster_id]
-        if not matching_rows.empty:
-            cluster_color = matching_rows.iloc[0]['color']
-        else:
-            cluster_color = "gray"
-        neighbors_dict['color'].append(cluster_color)
-        neighbors_dict['name'].append(neighbor_component.id)
-        neighbors_dict['geometry'].append(Point(mean_coordinates_neighbor[1], mean_coordinates_neighbor[0]))
-    neighbors_gdf = geopandas.GeoDataFrame(neighbors_dict, geometry='geometry')
+    if neighbors:
+        for neighbor in neighbors:
+            neighbor_component = connected_components[neighbor]
+            latitudes = []
+            longitudes = []
+            for node in neighbor_component.nodes:
+                latitudes.append(grid_point_to_lat_lon[node][0])
+                longitudes.append(grid_point_to_lat_lon[node][1])
+            # shift longitudes to 0/360 format if they cross the -180/180 boundary and back to -180/180 format
+            if min(longitudes) < -170 and max(longitudes) > 170:
+                longitudes = [lon + 360 if lon < 0 else lon for lon in longitudes]
+                median_longitude = median(longitudes)
+                if median_longitude > 180:
+                    median_longitude -= 360
+            else:
+                median_longitude = median(longitudes)
+            mean_coordinates_neighbor = (median(latitudes), median_longitude)
+            # extract the color of the neighbor component
+            matching_rows = clusters_gdf[clusters_gdf['cluster_id'] == neighbor_component.cluster_id]
+            if not matching_rows.empty:
+                cluster_color = matching_rows.iloc[0]['color']
+            else:
+                cluster_color = "gray"
+            neighbors_dict['color'].append(cluster_color)
+            neighbors_dict['name'].append(neighbor_component.id)
+            neighbors_dict['geometry'].append(Point(mean_coordinates_neighbor[1], mean_coordinates_neighbor[0]))
+        neighbors_gdf = geopandas.GeoDataFrame(neighbors_dict, geometry='geometry')
 
     ax = land_gdf.plot(color="burlywood", figsize=(20, 12), zorder=0, alpha=0.5)
     ax.set_facecolor("aliceblue")
@@ -552,7 +557,9 @@ def plot_with_highlighting_of_component(clustering, smallest_component, neighbor
     # clusters_gdf.boundary.plot(ax=ax, color=clusters_gdf["color"], zorder=5, linewidth=0.5)
     smallest_component_gdf.plot(ax=ax, marker='o', facecolor=smallest_component_gdf['color'], edgecolor='red',
                                 zorder=5, markersize=10)
-    neighbors_gdf.plot(ax=ax, marker='o', facecolor=neighbors_gdf['color'], edgecolor="black", zorder=6, markersize=10)
+    if neighbors:
+        neighbors_gdf.plot(ax=ax, marker='o', facecolor=neighbors_gdf['color'], edgecolor="black", zorder=6,
+                           markersize=10)
     plt.xticks([-180, -135, -90, -45, 0, 45, 90, 135, 180])
     plt.yticks([-90, -45, 0, 45, 90])
     handles = [mpatches.Patch(color=color, label=f"Cluster {cluster_id}")
@@ -601,4 +608,77 @@ def plot_summed_distances_to_subspaces(sum_distances_to_subspaces, current_out_d
     plt.ylabel('Sum of Distances to Subspaces')
     plt.title(f'Summed Distances to Subspaces for {number_of_components} Components')
     plt.savefig(os.path.join(current_out_dir, f'summed_distances_to_subspaces_{number_of_components}.png'))
+    return None
+
+
+def plot_time_series(first_component: np.array, out_dir: str, name: str):
+    """
+    Plot a given time series
+    :param name:
+    :param first_component:
+    :param out_dir:
+    :return:
+    """
+    plt.figure()
+    plt.plot(first_component)
+    plt.xlabel('Time')
+    plt.ylabel('Value')
+    plt.title(f"{name}")
+    plt.savefig(os.path.join(out_dir, f'{name}.png'))
+    plt.close()
+    return None
+
+
+def plot_eof(eof_to_plot: np.array, output_dir: str, name: str):
+    """
+    Plot a given EOF
+    :param eof_to_plot:
+    :param output_dir:
+    :param name:
+    :return:
+    """
+    # Define coordinate extent (longitude/latitude or other units)
+    extent = [-180, 180, -90, 90]  # [xmin, xmax, ymin, ymax]
+
+    # Plot using a projection (PlateCarree = regular lat/lon grid)
+    fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
+    im = ax.imshow(eof_to_plot, extent=extent, origin='lower', cmap='viridis')
+
+    # Add geographic features
+    ax.coastlines(resolution='110m', linewidth=1)
+    ax.add_feature(cfeature.BORDERS, linewidth=0.5)
+    ax.add_feature(cfeature.LAND, facecolor='lightgray')
+    plt.colorbar(im, label='Sea Level (m)')
+    plt.title(f"{name}")
+    plt.savefig(os.path.join(output_dir, f'{name}.png'))
+    plt.close()
+
+
+def plot_individual_clusters(sea_level_anomaly_data: xr.Dataset, grid_points: list, out_dir: str, name: str):
+    """
+
+    :param sea_level_anomaly_data:
+    :param grid_points:
+    :param out_dir:
+    :param name:
+    :return:
+    """
+    cluster_data = np.zeros((sea_level_anomaly_data.latitude.size, sea_level_anomaly_data.longitude.size))
+    for grid_point in grid_points:
+        cluster_data[grid_point[0], grid_point[1]] = 1
+    # Define coordinate extent (longitude/latitude or other units)
+    extent = [-180, 180, -90, 90]  # [xmin, xmax, ymin, ymax]
+
+    # Plot using a projection (PlateCarree = regular lat/lon grid)
+    fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
+    im = ax.imshow(cluster_data, extent=extent, origin='lower', cmap='cool')
+
+    # Add geographic features
+    ax.coastlines(resolution='110m', linewidth=1)
+    ax.add_feature(cfeature.BORDERS, linewidth=0.5)
+    ax.add_feature(cfeature.LAND, facecolor='lightgray')
+    plt.colorbar(im, label='Sea Level (m)')
+    plt.title(f"{name}")
+    plt.savefig(os.path.join(out_dir, f'{name}.png'))
+    plt.close()
     return None

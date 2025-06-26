@@ -67,7 +67,7 @@ def save_xarray_dataset(out_file_path, sea_level_anomaly_data):
                                      format="NETCDF4")
 
 
-async def adjust_resolution(resolution: int, resolution_path: str, sea_level_anomaly_data: xr.Dataset) -> xr.Dataset:
+def adjust_resolution(resolution: int, resolution_path: str, sea_level_anomaly_data: xr.Dataset) -> xr.Dataset:
     """
     Adjust the resolution of the sea level anomaly data to the desired resolution.
     :param resolution:
@@ -162,4 +162,4 @@ def save_clustering(clustering_dict: dict[int, list[tuple[float, float]]], out_d
     cluster_data = xarray.DataArray(cluster_data, dims=["latitude", "longitude"])
     cluster_data = cluster_data.assign_coords(latitude=sea_level_anomaly_data.latitude,
                                               longitude=sea_level_anomaly_data.longitude)
-    cluster_data.to_netcdf(f"{out_dir}/{filename}")
+    cluster_data.to_netcdf(f"{out_dir}/{filename}.nc")

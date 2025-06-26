@@ -2,6 +2,7 @@ import cProfile
 import os
 import pstats
 
+import matplotlib.pyplot as plt
 import numpy as np
 import xarray
 from loguru import logger
@@ -17,12 +18,38 @@ from src.plotting import plot_clustering, assign_color_to_cluster
 OUT_DIR = None
 
 
-def plot_explained_variance_per_iteration(explained_variance_per_iteration, current_out_dir):
-    pass
+def plot_explained_variance_per_iteration(explained_variance_per_iteration: dict[int: dict[int: float]],
+                                          current_out_dir: str):
+    """
+    Plot the explained variance per iteration
+    :param explained_variance_per_iteration:
+    :param current_out_dir:
+    :return:
+    """
+    # plot one line for each cluster, where the x-axis is the iteration number and the y-axis is the explained variance
+    explained_variance_per_cluster = {}
+    for iteration in explained_variance_per_iteration.keys():
+        for cluster_id in explained_variance_per_iteration[iteration].keys():
+            if explained_variance_per_cluster.get(cluster_id) is None:
+                explained_variance_per_cluster[cluster_id] = ([], [])
+            explained_variance_per_cluster[cluster_id][0].append(iteration)
+            explained_variance_per_cluster[cluster_id][1].append(
+                explained_variance_per_iteration[iteration][cluster_id])
+    plt.figure()
+    for cluster_id in explained_variance_per_cluster.keys():
+        plt.plot(explained_variance_per_cluster[cluster_id][0],
+                 explained_variance_per_cluster[cluster_id][1], label=f"Cluster {cluster_id}")
+    plt.xlabel("Iteration")
+    plt.ylabel("Explained Variance")
+    plt.title("Explained Variance per Iteration")
+    plt.legend(loc='center right', bbox_to_anchor=(1.25, 0.5))
+    plt.savefig(f"{current_out_dir}/explained_variance_per_iteration.png", bbox_inches='tight')
+    plt.close()
+    return
 
 
 def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering: xarray.Dataset, original_out_dir: str,
-                              components: []):
+                              components: list[int]):
     """
     Start the subspace clustering
     :param original_out_dir:
@@ -37,7 +64,10 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
 
     global OUT_DIR
     # adjust resolution, such that it is the same for the sea level anomaly data as it is for the clustering
-    min_lat, min_lon, resolution, sea_level_anomaly_data = adjust_resolution(clustering, sea_level_anomaly_data)
+    # min_lat, min_lon, resolution, sea_level_anomaly_data = adjust_resolution(clustering, sea_level_anomaly_data)
+    min_lat = clustering.latitude.values.min()
+    min_lon = clustering.longitude.values.min()
+    resolution = float(clustering.latitude.values[1]) - float(clustering.latitude.values[0])
     # plot first time step
     plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, original_out_dir, "sla", name="input_data")
     sla_data = sea_level_anomaly_data["sla"].values
@@ -80,11 +110,10 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
             logger.info(f"assigning subspaces for {number_of_components} components")
             current_out_dir = f"{out_dir}/components_{number_of_components}/"
             OUT_DIR = current_out_dir
-            # evaluate startclustering
-            initial_clustering_outdir = f"{out_dir}/components_{number_of_components}/initial_clustering"
+            # evaluate start-clustering
             name = f"initial_clustering_{number_of_components}"
             evaluate_distances_to_subspaces(cluster_to_grid_point_ids_dict, sla_data, number_of_components,
-                                            initial_clustering_outdir, name)
+                                            current_out_dir, name)
             name = f"initial_clustering_{number_of_components}"
             plot_clustering(cluster_dict, current_out_dir, resolution, name, cluster_id_to_color)
             change = True
@@ -168,7 +197,7 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
                                                         number_of_components)
             # plot the explained variance
             # save final clustering
-            name = f"clustering_{len(cluster_to_grid_point_ids_dict.keys())}"
+            name = f"clustering_{len(cluster_to_grid_point_ids_dict.keys()) + 1}"
             save_clustering(cluster_to_lat_lon, current_out_dir, sea_level_anomaly_data, name)
             # plot the explained variance
             plot_explained_variance_per_iteration(explained_variance_per_iteration, current_out_dir)
@@ -217,7 +246,7 @@ def evaluate_distances_to_subspaces(cluster_to_grid_point_ids_dict: dict[int, li
     :param cluster_to_grid_point_ids_dict: {int: [(int, int)]}
     :return:
     """
-    explained_variance = {}
+    explained_variance_per_cluster = {}
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     sum_of_distances = 0
@@ -231,7 +260,7 @@ def evaluate_distances_to_subspaces(cluster_to_grid_point_ids_dict: dict[int, li
                                                                             sla_data,
                                                                             number_of_components)
         # save explained variance for current subspace
-        explained_variance[cluster_id] = explained_variance
+        explained_variance_per_cluster[cluster_id] = explained_variance
         if subspace is None:
             logger.warning(
                 f"Cluster {cluster_id} has less than {number_of_components} grid points. No subspace can be created.")
@@ -253,7 +282,7 @@ def evaluate_distances_to_subspaces(cluster_to_grid_point_ids_dict: dict[int, li
             f"{sum_of_distances / len(cluster_to_grid_point_ids_dict)}\n")
         f.write(f"average distance to subspace per grid point: {sum_of_distances / number_of_grid_points}\n")
         f.write(f"total sum of distances to subspace: {sum_of_distances}\n")
-    return sum_of_distances, explained_variance
+    return sum_of_distances, explained_variance_per_cluster
 
 
 def determine_subspace_per_cluster(cluster_grid_point_ids: [(int, int)], data: np.ndarray,
