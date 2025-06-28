@@ -1,9 +1,13 @@
+import os
+
 import numpy as np
 import xarray
+import xarray as xr
 from sklearn.decomposition import PCA
 
 from src import plotting
 from src.helper import extract_clusters_from_xarray_dataset
+from src.settings import EvaluationSettings
 
 
 def plot_first_component(clustering: dict[int: list[tuple[float, float]]], sla_data: np.array, output_dir: str):
@@ -92,3 +96,25 @@ def start_evaluation(clustering: xarray.Dataset, output_dir: str, sea_level_anom
     plot_first_component(cluster_id_to_grid_point_id, sla_data, output_dir)
     plot_first_component_for_entire_dataset(output_dir, sla_data, min_lat, min_lon, resolution)
     return
+
+
+def evaluate_clustering(evaluation_settings: EvaluationSettings, out_dir: str,
+                        unfiltered_sea_level_anomaly_data: xr.Dataset):
+    """
+    Evaluate clustering
+    :param evaluation_settings:
+    :param out_dir:
+    :param unfiltered_sea_level_anomaly_data:
+    :return:
+    """
+    if evaluation_settings.do_evaluation:
+        options = ("establish_connectivity_every_iteration", "establish_connectivity_once",
+                   "filter_every_round_connectivity_once" "integrated_connectivity")
+        for connectivity_option in options:
+            current_out_dir = f"{out_dir}/{connectivity_option}/evaluation"
+            eval_clustering_path = f"{out_dir}/{connectivity_option}/clustering{evaluation_settings.number_of_clusters}.nc"
+            if not os.path.exists(current_out_dir):
+                os.makedirs(current_out_dir)
+            print(f"output directory: {current_out_dir}")
+            clustering = xr.open_dataset(eval_clustering_path)
+            start_evaluation(clustering, current_out_dir, unfiltered_sea_level_anomaly_data)

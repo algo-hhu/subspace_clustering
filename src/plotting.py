@@ -294,6 +294,8 @@ def turn_dict_into_gdf(cluster_dict: {float: [(float, float)]}, grid_point_area:
 
             cluster_squares.append(square)
         colors.append(cluster_id_to_color[cluster])
+        print(cluster_squares)
+        print(type(cluster_squares))
         # Merge all squares in the cluster using unary_union
         merged_polygon = unary_union(cluster_squares).buffer(0)
         polygons.append(merged_polygon)

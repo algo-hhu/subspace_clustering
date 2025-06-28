@@ -5,6 +5,7 @@ import pstats
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray
+import xarray as xr
 from loguru import logger
 from sklearn.decomposition import PCA
 
@@ -14,6 +15,7 @@ from src.connectivity.gauss_filter_grid_point_assignment import SphericalGaussFi
 from src.distance import subspace_timeseries_distance_calculation
 from src.helper import extract_clusters_from_xarray_dataset, save_clustering
 from src.plotting import plot_clustering, assign_color_to_cluster
+from src.settings import GlobalSettings, SubspaceClusteringSettings
 
 OUT_DIR = None
 
@@ -63,8 +65,7 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
     # profiler.enable()
 
     global OUT_DIR
-    # adjust resolution, such that it is the same for the sea level anomaly data as it is for the clustering
-    # min_lat, min_lon, resolution, sea_level_anomaly_data = adjust_resolution(clustering, sea_level_anomaly_data)
+
     min_lat = clustering.latitude.values.min()
     min_lon = clustering.longitude.values.min()
     resolution = float(clustering.latitude.values[1]) - float(clustering.latitude.values[0])
@@ -101,11 +102,16 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
                 os.makedirs(out_dir)
             logger.info("Filtering every round and establishing connectivity once after clustering")
         for number_of_components in components:
+            # check if this has already been done
+
             explained_variance_per_iteration = {}
             # get start clustering dictionary from initial clustering netcdf data and plot
             cluster_dict, cluster_to_grid_point_ids_dict = extract_clusters_from_xarray_dataset(clustering, min_lat,
                                                                                                 min_lon,
                                                                                                 resolution, sla_data)
+            if os.path.exists(f"{out_dir}/components_{number_of_components}/clustering_{len(cluster_dict.keys())}.nc"):
+                logger.info(f"clustering for {number_of_components} components already exists at {out_dir}")
+                continue
             cluster_id_to_color = assign_color_to_cluster(cluster_to_grid_point_ids_dict)
             logger.info(f"assigning subspaces for {number_of_components} components")
             current_out_dir = f"{out_dir}/components_{number_of_components}/"
@@ -197,7 +203,7 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
                                                         number_of_components)
             # plot the explained variance
             # save final clustering
-            name = f"clustering_{len(cluster_to_grid_point_ids_dict.keys()) + 1}"
+            name = f"clustering_{len(cluster_to_grid_point_ids_dict.keys())}"
             save_clustering(cluster_to_lat_lon, current_out_dir, sea_level_anomaly_data, name)
             # plot the explained variance
             plot_explained_variance_per_iteration(explained_variance_per_iteration, current_out_dir)
@@ -617,3 +623,39 @@ def start_subspace_clustering_with_integrated_connectivity(sea_level_anomaly_dat
     stats = pstats.Stats(profiler)
     stats.strip_dirs().sort_stats("cumulative").print_stats(20)
     return
+
+
+def calculate_subspace_clustering(global_settings: GlobalSettings, out_dir: str,
+                                  subspace_clustering_settings: SubspaceClusteringSettings,
+                                  unfiltered_sea_level_anomaly_data: xr.Dataset):
+    """
+    Calculate subspace clustering
+    :param global_settings:
+    :param out_dir:
+    :param subspace_clustering_settings:
+    :param unfiltered_sea_level_anomaly_data:
+    :return:
+    """
+    if subspace_clustering_settings.do_subspace_clustering:
+        out_dir = f"{out_dir}/subspace_clustering"
+        print(f"output directory: {out_dir}")
+        initial_clustering = xr.open_dataset(
+            f"{out_dir}/clustering_{subspace_clustering_settings.number_of_clusters}.nc")
+        start_subspace_clustering(unfiltered_sea_level_anomaly_data, initial_clustering,
+                                  f"{out_dir}",
+                                  subspace_clustering_settings.number_of_components)
+
+        if subspace_clustering_settings.integrated_connectivity:
+
+            current_out_dir = f"{out_dir}/integrated_connectivity"
+            print(f"output directory: {current_out_dir}")
+            if not os.path.exists(current_out_dir):
+                os.makedirs(current_out_dir)
+            initial_clustering = xr.open_dataset(
+                f"{out_dir}/clustering_{subspace_clustering_settings.number_of_clusters}.nc")
+            start_subspace_clustering_with_integrated_connectivity(
+                unfiltered_sea_level_anomaly_data,
+                initial_clustering,
+                current_out_dir,
+                subspace_clustering_settings.number_of_components,
+                global_settings.resolution)

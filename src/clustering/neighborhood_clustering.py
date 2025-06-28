@@ -74,9 +74,7 @@ class NeighborhoodClustering(InitialClustering):
             f"min distance: {min(distances.items(), key=lambda x: x[1])}, max distance: {max(distances.items(), key=lambda x: x[1])}, number of grid points: {len(clusters.keys())}")
         # hierarchical neighbor clustering
         clustering_results = self.clustering(clusters, neighbors, distances)
-        # profiler.disable()
-        # stats = pstats.Stats(profiler)
-        # stats.strip_dirs().sort_stats("cumulative").print_stats(20)
+
         for current_k in clustering_results.keys():
             # change cluster ids to start from 0 to k
             clustering_results[current_k] = {i: clustering_results[current_k][cluster_id] for i, cluster_id in
@@ -86,18 +84,18 @@ class NeighborhoodClustering(InitialClustering):
             plotting.plot_clustering_without_preassigned_colors(clustering_results[current_k], self.out_dir,
                                                                 self.resolution,
                                                                 name)
-            current_outdir = os.path.join(self.out_dir, f"{current_k}")
-            if not os.path.exists(current_outdir):
-                os.makedirs(current_outdir)
+            current_out_dir = os.path.join(self.out_dir, f"{current_k}")
+            if not os.path.exists(current_out_dir):
+                os.makedirs(current_out_dir)
             for cluster_id, grid_points in clustering_results[current_k].items():
                 name = f"cluster_{cluster_id}"
                 current_cluster = {cluster_id: grid_points}
-                plotting.plot_clustering_without_preassigned_colors(current_cluster, current_outdir, self.resolution,
+                plotting.plot_clustering_without_preassigned_colors(current_cluster, current_out_dir, self.resolution,
                                                                     name)
 
             # save as a netcdf file
             clustering_dict = clustering_results[current_k]
-            filename = f"clustering_{current_k}.nc"
+            filename = f"clustering_{current_k}"
             save_clustering(clustering_dict, self.out_dir, self.sea_level_anomaly_data, filename)
         return
 
@@ -113,7 +111,6 @@ class NeighborhoodClustering(InitialClustering):
         solutions_for_k = {}
         number_grid_points = len(all_clusters.keys())
         for _ in tqdm(range(number_grid_points)):
-            old_len_clustering_results = len(all_clusters.keys())
             # check if all clusters are merged
             if len(all_clusters.keys()) <= 1:
                 logger.warning("Clustering continued until only one cluster was left")
@@ -147,10 +144,10 @@ class NeighborhoodClustering(InitialClustering):
         logger.info(
             f"average number of neighbors per cluster {np.mean([len(value) for value in neighbors.values()])}")
 
-    def merge_clusters(self, all_clusters: dict[int, tuple[float, float]],
+    def merge_clusters(self, all_clusters: dict[int, list[tuple[float, float]]],
                        distances: dict[tuple[int, int], float], min_distance_pair: tuple[int, int],
                        neighbors: dict[int, set[int]]) -> tuple[
-        dict[int, tuple[float, float]], dict[int, set[int]], dict[tuple[int, int], float]]:
+        dict[int, list[tuple[float, float]]], dict[int, set[int]], dict[tuple[int, int], float]]:
         """
         Merge two clusters and update the distances, neighbors and all_clusters
         :param all_clusters:
@@ -169,7 +166,6 @@ class NeighborhoodClustering(InitialClustering):
         distances.pop((cluster1, cluster2))
         distances.pop((cluster2, cluster1))
 
-        results = []
         for neighbor in new_neighbors:
             distance_cluster1 = distances.get((cluster1, neighbor))
             distance_cluster2 = distances.get((cluster2, neighbor))
@@ -272,7 +268,6 @@ class NeighborhoodClustering(InitialClustering):
         latitudes = self.sea_level_anomaly_data.latitude.values
         long_range = self.sea_level_anomaly_data["longitude"].shape[0]
         longitudes = self.sea_level_anomaly_data.longitude.values
-        data = self.sea_level_anomaly_data["sla"].values
         unique_pairs = set()
         first_longitude, last_longitude, lat_for_first_longitude, lat_for_last_longitude = find_first_last_longitude(
             lat_range, long_range, nan_mask)
