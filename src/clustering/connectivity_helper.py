@@ -3,7 +3,6 @@ from typing import Dict, List, Tuple, Set
 import networkx as nx
 import numpy as np
 from loguru import logger
-from tqdm import tqdm
 
 from src.clustering.cluster_entities.connected_component import ConnectedComponent
 
@@ -50,7 +49,7 @@ def iteratively_find_neighbors(latitudes, longitudes, lat_range, long_range, fir
     """
     neighbors = {}  # {grid_point_id: {neighbor_grid_point1, neighbor_grid_point2, ...}}
     # iterate through latitudes and longitudes and find neighbors for each grid point
-    for i in tqdm(range(lat_range)):
+    for i in (range(lat_range)):
         for j in (range(long_range)):
             if nan_mask[i, j]:  # points without valid data can be skipped
                 continue

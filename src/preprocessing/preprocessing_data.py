@@ -8,7 +8,6 @@ from loguru import logger
 from src import helper, plotting
 from src.helper import save_xarray_dataset, adjust_resolution
 from src.preprocessing import spherical_gauss_filter
-from src.settings import GlobalSettings
 
 
 def read_satellite_data(data_directory: str):
@@ -82,7 +81,7 @@ def apply_filters(sea_level_anomaly_data: xr.Dataset, half_width: int):
     return sea_level_anomaly_data_set
 
 
-def start_preprocessing(global_settings: GlobalSettings, variable_to_plot: str):
+def start_preprocessing(global_settings, variable_to_plot: str):
     """
     Read sea level anomaly data and preprocess it according to the settings
     :param global_settings:
@@ -105,6 +104,7 @@ def start_preprocessing(global_settings: GlobalSettings, variable_to_plot: str):
                                    unfiltered_sea_level_anomaly_data)
     else:
         unfiltered_sea_level_anomaly_data = xr.open_dataset(f"{global_settings.data_path}/sea_level_anomaly_data.nc")
+    unprocessed_sea_level_anomaly_data = unfiltered_sea_level_anomaly_data.copy()
     out_dir = global_settings.output_path
     # filtering
     if global_settings.filtering_sla:  # apply Gaussian
@@ -134,4 +134,4 @@ def start_preprocessing(global_settings: GlobalSettings, variable_to_plot: str):
     resolution_path = f"../output/resolutions/sea_level_anomaly_data_no_filter_{global_settings.resolution}_degree.nc"
     unfiltered_sea_level_anomaly_data = adjust_resolution(global_settings.resolution, resolution_path,
                                                           unfiltered_sea_level_anomaly_data)
-    return out_dir, sea_level_anomaly_data, unfiltered_sea_level_anomaly_data
+    return out_dir, sea_level_anomaly_data, unfiltered_sea_level_anomaly_data, unprocessed_sea_level_anomaly_data

@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Annotated
+from typing import Annotated, Callable
 
 from pydantic import SkipValidation
 from pydantic_settings import BaseSettings
@@ -14,7 +14,7 @@ class InitialClusteringMethod(str, Enum):
 
 class InitialDistanceFunction(str, Enum):
     euclidean = distance.euclidean_distance
-    thompson = distance.euclidean_distance
+    thompson = distance.thompson_distance_function
 
 
 class GlobalSettings(BaseSettings):
@@ -27,16 +27,16 @@ class GlobalSettings(BaseSettings):
     half_width: int = 500
     filtered_data_path: str = f"../output/spherical_gaussian_filtering/sea_level_anomaly_data_filtered_{half_width}.nc"
     filtering_sla: bool = True
-    resolution: int = 2
+    resolution: int = 1
 
 
 class InitialClusteringSettings(BaseSettings):
     """
     specific parameters for initial clustering
     """
-    method: InitialClusteringMethod = InitialClusteringMethod.full_hierarchical_clustering
-    distance_function: Annotated[callable, SkipValidation] = InitialDistanceFunction.thompson
-    number_of_clusters: list[int] = [100, 50, 25, 20, 15, 10, 8]
+    method: InitialClusteringMethod = InitialClusteringMethod.hierarchical_neighbor_clustering
+    distance_function: Annotated[Callable, SkipValidation] = InitialDistanceFunction.euclidean
+    number_of_clusters: list[int] = [100, 50, 25, 20, 15, 12, 10, 8]
 
 
 class SubspaceClusteringSettings(BaseSettings):
@@ -45,9 +45,9 @@ class SubspaceClusteringSettings(BaseSettings):
     """
     # specific parameters for subspace clustering
     do_subspace_clustering: bool = True
-    number_of_clusters: int = 15
-    number_of_components: list[int] = [3, 5, 7]
-    integrated_connectivity: bool = False
+    number_of_clusters: int = 12
+    number_of_components: list[int] = [30]
+    integrated_connectivity: bool = True
 
 
 class EvaluationSettings(BaseSettings):
@@ -55,3 +55,4 @@ class EvaluationSettings(BaseSettings):
     specific parameters for evaluation
     """
     do_evaluation: bool = True
+    number_of_clusters: int = 12

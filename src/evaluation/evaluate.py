@@ -7,20 +7,21 @@ from sklearn.decomposition import PCA
 
 from src import plotting
 from src.helper import extract_clusters_from_xarray_dataset
-from src.settings import EvaluationSettings
 
 
-def plot_first_component(clustering: dict[int: list[tuple[float, float]]], sla_data: np.array, output_dir: str):
+def plot_first_two_components(clustering: dict[int: list[tuple[float, float]]], sla_data: np.array, output_dir: str,
+                              sea_level_anomaly_data: xarray.Dataset):
     """
     For each cluster: calculate PCA and plot the time series of the first component
+    :param sea_level_anomaly_data:
     :param sla_data:
     :param output_dir:
     :param clustering:
     :return:
     """
     first_component_per_cluster = {}
+    second_component_per_cluster = {}
     for cluster_id, cluster_elements in clustering.items():
-        print(f"plotting first component for cluster {cluster_id}")
         # extract the time series for the current cluster as input data for PCA
         index_to_gridpoint = {}
         counter = 0
@@ -31,26 +32,41 @@ def plot_first_component(clustering: dict[int: list[tuple[float, float]]], sla_d
             data_for_pca[counter] = time_series
             counter += 1
         U, s, Vt = np.linalg.svd(data_for_pca)
-        first_component = Vt[0]
-        first_component_per_cluster[cluster_id] = first_component
+        first_pc = s[0] * Vt[0, :]
+        first_component_per_cluster[cluster_id] = first_pc
         # plot the first component
-        plotting.plot_time_series(first_component, output_dir, f"cluster_{cluster_id}_first_component")
+        plotting.plot_time_series(first_pc, f"{output_dir}/first_component",
+                                  f"cluster_{cluster_id}_first_component",
+                                  sea_level_anomaly_data)
         first_EOF = U[:, 0]
         # plot the first EOF, each grid point has a different value
         eof_plot = np.nan * np.ones(sla_data.shape[1:])  # 2d array with shape (latitude, longitude)
         for index, grid_point in index_to_gridpoint.items():
             eof_plot[grid_point] = first_EOF[index]
-        plotting.plot_eof(eof_plot, output_dir, f"cluster_{cluster_id}_first_EOF")
+        plotting.plot_eof(eof_plot, f"{output_dir}/first_component", f"cluster_{cluster_id}_first_EOF")
+
+        # plot second component
+        second_pc = s[1] * Vt[1, :]
+        second_component_per_cluster[cluster_id] = second_pc
+        plotting.plot_time_series(second_pc, f"{output_dir}/second_component",
+                                  f"cluster_{cluster_id}_second_component",
+                                  sea_level_anomaly_data)
+        second_EOF = U[:, 1]
+        # plot the second EOF, each grid point has a different value
+        eof_plot = np.nan * np.ones(sla_data.shape[1:])  # 2d array with shape (latitude, longitude)
+        for index, grid_point in index_to_gridpoint.items():
+            eof_plot[grid_point] = second_EOF[index]
+        plotting.plot_eof(eof_plot, f"{output_dir}/second_component", f"cluster_{cluster_id}_second_EOF")
 
     # determine mean first component
     first_component_mean = np.mean(list(first_component_per_cluster.values()), axis=0)
     # plot the mean first component
-    plotting.plot_time_series(first_component_mean, output_dir, f"mean_first_component")
+    plotting.plot_time_series(first_component_mean, output_dir, f"mean_first_component", sea_level_anomaly_data)
     return
 
 
 def plot_first_component_for_entire_dataset(output_dir: str, sla_data: np.array, min_lat: float, min_lon: float,
-                                            resolution: float):
+                                            resolution: float, sea_level_anomaly_data: xarray.Dataset):
     """
     Plot the first component for the entire dataset
     :param output_dir:
@@ -75,7 +91,7 @@ def plot_first_component_for_entire_dataset(output_dir: str, sla_data: np.array,
     pca.fit(data_for_pca)
     first_component = pca.components_[0]
     # plot the first component
-    plotting.plot_time_series(first_component, output_dir, f"entire_dataset_first_component")
+    plotting.plot_time_series(first_component, output_dir, f"entire_dataset_first_component", sea_level_anomaly_data)
     pass
 
 
@@ -93,15 +109,16 @@ def start_evaluation(clustering: xarray.Dataset, output_dir: str, sea_level_anom
     cluster_id_to_lat_lon, cluster_id_to_grid_point_id = extract_clusters_from_xarray_dataset(clustering, min_lat,
                                                                                               min_lon, resolution,
                                                                                               sla_data)
-    plot_first_component(cluster_id_to_grid_point_id, sla_data, output_dir)
-    plot_first_component_for_entire_dataset(output_dir, sla_data, min_lat, min_lon, resolution)
+    plot_first_two_components(cluster_id_to_grid_point_id, sla_data, output_dir, sea_level_anomaly_data)
+    plot_first_component_for_entire_dataset(output_dir, sla_data, min_lat, min_lon, resolution, sea_level_anomaly_data)
     return
 
 
-def evaluate_clustering(evaluation_settings: EvaluationSettings, out_dir: str,
-                        unfiltered_sea_level_anomaly_data: xr.Dataset):
+def evaluate_clustering(evaluation_settings, out_dir: str,
+                        unfiltered_sea_level_anomaly_data: xr.Dataset, subspace_clustering_settings):
     """
     Evaluate clustering
+    :param subspace_clustering_settings:
     :param evaluation_settings:
     :param out_dir:
     :param unfiltered_sea_level_anomaly_data:
@@ -109,12 +126,13 @@ def evaluate_clustering(evaluation_settings: EvaluationSettings, out_dir: str,
     """
     if evaluation_settings.do_evaluation:
         options = ("establish_connectivity_every_iteration", "establish_connectivity_once",
-                   "filter_every_round_connectivity_once" "integrated_connectivity")
+                   "filter_every_round_connectivity_once", "integrated_connectivity")
         for connectivity_option in options:
-            current_out_dir = f"{out_dir}/{connectivity_option}/evaluation"
-            eval_clustering_path = f"{out_dir}/{connectivity_option}/clustering{evaluation_settings.number_of_clusters}.nc"
-            if not os.path.exists(current_out_dir):
-                os.makedirs(current_out_dir)
-            print(f"output directory: {current_out_dir}")
-            clustering = xr.open_dataset(eval_clustering_path)
-            start_evaluation(clustering, current_out_dir, unfiltered_sea_level_anomaly_data)
+            for number_of_components in subspace_clustering_settings.number_of_components:
+                current_out_dir = f"{out_dir}/subspace_clustering/{connectivity_option}/components_{number_of_components}/evaluation"
+                eval_clustering_path = f"{out_dir}/subspace_clustering/{connectivity_option}/components_{number_of_components}/clustering_{evaluation_settings.number_of_clusters}.nc"
+                if not os.path.exists(current_out_dir):
+                    os.makedirs(current_out_dir)
+                print(f"output directory: {current_out_dir}")
+                clustering = xr.open_dataset(eval_clustering_path)
+                start_evaluation(clustering, current_out_dir, unfiltered_sea_level_anomaly_data)

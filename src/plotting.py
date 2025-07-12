@@ -6,14 +6,45 @@ from statistics import median
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import geopandas
+import matplotlib.colors as mcolors
+import matplotlib.dates as mdates
 import matplotlib.patches as mpatches
 import numpy as np
+import pandas as pd
 import shapely
+import xarray
 import xarray as xr
 from matplotlib import pyplot as plt
-from shapely.geometry import Polygon, MultiPolygon
+from shapely.geometry import MultiPolygon, Polygon
 from shapely.geometry.point import Point
 from shapely.ops import transform, unary_union
+
+
+def plot_xarray_dataset_on_map(xarray_dataset: xarray.Dataset, out_dir: str, name: str):
+    cluster_colors = {0: "gold", 1: "yellowgreen", 2: "dodgerblue", 3: "rebeccapurple", 4: "orchid", 5: "maroon",
+                      6: "darkorange", 7: "palegoldenrod", 8: "darkolivegreen", 9: "forestgreen", 10: "teal",
+                      11: "darkblue", 12: "darkorchid", 13: "deeppink", 14: "red", 15: "yellow", 16: "darkseagreen",
+                      17: "azure", 18: "lightsteelblue", 19: "midnightblue", 20: "plum", 21: "sienna", 22: "chartreuse",
+                      23: "darkslategray", 24: "darkmagenta", 25: "crimson", 26: "cornflowerblue", 27: "chocolate",
+                      28: "lemonchiffon", 29: "lavenderblush", 30: "navy", 31: "purple"}
+
+    # Create a colormap and norm
+    # Create colormap and normalization
+    cmap = mcolors.ListedColormap([cluster_colors[i] for i in sorted(cluster_colors.keys())])
+    cmap.set_bad(color=(1, 1, 1, 0))  # fully transparent RGBA white
+
+    bounds = list(cluster_colors.keys()) + [max(cluster_colors.keys()) + 1]
+    norm = mcolors.BoundaryNorm(bounds, cmap.N)
+
+    data = xarray_dataset["__xarray_dataarray_variable__"]
+    fig = plt.figure(figsize=(50, 25))
+    ax = plt.axes(projection=ccrs.PlateCarree())
+    data.plot(ax=ax, transform=ccrs.PlateCarree(), cmap=cmap, norm=norm, add_colorbar=True)
+    ax.coastlines()
+    ax.gridlines(draw_labels=True)
+    plt.savefig(os.path.join(out_dir, f"{name}.pdf"), dpi=500)
+    plt.close(fig)
+    return
 
 
 def plot_sla_for_point_in_time(sea_level_anomaly_data: xr.Dataset, out_dir: str, feature, name: str):
@@ -294,8 +325,7 @@ def turn_dict_into_gdf(cluster_dict: {float: [(float, float)]}, grid_point_area:
 
             cluster_squares.append(square)
         colors.append(cluster_id_to_color[cluster])
-        print(cluster_squares)
-        print(type(cluster_squares))
+
         # Merge all squares in the cluster using unary_union
         merged_polygon = unary_union(cluster_squares).buffer(0)
         polygons.append(merged_polygon)
@@ -305,7 +335,6 @@ def turn_dict_into_gdf(cluster_dict: {float: [(float, float)]}, grid_point_area:
         {'cluster_id': cluster_ids, 'color': colors, 'geometry': polygons}
         # ,crs="EPSG:4326"  # WGS 84 coordinate system
     )
-    # print(cluster_gdf.geometry.apply(lambda g: len(g.geoms) if g.geom_type == "MultiPolygon" else 1))
     cluster_gdf['color'] = cluster_gdf['cluster_id'].map(cluster_id_to_color)
     # print(f"number of polygons {len(cluster_gdf)}")
     return cluster_gdf, land_gdf
@@ -581,10 +610,8 @@ def assign_color_to_cluster(cluster_to_grid_point_ids_dict):
     cluster_colors = ["gold", "yellowgreen", "dodgerblue", "rebeccapurple", "orchid", "maroon",
                       "darkorange", "palegoldenrod", "darkolivegreen", "forestgreen", "teal", "darkblue",
                       "darkorchid",
-                      "deeppink", "red", "yellow", "darkseagreen", "azure", "lightsteelblue", "midnightblue",
-                      "plum",
-                      "sienna", "chartreuse", "darkslategray", "darkmagenta", "crimson", "cornflowerblue",
-                      "chocolate",
+                      "deeppink", "red", "yellow", "darkseagreen", "azure", "lightsteelblue", "midnightblue", "plum",
+                      "sienna", "chartreuse", "darkslategray", "darkmagenta", "crimson", "cornflowerblue", "chocolate",
                       "lemonchiffon", "lavenderblush", "navy", "purple"]
     if not len(cluster_to_grid_point_ids_dict.keys()) < (len(cluster_colors)):
         cluster_colors = random_color_generator(len(cluster_to_grid_point_ids_dict.keys()) + 1)
@@ -613,21 +640,37 @@ def plot_summed_distances_to_subspaces(sum_distances_to_subspaces, current_out_d
     return None
 
 
-def plot_time_series(first_component: np.array, out_dir: str, name: str):
+def plot_time_series(first_component: np.array, out_dir: str, name: str, sea_level_anomaly_data: xr.Dataset):
     """
     Plot a given time series
+    :param sea_level_anomaly_data:
     :param name:
     :param first_component:
     :param out_dir:
     :return:
     """
-    plt.figure()
-    plt.plot(first_component)
-    plt.xlabel('Time')
-    plt.ylabel('Value')
-    plt.title(f"{name}")
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+    time_steps = sea_level_anomaly_data['time'].values
+    date_times = pd.to_datetime(time_steps)
+
+    fig, ax = plt.subplots(figsize=(15, 6))
+    ax.plot(date_times, first_component)
+
+    # Set the locator to show a tick for every year
+    ax.xaxis.set_major_locator(mdates.YearLocator())
+    # Set the formatter to show the full date
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+
+    ax.set_xlabel('Time')
+    ax.set_ylabel('Sea level in meters')
+    ax.set_title(f"{name}")
+
+    # Rotate and align the tick labels so they don't overlap
+    fig.autofmt_xdate()
+
     plt.savefig(os.path.join(out_dir, f'{name}.png'))
-    plt.close()
+    plt.close(fig)
     return None
 
 
@@ -684,3 +727,27 @@ def plot_individual_clusters(sea_level_anomaly_data: xr.Dataset, grid_points: li
     plt.savefig(os.path.join(out_dir, f'{name}.png'))
     plt.close()
     return None
+
+
+def plot_average_explained_variance(explained_variance_per_iteration, current_out_dir):
+    """
+    Plot the average explained variance
+    :param explained_variance_per_iteration:
+    :param current_out_dir:
+    :return:
+    """
+    average_explained_variance_per_iteration = {}
+    for iteration in explained_variance_per_iteration.keys():
+        average_explained_variance_per_iteration[iteration] = np.mean(
+            list(explained_variance_per_iteration[iteration].values()))
+    plt.figure()
+    plt.plot(list(average_explained_variance_per_iteration.keys()),
+             list(average_explained_variance_per_iteration.values()))
+    plt.xlabel("Iteration")
+    plt.yticks([0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1])
+    plt.ylabel("Explained Variance")
+    plt.title("Average explained Variance per Iteration")
+    plt.legend(loc='center right', bbox_to_anchor=(1.25, 0.5))
+    plt.savefig(f"{current_out_dir}/average_explained_variance_per_iteration.png", bbox_inches='tight')
+    plt.close()
+    return

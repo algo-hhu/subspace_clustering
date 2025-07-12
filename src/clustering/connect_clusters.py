@@ -2,8 +2,8 @@ import time
 
 import numpy
 import numpy as np
+import xarray
 from loguru import logger
-from tqdm import tqdm
 
 from src.clustering.connectivity_helper import generate_grid_graph, generate_cluster_graph, \
     generate_connected_component_graph
@@ -11,11 +11,13 @@ from src.distance import subspace_timeseries_distance_calculation
 from src.plotting import plot_graph_on_clustering_map, plot_with_highlighting_of_component
 
 
-def reestablish_connectivity(sea_level_anomaly_data, clustering, cluster_array, subspaces, number, out_dir,
-                             cluster_id_to_color):
+def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering, cluster_array, subspaces, number,
+                             out_dir,
+                             cluster_id_to_color, number_of_clusters: int):
     """
     Reestablish connectivity in the clusters
     TODO: change grid-point-id to lat, lon?
+    :param number_of_clusters:
     :param sea_level_anomaly_data: xarray dataset with sea level anomaly data
     :param clustering: dictionary with cluster ids as keys and list of grid points as values
     :param cluster_array: 2D numpy array with cluster ids for each grid point
@@ -30,7 +32,6 @@ def reestablish_connectivity(sea_level_anomaly_data, clustering, cluster_array, 
     # profiler.enable()
     current_time = time.time()
 
-    k = len(clustering)
     data = sea_level_anomaly_data["sla"].values
     lat_lon_to_grid_point_id = {}  # {lat, lon: grid_point_id}
     latitudes = sea_level_anomaly_data.latitude.values
@@ -39,7 +40,7 @@ def reestablish_connectivity(sea_level_anomaly_data, clustering, cluster_array, 
     long_range = len(longitudes)
     resolution = latitudes[1] - latitudes[0]
     nan_mask = numpy.isnan(data).any(axis=0)
-    for i in tqdm(range(lat_range)):
+    for i in (range(lat_range)):
         for j in (range(long_range)):
             if nan_mask[i, j]:  # points without valid data can be skipped
                 continue
@@ -55,13 +56,14 @@ def reestablish_connectivity(sea_level_anomaly_data, clustering, cluster_array, 
                                                                                          grid_graph)  # connected component graph with connected components (i.e. clusters) as nodes and edges between connected components that are neighbors
 
     counter = 0
-    while len(connected_components) > k:
+    while len(connected_components) > number_of_clusters:
         counter += 1
         current_number_of_components = len(connected_components)
         # recalculate connected components & connected component graph and start again
         cluster_graph = generate_cluster_graph(clustering, grid_graph, lat_lon_to_grid_point_id)
         connected_component_graph, connected_components = generate_connected_component_graph(cluster_graph, grid_graph)
-
+        if len(connected_components) <= number_of_clusters:
+            break
         # extract the smallest component
         sorted_connected_components_list = sorted(connected_components.values(), key=lambda c: c.size)
         smallest_connected_component = sorted_connected_components_list[0]
@@ -105,6 +107,7 @@ def reestablish_connectivity(sea_level_anomaly_data, clustering, cluster_array, 
                         clustering[smallest_connected_component.cluster_id].remove((lat, lon))
                     else:
                         logger.warning(f"node {node} not found in cluster {smallest_connected_component.cluster_id}")
+            connected_components.pop(smallest_connected_component.id)
             continue
 
         best_neighbor = max(neighbor_count, key=neighbor_count.get)
@@ -172,7 +175,6 @@ def reestablish_connectivity(sea_level_anomaly_data, clustering, cluster_array, 
             new_clustering_with_lat_lon[current_cluster_id].append(lat_lon)
 
     # plot clustering
-    print(f"time taken for reestablishing connectivity: {time.time() - current_time}")
     # profiler.disable()
     # stats = pstats.Stats(profiler).sort_stats('cumtime')
     # stats.print_stats()

@@ -45,11 +45,12 @@ class CompleteHierarchicalClustering(InitialClustering):
         logger.info(f"Start hierarchical clustering")
         logger.info(f"Calculating distances")
         distances, number_of_clusters, clusters = self.precalculate_distances()
+        # save the distances for a given resolution
+
         logger.info(f"Distances calculated")
         all_clusters = self.clustering(distances, clusters)
         self.resolution = float(self.sea_level_anomaly_data.latitude[1]) - float(
             self.sea_level_anomaly_data.latitude[0])
-        print(type(self.resolution))
         for clustering in all_clusters.values():
             # save as a netcdf file
             cluster_data = numpy.zeros(
@@ -65,17 +66,13 @@ class CompleteHierarchicalClustering(InitialClustering):
             cluster_data = xarray.DataArray(cluster_data, dims=["latitude", "longitude"])
             cluster_data = cluster_data.assign_coords(latitude=self.sea_level_anomaly_data.latitude,
                                                       longitude=self.sea_level_anomaly_data.longitude)
-            cluster_data.to_netcdf(f"{self.out_dir}/{len(clustering.values())}_clusters.nc")
+            cluster_data.to_netcdf(f"{self.out_dir}/clustering_{len(clustering.values())}.nc")
             clustering_dict_for_plotting = {}
             for cluster in clustering.values():
                 clustering_dict_for_plotting[cluster.id] = []
                 for grid_point in cluster.grid_points:
-                    print(grid_point.longitude, grid_point.latitude)
-                    print(type(grid_point.longitude), type(grid_point.latitude))
-
                     clustering_dict_for_plotting[cluster.id].append(
                         (float(grid_point.latitude), float(grid_point.longitude)))
-                print(type(clustering_dict_for_plotting[cluster.id]))
             plotting.plot_clustering_without_preassigned_colors(clustering_dict_for_plotting, self.out_dir,
                                                                 self.resolution,
                                                                 f"clustering_{len(clustering.values())}")
@@ -169,6 +166,7 @@ class CompleteHierarchicalClustering(InitialClustering):
         :return: A tuple of the distance matrix, the number of clusters, and a dictionary of clusters with their ids as keys.
         """
         # in the beginning, each cluster is a single grid point
+        logger.info(f"precalculating distances with {self.distance_function.__name__}")
         clusters = {}
         grid_points = []
         cluster_id = 0
