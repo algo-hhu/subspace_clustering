@@ -27,7 +27,7 @@ class GlobalSettings(BaseSettings):
     half_width: int = 500
     filtered_data_path: str = f"../output/spherical_gaussian_filtering/sea_level_anomaly_data_filtered_{half_width}.nc"
     filtering_sla: bool = True
-    resolution: int = 1
+    resolution: int = 2
 
 
 class InitialClusteringSettings(BaseSettings):

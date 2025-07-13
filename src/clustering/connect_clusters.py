@@ -107,7 +107,6 @@ def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering,
                         clustering[smallest_connected_component.cluster_id].remove((lat, lon))
                     else:
                         logger.warning(f"node {node} not found in cluster {smallest_connected_component.cluster_id}")
-            connected_components.pop(smallest_connected_component.id)
             continue
 
         best_neighbor = max(neighbor_count, key=neighbor_count.get)
@@ -116,7 +115,7 @@ def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering,
         if not len(connected_components) < current_number_of_components and counter > 1:
             logger.warning(f"did not reduce number of components")
             # plot edges that smallest component has to neighbors
-            print(f"neighbors of smallest conencted component: {smallest_connected_component.id} - {neighbors}")
+            print(f"neighbors of smallest connected component: {smallest_connected_component.id} - {neighbors}")
             print(f"nodes of smallest connected component: {smallest_connected_component.nodes}")
             for neighbor in neighbors:
                 print(f"neighbor nodes: {connected_components[neighbor].nodes}")

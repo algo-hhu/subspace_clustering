@@ -81,9 +81,10 @@ def apply_filters(sea_level_anomaly_data: xr.Dataset, half_width: int):
     return sea_level_anomaly_data_set
 
 
-def start_preprocessing(global_settings, variable_to_plot: str):
+def start_preprocessing(global_settings, variable_to_plot: str, subspace_clustering_settings):
     """
     Read sea level anomaly data and preprocess it according to the settings
+    :param subspace_clustering_settings:
     :param global_settings:
     :param variable_to_plot:
     :return:
@@ -121,12 +122,12 @@ def start_preprocessing(global_settings, variable_to_plot: str):
         else:
             sea_level_anomaly_data = xr.open_dataset(global_settings.filtered_data_path)
         # adjust resolution
-        out_dir = f"{out_dir}/{global_settings.resolution}_degree_grid"
+        out_dir = f"{out_dir}/{global_settings.resolution}_degree_grid/{subspace_clustering_settings.number_of_clusters}_clusters"
         resolution_path = f"../output/resolutions/sea_level_anomaly_data_filtered_{global_settings.half_width}_{global_settings.resolution}_degree.nc"
         sea_level_anomaly_data = adjust_resolution(global_settings.resolution, resolution_path, sea_level_anomaly_data)
     else:
         out_dir = f"{out_dir}/no_filtering"
-        out_dir = f"{out_dir}/{global_settings.resolution}_degree_grid"
+        out_dir = f"{out_dir}/{global_settings.resolution}_degree_grid/{subspace_clustering_settings.number_of_clusters}_clusters"
         resolution_path = f"../output/resolutions/sea_level_anomaly_data_no_filter_{global_settings.resolution}_degree.nc"
         # check for correct resolution
         sea_level_anomaly_data = adjust_resolution(global_settings.resolution, resolution_path,

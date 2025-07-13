@@ -43,7 +43,7 @@ def main():
 
     out_dir, sea_level_anomaly_data, unfiltered_sea_level_anomaly_data, unprocessed_sea_level_anomaly_data = start_preprocessing(
         global_settings,
-        variable_to_plot)
+        variable_to_plot, subspace_clustering_settings)
 
     # initial clustering
     # TODO: do k-means clustering for start-clustering and then make connected via our method

@@ -465,7 +465,7 @@ def plot_regions_with_component_graph(land_gdf: geopandas.GeoDataFrame, output_p
     connected_component_graph_gdf.plot(ax=ax, color="black", zorder=5, linewidth=0.5)
     connected_component_graph_nodes_gdf.plot(ax=ax, marker='o',
                                              facecolor=connected_component_graph_nodes_gdf["color"],
-                                             edgecolor="black", zorder=6, markersize=8)
+                                             edgecolor="black", zorder=6, markersize=1)
     plt.xticks([-180, -135, -90, -45, 0, 45, 90, 135, 180])
     plt.yticks([-90, -45, 0, 45, 90])
     handles = [mpatches.Patch(color=color, label=f"Cluster {cluster_id}")
