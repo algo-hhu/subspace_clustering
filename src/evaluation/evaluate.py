@@ -129,8 +129,8 @@ def evaluate_clustering(evaluation_settings, out_dir: str,
                    "filter_every_round_connectivity_once", "integrated_connectivity")
         for connectivity_option in options:
             for number_of_components in subspace_clustering_settings.number_of_components:
-                current_out_dir = f"{out_dir}/subspace_clustering/{connectivity_option}/components_{number_of_components}/evaluation"
-                eval_clustering_path = f"{out_dir}/subspace_clustering/{connectivity_option}/components_{number_of_components}/clustering_{evaluation_settings.number_of_clusters}.nc"
+                current_out_dir = f"{out_dir}/subspace_clustering_{subspace_clustering_settings.number_of_clusters}/{connectivity_option}/components_{number_of_components}/evaluation"
+                eval_clustering_path = f"{out_dir}/subspace_clustering_{subspace_clustering_settings.number_of_clusters}/{connectivity_option}/components_{number_of_components}/clustering_{evaluation_settings.number_of_clusters}.nc"
                 if not os.path.exists(current_out_dir):
                     os.makedirs(current_out_dir)
                 print(f"output directory: {current_out_dir}")
