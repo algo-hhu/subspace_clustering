@@ -659,7 +659,7 @@ def calculate_subspace_clustering(global_settings, out_dir: str,
     # plot underlying data
     plotting.plot_sla_for_point_in_time(unfiltered_sea_level_anomaly_data, out_dir, "sla", name="input_data")
     if subspace_clustering_settings.do_subspace_clustering:
-        current_out_dir = f"{out_dir}/subspace_clustering"
+        current_out_dir = f"{out_dir}/subspace_clustering_{subspace_clustering_settings.number_of_clusters}"
         if not os.path.exists(current_out_dir):
             os.makedirs(current_out_dir)
         print(f"output directory: {current_out_dir}")
@@ -671,7 +671,7 @@ def calculate_subspace_clustering(global_settings, out_dir: str,
 
     if subspace_clustering_settings.integrated_connectivity:
         if not subspace_clustering_settings.do_subspace_clustering:
-            current_out_dir = f"{out_dir}/subspace_clustering"
+            current_out_dir = f"{out_dir}/subspace_clustering_{subspace_clustering_settings.number_of_clusters}"
         current_out_dir = f"{current_out_dir}/integrated_connectivity"
         print(f"output directory: {current_out_dir}")
         if not os.path.exists(current_out_dir):

@@ -46,7 +46,7 @@ class SubspaceClusteringSettings(BaseSettings):
     # specific parameters for subspace clustering
     do_subspace_clustering: bool = True
     number_of_clusters: int = 12
-    number_of_components: list[int] = [30]
+    number_of_components: list[int] = [5, 10, 15, 30]
     integrated_connectivity: bool = True
 
 

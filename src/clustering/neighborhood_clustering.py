@@ -322,12 +322,12 @@ class NeighborhoodClustering(InitialClustering):
                 if j == first_longitude:
                     neighbor_positions.extend([(i, last_longitude), (i - 1, last_longitude), (i + 1, last_longitude)])
                 # # diagonal neighbors
-                # neighbor_positions.extend([
-                #     ((i - 1), (j - 1) % long_range),  # Northwest
-                #     ((i - 1), (j + 1) % long_range),  # Northeast
-                #     ((i + 1), (j - 1) % long_range),  # Southwest
-                #     ((i + 1), (j + 1) % long_range),  # Southeast
-                # ])
+                neighbor_positions.extend([
+                    ((i - 1), (j - 1) % long_range),  # Northwest
+                    ((i - 1), (j + 1) % long_range),  # Northeast
+                    ((i + 1), (j - 1) % long_range),  # Southwest
+                    ((i + 1), (j + 1) % long_range),  # Southeast
+                ])
                 # Handle out-of-bounds positions
                 neighbor_positions_without_out_of_bounds = [
                     (pos[0], pos[1]) if 0 <= pos[0] < lat_range else None
