@@ -10,6 +10,7 @@ from src import distance
 class InitialClusteringMethod(str, Enum):
     full_hierarchical_clustering = "full_hierarchical_clustering"
     hierarchical_neighbor_clustering = "hierarchical_neighbor_clustering"
+    k_means_clustering = "k_means_clustering"
 
 
 class InitialDistanceFunction(str, Enum):
@@ -34,9 +35,9 @@ class InitialClusteringSettings(BaseSettings):
     """
     specific parameters for initial clustering
     """
-    method: InitialClusteringMethod = InitialClusteringMethod.hierarchical_neighbor_clustering
+    method: InitialClusteringMethod = InitialClusteringMethod.k_means_clustering
     distance_function: Annotated[Callable, SkipValidation] = InitialDistanceFunction.euclidean
-    number_of_clusters: list[int] = [100, 50, 25, 20, 15, 12, 10, 8]
+    number_of_clusters: list[int] = [25, 20, 15, 12, 10, 8]
 
 
 class SubspaceClusteringSettings(BaseSettings):
@@ -44,15 +45,15 @@ class SubspaceClusteringSettings(BaseSettings):
     specific parameters for subspace clustering
     """
     # specific parameters for subspace clustering
-    do_subspace_clustering: bool = True
+    do_subspace_clustering: bool = False
     number_of_clusters: int = 8
     number_of_components: list[int] = [5, 10, 15, 30]
-    integrated_connectivity: bool = True
+    integrated_connectivity: bool = False
 
 
 class EvaluationSettings(BaseSettings):
     """
     specific parameters for evaluation
     """
-    do_evaluation: bool = True
-    number_of_clusters: int = 12
+    do_evaluation: bool = False
+    number_of_clusters: int = 10

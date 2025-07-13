@@ -42,7 +42,7 @@ def plot_xarray_dataset_on_map(xarray_dataset: xarray.Dataset, out_dir: str, nam
     data.plot(ax=ax, transform=ccrs.PlateCarree(), cmap=cmap, norm=norm, add_colorbar=True)
     ax.coastlines()
     ax.gridlines(draw_labels=True)
-    plt.savefig(os.path.join(out_dir, f"{name}.pdf"), dpi=500)
+    plt.savefig(os.path.join(out_dir, f"{name}.png"), dpi=500)
     plt.close(fig)
     return
 

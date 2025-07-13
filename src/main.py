@@ -7,6 +7,7 @@ from loguru import logger
 
 from src import plotting
 from src.clustering.complete_hierarchical_clustering import CompleteHierarchicalClustering
+from src.clustering.k_means_clustering import KMeansClustering
 from src.clustering.neighborhood_clustering import NeighborhoodClustering
 from src.clustering.subspace_clustering import calculate_subspace_clustering
 from src.evaluation.evaluate import evaluate_clustering
@@ -41,20 +42,15 @@ def main():
     #         initial_clustering_settings.method = InitialClusteringMethod.full_hierarchical_clustering
     variable_to_plot = "sla"
 
-    out_dir, sea_level_anomaly_data, unfiltered_sea_level_anomaly_data, unprocessed_sea_level_anomaly_data = start_preprocessing(
-        global_settings,
-        variable_to_plot)
+    out_dir, sea_level_anomaly_data, unfiltered_sea_level_anomaly_data, unprocessed_sea_level_anomaly_data = (
+        start_preprocessing(
+            global_settings,
+            variable_to_plot))
 
     # initial clustering
     # TODO: do k-means clustering for start-clustering and then make connected via our method
     out_dir = calculate_initial_clustering(initial_clustering_settings, out_dir, sea_level_anomaly_data)
 
-    # # TODO: if resolution was changed for initial clustering, restore original resolution for subspace clustering
-    # # every grid point in the original resolution is assigned to the cluster it is in in the coarser resolution
-    # initial_clustering = xarray.open_dataset(
-    #     f"{out_dir}/clustering_{subspace_clustering_settings.number_of_clusters}.nc")
-    # regridded_initial_clustering = change_clustering_resolution(unprocessed_sea_level_anomaly_data, initial_clustering,
-    #                                                             out_dir)
     initial_clustering = xarray.open_dataset(
         f"{out_dir}/clustering_{subspace_clustering_settings.number_of_clusters}.nc")
     # subspace clustering
@@ -78,7 +74,8 @@ def calculate_initial_clustering(initial_clustering_settings, out_dir: str,
     :return:
     """
     out_dir = (
-        f"{out_dir}/{initial_clustering_settings.method.value}_{initial_clustering_settings.distance_function.__name__}")
+        f"{out_dir}/{initial_clustering_settings.method.value}_"
+        f"{initial_clustering_settings.distance_function.__name__}")
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     print(f"output directory: {out_dir}")
@@ -105,6 +102,9 @@ def calculate_initial_clustering(initial_clustering_settings, out_dir: str,
         initial_clustering = NeighborhoodClustering(sea_level_anomaly_data,
                                                     initial_clustering_settings.number_of_clusters,
                                                     initial_clustering_settings.distance_function, out_dir)
+    elif initial_clustering_settings.method == InitialClusteringMethod.k_means_clustering:
+        initial_clustering = KMeansClustering(sea_level_anomaly_data, initial_clustering_settings.number_of_clusters,
+                                              initial_clustering_settings.distance_function, out_dir)
     else:
         raise NotImplementedError
     initial_clustering.start_initial_clustering()

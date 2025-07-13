@@ -11,9 +11,9 @@ from src.distance import subspace_timeseries_distance_calculation
 from src.plotting import plot_graph_on_clustering_map, plot_with_highlighting_of_component
 
 
-def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering, cluster_array, subspaces, number,
-                             out_dir,
-                             cluster_id_to_color, number_of_clusters: int):
+def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering, cluster_array, subspaces,
+                             iteration_count: int,
+                             out_dir, cluster_id_to_color, number_of_clusters: int):
     """
     Reestablish connectivity in the clusters
     TODO: change grid-point-id to lat, lon?
@@ -22,7 +22,7 @@ def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering,
     :param clustering: dictionary with cluster ids as keys and list of grid points as values
     :param cluster_array: 2D numpy array with cluster ids for each grid point
     :param subspaces: dictionary with cluster ids as keys and tuple of (subspace, mean) as values
-    :param number: number of clusters to reduce to
+    :param iteration_count: iteration number for logging purposes
     :param out_dir: output directory to save plots
     :param cluster_id_to_color: dictionary with cluster ids as keys and colors as values
     :return:
@@ -31,7 +31,6 @@ def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering,
     # profiler = cProfile.Profile()
     # profiler.enable()
     current_time = time.time()
-
     data = sea_level_anomaly_data["sla"].values
     lat_lon_to_grid_point_id = {}  # {lat, lon: grid_point_id}
     latitudes = sea_level_anomaly_data.latitude.values
@@ -50,10 +49,13 @@ def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering,
     grid_graph = generate_grid_graph(lat_lon_to_grid_point_id, nan_mask, sea_level_anomaly_data)
 
     cluster_graph = generate_cluster_graph(clustering, grid_graph,
-                                           lat_lon_to_grid_point_id)  # graph with grid points as nodes and edges between points in the same cluster
+                                           lat_lon_to_grid_point_id)  # graph with grid points as nodes and edges
+    # between points in the same cluster
 
     connected_component_graph, connected_components = generate_connected_component_graph(cluster_graph,
-                                                                                         grid_graph)  # connected component graph with connected components (i.e. clusters) as nodes and edges between connected components that are neighbors
+                                                                                         grid_graph)  # connected
+    # component graph with connected components (i.e. clusters) as nodes and edges between connected components that
+    # are neighbors
 
     counter = 0
     while len(connected_components) > number_of_clusters:
@@ -80,6 +82,9 @@ def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering,
             min_error = np.inf
             closest_cluster = None
             for subspace_id in neighbor_count:
+                if subspace_id not in subspaces:
+                    logger.warning(f"subspace {subspace_id} not found in subspaces")
+                    continue
                 subspace, mean = subspaces[subspace_id]
                 distance = subspace_timeseries_distance_calculation([], time_series, mean, subspace)
                 if distance < min_error:
@@ -94,9 +99,10 @@ def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering,
             # plot the image with the smallest connected component highlighted
             plot_with_highlighting_of_component(clustering, smallest_connected_component, neighbors,
                                                 f"{out_dir}/deleted_nodes",
-                                                f"{number}smallest_component_{counter}_error", resolution,
+                                                f"{iteration_count}smallest_component_{counter}_error", resolution,
                                                 connected_components, grid_point_to_lat_lon, cluster_id_to_color)
-            # if there are no neighbors, it means that the smallest connected component is isolated, then it can be removed and ignored in further iterations
+            # if there are no neighbors, it means that the smallest connected component is isolated, then it can be
+            # removed and ignored in further iterations
             grid_graph.remove_nodes_from(smallest_connected_component.nodes)
             # remove the smallest connected component from the clustering
             for node in smallest_connected_component.nodes:
@@ -120,17 +126,18 @@ def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering,
             for neighbor in neighbors:
                 print(f"neighbor nodes: {connected_components[neighbor].nodes}")
             plot_with_highlighting_of_component(clustering, smallest_connected_component, neighbors, out_dir,
-                                                f"{number}smallest_component_{counter}_error", resolution,
+                                                f"{iteration_count}smallest_component_{counter}_error", resolution,
                                                 connected_components,
                                                 grid_point_to_lat_lon, cluster_id_to_color)
             # plot clustergraph
             plot_graph_on_clustering_map(clustering, cluster_graph, grid_point_to_lat_lon, resolution, out_dir,
-                                         f"{number}cluster_graph_{counter}_error", cluster_id_to_color)
+                                         f"{iteration_count}cluster_graph_{counter}_error", cluster_id_to_color)
             exit()
 
         # if counter % 100 == 0:
         #     print(
-        #         f"number of connected components in cluster graph: {nx.number_connected_components(cluster_graph)} and are in the component graph: {len(connected_component_graph.nodes)}")
+        #         f"number of connected components in cluster graph: {nx.number_connected_components(cluster_graph)}
+        #         and are in the component graph: {len(connected_component_graph.nodes)}")
 
         for node in smallest_connected_component.nodes:
             # change assignment in cluster array
