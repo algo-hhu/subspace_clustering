@@ -206,7 +206,7 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
                                                         number_of_components)
             # plot the explained variance
             # save final clustering
-            name = f"clustering_{len(cluster_to_grid_point_ids_dict.keys())}"
+            name = f"clustering_{number_of_clusters}"
             save_clustering(cluster_to_lat_lon, current_out_dir, sea_level_anomaly_data, name)
             # plot the explained variance
             plot_explained_variance_per_iteration(explained_variance_per_iteration, current_out_dir)
