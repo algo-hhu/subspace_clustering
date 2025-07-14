@@ -5,7 +5,7 @@ import xarray
 import xarray as xr
 from loguru import logger
 
-from src import plotting
+from src import plotting, weighting
 from src.clustering.complete_hierarchical_clustering import CompleteHierarchicalClustering
 from src.clustering.k_means_clustering import KMeansClustering
 from src.clustering.neighborhood_clustering import NeighborhoodClustering
@@ -51,6 +51,11 @@ def main():
     # TODO: do k-means clustering for start-clustering and then make connected via our method
     out_dir = calculate_initial_clustering(initial_clustering_settings, out_dir, sea_level_anomaly_data)
 
+    if subspace_clustering_settings.apply_weights:
+        logger.info("Applying weights before subspace clustering")
+        unfiltered_sea_level_anomaly_data = weighting.apply_weights_to_sea_level_anomaly_data(
+            unfiltered_sea_level_anomaly_data)
+        
     initial_clustering = xarray.open_dataset(
         f"{out_dir}/clustering_{subspace_clustering_settings.number_of_clusters}.nc")
     # subspace clustering

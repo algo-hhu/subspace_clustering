@@ -35,8 +35,8 @@ class InitialClusteringSettings(BaseSettings):
     """
     specific parameters for initial clustering
     """
-    method: InitialClusteringMethod = InitialClusteringMethod.hierarchical_neighbor_clustering
-    distance_function: Annotated[Callable, SkipValidation] = InitialDistanceFunction.euclidean
+    method: InitialClusteringMethod = InitialClusteringMethod.full_hierarchical_clustering
+    distance_function: Annotated[Callable, SkipValidation] = InitialDistanceFunction.thompson
     number_of_clusters: list[int] = [25, 20, 15, 10, 8]
 
 
@@ -45,6 +45,7 @@ class SubspaceClusteringSettings(BaseSettings):
     specific parameters for subspace clustering
     """
     # specific parameters for subspace clustering
+    apply_weights: bool = True
     do_subspace_clustering: bool = True
     number_of_clusters: int = 8
     number_of_components: list[int] = [5, 10, 15, 30]
