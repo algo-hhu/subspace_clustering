@@ -121,15 +121,20 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
             OUT_DIR = current_out_dir
             # evaluate start-clustering
             name = f"initial_clustering_{number_of_components}"
-            evaluate_distances_to_subspaces(cluster_to_grid_point_ids_dict, sla_data, number_of_components,
-                                            current_out_dir, name)
+            start_sum_of_distances, start_explained_variance_per_cluster = evaluate_distances_to_subspaces(
+                cluster_to_grid_point_ids_dict, sla_data, number_of_components,
+                current_out_dir, name)
             name = f"initial_clustering_{number_of_components}"
             plot_clustering(cluster_dict, current_out_dir, resolution, name, cluster_id_to_color)
             change = True
             counter = 0
             # save the sum of the distances to the subspaces in each iteration
-            sum_distances_to_subspaces = {}
+            sum_distances_to_subspaces = {counter: start_sum_of_distances}
+            counter += 1
             # grid_point_assignment = cluster_to_grid_point_ids_dict.copy()
+            best_solution = cluster_dict
+            best_distances_to_subspaces = start_sum_of_distances
+            best_iteration = 0
             while change:
                 print(".", end="")
                 # for each cluster, determine its subspace
@@ -179,14 +184,22 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
                     plot_clustering(cluster_to_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
                 # for cluster in cluster_to_grid_point_ids_dict.keys():
                 #     print(f"cluster {cluster}: {len(cluster_to_grid_point_ids_dict[cluster])}")
-
+                sum_of_distances_after_conn, explained_variance_after_conn = evaluate_distances_to_subspaces(
+                    cluster_to_grid_point_ids_dict,
+                    sla_data, number_of_components,
+                    out_dir,
+                    name)
+                if sum_of_distances_after_conn < best_distances_to_subspaces:
+                    best_distances_to_subspaces = sum_of_distances_after_conn
+                    best_solution = cluster_to_lat_lon
+                    best_iteration = counter
                 counter += 1
                 if counter >= 50:
                     break
             counter += 1
             if establish_connectivity_afterwards == True or filter_grid_point_assignment == True:
                 cluster_to_grid_point_ids_dict = reestablish_connectivity(sea_level_anomaly_data,
-                                                                          grid_point_assignment_lat_lon,
+                                                                          best_solution,
                                                                           cluster_map, subspaces,
                                                                           counter, OUT_DIR, cluster_id_to_color,
                                                                           number_of_clusters)
@@ -194,20 +207,27 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
                                                                 resolution)
                 name = f"reconnected_{counter}"
                 plot_clustering(cluster_to_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
-            # calculate resulting value
-            name = f"final_clustering_{number_of_components}"
-            summed_distances, explained_variance = evaluate_distances_to_subspaces(cluster_to_grid_point_ids_dict,
-                                                                                   sla_data,
-                                                                                   number_of_components, out_dir,
-                                                                                   name)
-            sum_distances_to_subspaces[counter] = summed_distances
+                # calculate resulting value
+                name = f"final_clustering_{number_of_components}"
+                summed_distances, explained_variance = evaluate_distances_to_subspaces(cluster_to_grid_point_ids_dict,
+                                                                                       sla_data,
+                                                                                       number_of_components, out_dir,
+                                                                                       name)
+                sum_distances_to_subspaces[counter] = summed_distances
             # plot the summed distances to the subspaces
             plotting.plot_summed_distances_to_subspaces(sum_distances_to_subspaces, current_out_dir,
                                                         number_of_components)
             # plot the explained variance
-            # save final clustering
+            # save best clustering and start / end distances
+            final_results_name = f"final_results_{number_of_components}.txt"
+            with open(os.path.join(current_out_dir, final_results_name), "w") as f:
+                f.write(
+                    f"Best solution found after {best_iteration} iterations with {number_of_components} components.\n")
+                f.write(f"Total number of iterations: {counter}\n")
+                f.write(f"Best sum of distances to subspaces: {best_distances_to_subspaces}\n")
+                f.write(f"Sum of distances to subspace before clustering {start_sum_of_distances}\n")
             name = f"clustering_{number_of_clusters}"
-            save_clustering(cluster_to_lat_lon, current_out_dir, sea_level_anomaly_data, name)
+            save_clustering(best_solution, current_out_dir, sea_level_anomaly_data, name)
             # plot the explained variance
             plot_explained_variance_per_iteration(explained_variance_per_iteration, current_out_dir)
             plotting.plot_average_explained_variance(explained_variance_per_iteration, current_out_dir)
