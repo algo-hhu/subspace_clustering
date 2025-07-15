@@ -102,7 +102,6 @@ def start_evaluation(clustering: xarray.Dataset, output_dir: str, sea_level_anom
     :return:
     """
     sla_data = sea_level_anomaly_data["sla"].values
-    cluster_data = clustering["__xarray_dataarray_variable__"].values
     min_lat = clustering["latitude"].values.min()
     min_lon = clustering["longitude"].values.min()
     resolution = float(clustering["latitude"].values[1]) - float(clustering["latitude"].values[0])

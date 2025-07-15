@@ -35,8 +35,8 @@ class InitialClusteringSettings(BaseSettings):
     """
     specific parameters for initial clustering
     """
-    method: InitialClusteringMethod = InitialClusteringMethod.hierarchical_neighbor_clustering
-    distance_function: Annotated[Callable, SkipValidation] = InitialDistanceFunction.euclidean
+    method: InitialClusteringMethod = InitialClusteringMethod.full_hierarchical_clustering
+    distance_function: Annotated[Callable, SkipValidation] = InitialDistanceFunction.thompson
     number_of_clusters: list[int] = [25, 20, 15, 10, 8]
 
 

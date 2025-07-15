@@ -98,7 +98,6 @@ class KMeansClustering(InitialClustering):
             cluster_id_to_color = plotting.assign_color_to_cluster(cluster_to_grid_point_dict)
             cluster_id_to_grid_point_id = subspace_clustering.reestablish_connectivity(self.sea_level_anomaly_data,
                                                                                        cluster_id_to_lat_lon,
-                                                                                       cluster_map,
                                                                                        subspaces, 1, self.out_dir,
                                                                                        cluster_id_to_color,
                                                                                        cluster_count)

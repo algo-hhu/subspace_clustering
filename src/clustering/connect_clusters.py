@@ -11,7 +11,7 @@ from src.distance import subspace_timeseries_distance_calculation
 from src.plotting import plot_graph_on_clustering_map, plot_with_highlighting_of_component
 
 
-def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering, cluster_array, subspaces,
+def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering, subspaces,
                              iteration_count: int,
                              out_dir, cluster_id_to_color, number_of_clusters: int):
     """
@@ -20,7 +20,6 @@ def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering,
     :param number_of_clusters:
     :param sea_level_anomaly_data: xarray dataset with sea level anomaly data
     :param clustering: dictionary with cluster ids as keys and list of grid points as values
-    :param cluster_array: 2D numpy array with cluster ids for each grid point
     :param subspaces: dictionary with cluster ids as keys and tuple of (subspace, mean) as values
     :param iteration_count: iteration number for logging purposes
     :param out_dir: output directory to save plots
@@ -140,8 +139,8 @@ def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering,
         #         and are in the component graph: {len(connected_component_graph.nodes)}")
 
         for node in smallest_connected_component.nodes:
-            # change assignment in cluster array
-            cluster_array[node[0], node[1]] = best_neighbor
+            # # change assignment in cluster array
+            # cluster_array[node[0], node[1]] = best_neighbor
             # remove node from original cluster and add it to the best neighbor
             (lat, lon) = grid_point_to_lat_lon[node]
             clustering[smallest_connected_component.cluster_id].remove((lat, lon))
