@@ -142,12 +142,14 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
                 name = f"final_clustering_{number_of_components}"
                 summed_distances, explained_variance = evaluate_distances_to_subspaces(cluster_to_grid_point_ids_dict,
                                                                                        sla_data,
-                                                                                       number_of_components, out_dir,
+                                                                                       number_of_components,
+                                                                                       current_out_dir,
                                                                                        name)
                 sum_distances_to_subspaces[counter] = summed_distances
             # plot the summed distances to the subspaces
             plotting.plot_summed_distances_to_subspaces(sum_distances_to_subspaces, current_out_dir,
-                                                        number_of_components)
+                                                        number_of_components, best_iteration,
+                                                        best_distances_to_subspaces)
             # plot the explained variance
             # save best clustering and start / end distances
             final_results_name = f"final_results_{number_of_components}.txt"
@@ -386,12 +388,7 @@ def evaluate_distances_to_subspaces(cluster_to_grid_point_ids_dict: dict[int, li
             distance = subspace_timeseries_distance_calculation([], current_time_series, mean, subspace)
             sum_of_distances += distance
             number_of_grid_points += 1
-    logger.info(
-        f"Average distance to subspace for each cluster components: "
-        f"{sum_of_distances / len(cluster_to_grid_point_ids_dict)}")
-    logger.info(f"average distance to subspace per grid point: {sum_of_distances / number_of_grid_points}")
-    logger.info(f"total sum of distances to subspace: {sum_of_distances}")
-    with open(f"{out_dir}/{name}_average_distance_to_subspace.txt", "w") as f:
+    with open(f"{out_dir}/{name}_average_distance_to_subspace.txt", "a") as f:
         f.write(
             f"Average distance to subspace for each cluster components: "
             f"{sum_of_distances / len(cluster_to_grid_point_ids_dict)}\n")
@@ -737,7 +734,7 @@ def start_subspace_clustering_with_integrated_connectivity(sea_level_anomaly_dat
                                                                                f"{current_number_of_components}")
         summed_distances_to_subspaces[iteration_counter] = summed_distances
         plotting.plot_summed_distances_to_subspaces(summed_distances_to_subspaces, current_out_dir,
-                                                    current_number_of_components)
+                                                    current_number_of_components, None, None)
         # save clustering as netcdf
         name = f"clustering_{number_of_clusters}"
         save_clustering(grid_point_assignment_lat_lon, current_out_dir, sea_level_anomaly_data, name)

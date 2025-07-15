@@ -621,9 +621,12 @@ def assign_color_to_cluster(cluster_to_grid_point_ids_dict):
     return cluster_id_to_color
 
 
-def plot_summed_distances_to_subspaces(sum_distances_to_subspaces, current_out_dir, number_of_components):
+def plot_summed_distances_to_subspaces(sum_distances_to_subspaces, current_out_dir, number_of_components,
+                                       best_iteration: int, best_distance: float):
     """
     Plot the summed distances to subspaces
+    :param best_distance: 
+    :param best_iteration:
     :param sum_distances_to_subspaces:
     :param current_out_dir:
     :param number_of_components:
@@ -633,6 +636,8 @@ def plot_summed_distances_to_subspaces(sum_distances_to_subspaces, current_out_d
     ids = list(sum_distances_to_subspaces.keys())
     values = list(sum_distances_to_subspaces.values())
     plt.plot(ids, values, marker='o', linestyle='-', color='b')
+    if best_iteration is not None and best_distance is not None:
+        plt.plot(best_iteration, best_distance, marker='o', color='r')
     plt.xlabel('Iteration')
     plt.ylabel('Sum of Distances to Subspaces')
     plt.title(f'Summed Distances to Subspaces for {number_of_components} Components')
