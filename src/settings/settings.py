@@ -27,7 +27,7 @@ class GlobalSettings(BaseSettings):
     sea_level_anomaly_data_download_path: str = "../data/SEALEVEL_GLO_PHY_L4_MY_008_047"
     half_width: int = 500
     filtered_data_path: str = f"../output/spherical_gaussian_filtering/sea_level_anomaly_data_filtered_{half_width}.nc"
-    filtering_sla: bool = True
+    filtering_sla: bool = False
     resolution: int = 2
 
 
@@ -35,8 +35,8 @@ class InitialClusteringSettings(BaseSettings):
     """
     specific parameters for initial clustering
     """
-    method: InitialClusteringMethod = InitialClusteringMethod.hierarchical_neighbor_clustering
-    distance_function: Annotated[Callable, SkipValidation] = InitialDistanceFunction.euclidean
+    method: InitialClusteringMethod = InitialClusteringMethod.full_hierarchical_clustering
+    distance_function: Annotated[Callable, SkipValidation] = InitialDistanceFunction.thompson
     number_of_clusters: list[int] = [25, 20, 15, 10, 8]
 
 
