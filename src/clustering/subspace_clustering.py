@@ -76,127 +76,57 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
     plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, original_out_dir, "sla", name="input_data")
     sla_data = sea_level_anomaly_data["sla"].values
     cluster_data = clustering["__xarray_dataarray_variable__"].values
-    # perform the subspace clustering for each wanted number of components
-    # perform this three times, once with filtering, once with connectivity after the clustering and once with
-    # connectivity every round
+    # perform the subspace clustering for each set number of components three times, once with filtering, once with
+    # connectivity after the clustering and once with connectivity every iteration
+    establish_connectivity_afterwards, filter_grid_point_assignment, make_connected_every_round = False, False, False
     for i in range(3):
+        # set the output directory according to the settings
         if i == 0:
-            filter_grid_point_assignment = False
-            make_connected_every_round = True
-            establish_connectivity_afterwards = False
-            out_dir = f"{original_out_dir}/establish_connectivity_every_iteration/"
-            if not os.path.exists(out_dir):
-                os.makedirs(out_dir)
-            logger.info("Establishing connectivity every iteration")
+            establish_connectivity_afterwards, filter_grid_point_assignment, make_connected_every_round, out_dir = settings_for_connectivity_every_iteration(
+                original_out_dir)
         elif i == 1:
-            filter_grid_point_assignment = False
-            make_connected_every_round = False
-            establish_connectivity_afterwards = True
-            out_dir = f"{original_out_dir}/establish_connectivity_once/"
-            if not os.path.exists(out_dir):
-                os.makedirs(out_dir)
-            logger.info("Establishing connectivity once after clustering")
+            establish_connectivity_afterwards, filter_grid_point_assignment, make_connected_every_round, out_dir = settings_for_connectivity_once(
+                original_out_dir)
         elif i == 2:
-            filter_grid_point_assignment = True
-            make_connected_every_round = False
-            establish_connectivity_afterwards = False
-            out_dir = f"{original_out_dir}/filter_every_round_connectivity_once/"
-            if not os.path.exists(out_dir):
-                os.makedirs(out_dir)
-            logger.info("Filtering every round and establishing connectivity once after clustering")
+            establish_connectivity_afterwards, filter_grid_point_assignment, make_connected_every_round, out_dir = settings_for_filtering_for_connectivity(
+                original_out_dir)
         for number_of_components in components:
             # check if this has already been done
 
-            explained_variance_per_iteration = {}
-            # get start clustering dictionary from initial clustering netcdf data and plot
-            cluster_dict, cluster_to_grid_point_ids_dict = extract_clusters_from_xarray_dataset(clustering, min_lat,
-                                                                                                min_lon,
-                                                                                                resolution, sla_data)
             if os.path.exists(f"{out_dir}/components_{number_of_components}/"):
                 logger.info(f"clustering for {number_of_components} components already exists at {out_dir}")
                 continue
-            cluster_id_to_color = assign_color_to_cluster(cluster_to_grid_point_ids_dict)
             logger.info(f"assigning subspaces for {number_of_components} components")
+
+            explained_variance_per_iteration = {}
+            # get start clustering dictionary from initial clustering netcdf data and plot
+            cluster_dict_lat_lon, cluster_to_grid_point_ids_dict = extract_clusters_from_xarray_dataset(clustering,
+                                                                                                        min_lat,
+                                                                                                        min_lon,
+                                                                                                        resolution,
+                                                                                                        sla_data)
+            cluster_id_to_color = assign_color_to_cluster(cluster_to_grid_point_ids_dict)
             current_out_dir = f"{out_dir}/components_{number_of_components}/"
             OUT_DIR = current_out_dir
+
             # evaluate start-clustering
             name = f"initial_clustering_{number_of_components}"
             start_sum_of_distances, start_explained_variance_per_cluster = evaluate_distances_to_subspaces(
                 cluster_to_grid_point_ids_dict, sla_data, number_of_components,
                 current_out_dir, name)
             name = f"initial_clustering_{number_of_components}"
-            plot_clustering(cluster_dict, current_out_dir, resolution, name, cluster_id_to_color)
-            change = True
-            counter = 0
-            # save the sum of the distances to the subspaces in each iteration
-            sum_distances_to_subspaces = {counter: start_sum_of_distances}
-            counter += 1
-            # grid_point_assignment = cluster_to_grid_point_ids_dict.copy()
-            best_solution = cluster_dict
-            best_distances_to_subspaces = start_sum_of_distances
-            best_iteration = 0
-            while change:
-                print(".", end="")
-                # for each cluster, determine its subspace
-                subspaces, explained_variance_per_cluster = calculate_subspaces_for_clusters(
-                    cluster_to_grid_point_ids_dict, number_of_components,
-                    sla_data)
-                explained_variance_per_iteration[counter] = explained_variance_per_cluster
-                # # calculate how similar/different the subspaces are
-                # similarities = calculate_principal_angles(subspaces)
-                # assign each grid point to its closest subspace
-                cluster_to_grid_point_ids_dict, change, summed_distances = determine_closest_subspace(sla_data,
-                                                                                                      subspaces,
-                                                                                                      number_of_components,
-                                                                                                      cluster_to_grid_point_ids_dict)
-                # save the sum of the distances to the subspaces in each iteration
-                sum_distances_to_subspaces[counter] = summed_distances
-                # map the grid point assignment to the lat/lon coordinates and plot
-                grid_point_assignment_lat_lon = convert_idx_idy_to_lat_lon(cluster_to_grid_point_ids_dict, min_lat,
-                                                                           min_lon,
-                                                                           resolution)
-                name = f"{counter}"
-                plot_clustering(grid_point_assignment_lat_lon, current_out_dir, resolution,
-                                name, cluster_id_to_color)
+            plot_clustering(cluster_dict_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
+            sum_distances_to_subspaces = {}
 
-                cluster_map = create_cluster_map(cluster_data, cluster_to_grid_point_ids_dict)
+            # iteratively determine the subspaces for each cluster and assign grid points to the closest subspace
+            best_distances_to_subspaces, best_iteration, best_solution, cluster_map, counter, subspaces = subspace_clustering_iterations(
+                OUT_DIR, cluster_data, cluster_dict_lat_lon, cluster_id_to_color, cluster_to_grid_point_ids_dict,
+                clustering, current_out_dir, explained_variance_per_iteration,
+                filter_grid_point_assignment, make_connected_every_round, min_lat, min_lon, number_of_clusters,
+                number_of_components, out_dir, resolution, sea_level_anomaly_data, sla_data, start_sum_of_distances,
+                sum_distances_to_subspaces)
 
-                if filter_grid_point_assignment:
-                    half_width = 200  # in km
-                    current_filter = SphericalGaussFilterClustering(clustering.latitude.values,
-                                                                    clustering.longitude.values, half_width)
-                    cluster_to_grid_point_ids_dict = current_filter.parallelized_filter(cluster_map)
-                    cluster_to_lat_lon = convert_idx_idy_to_lat_lon(cluster_to_grid_point_ids_dict, min_lat, min_lon,
-                                                                    resolution)
-                    name = f"filtered_{counter}"
-                    plot_clustering(cluster_to_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
-                if make_connected_every_round:
-                    cluster_to_grid_point_ids_dict = reestablish_connectivity(sea_level_anomaly_data,
-                                                                              grid_point_assignment_lat_lon,
-                                                                              cluster_map, subspaces,
-                                                                              counter, OUT_DIR, cluster_id_to_color,
-                                                                              number_of_clusters)
-
-                    # plot filtered data
-                    cluster_to_lat_lon = convert_idx_idy_to_lat_lon(cluster_to_grid_point_ids_dict, min_lat, min_lon,
-                                                                    resolution)
-                    name = f"reconnected_{counter}"
-                    plot_clustering(cluster_to_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
-                # for cluster in cluster_to_grid_point_ids_dict.keys():
-                #     print(f"cluster {cluster}: {len(cluster_to_grid_point_ids_dict[cluster])}")
-                sum_of_distances_after_conn, explained_variance_after_conn = evaluate_distances_to_subspaces(
-                    cluster_to_grid_point_ids_dict,
-                    sla_data, number_of_components,
-                    out_dir,
-                    name)
-                if sum_of_distances_after_conn < best_distances_to_subspaces:
-                    best_distances_to_subspaces = sum_of_distances_after_conn
-                    best_solution = cluster_to_lat_lon
-                    best_iteration = counter
-                counter += 1
-                if counter >= 50:
-                    break
-            counter += 1
+            # if connectivity has not been established in every iteration, do it now
             if establish_connectivity_afterwards == True or filter_grid_point_assignment == True:
                 cluster_to_grid_point_ids_dict = reestablish_connectivity(sea_level_anomaly_data,
                                                                           best_solution,
@@ -235,6 +165,159 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
             with open(f"{current_out_dir}/explained_variance_per_iteration.json", "w") as outfile:
                 json.dump(explained_variance_per_iteration, outfile)
     return
+
+
+def subspace_clustering_iterations(OUT_DIR, cluster_data, cluster_dict_lat_lon, cluster_id_to_color,
+                                   cluster_to_grid_point_ids_dict, clustering, current_out_dir,
+                                   explained_variance_per_iteration, filter_grid_point_assignment,
+                                   make_connected_every_round, min_lat, min_lon, number_of_clusters,
+                                   number_of_components, out_dir, resolution, sea_level_anomaly_data, sla_data,
+                                   start_sum_of_distances, sum_distances_to_subspaces):
+    """
+    Iteratively determine the subspaces for each cluster and assign grid points to the closest subspace until convergence
+    :param OUT_DIR:
+    :param cluster_data:
+    :param cluster_dict_lat_lon:
+    :param cluster_id_to_color:
+    :param cluster_to_grid_point_ids_dict:
+    :param clustering:
+    :param current_out_dir:
+    :param explained_variance_per_iteration:
+    :param filter_grid_point_assignment:
+    :param make_connected_every_round:
+    :param min_lat:
+    :param min_lon:
+    :param number_of_clusters:
+    :param number_of_components:
+    :param out_dir:
+    :param resolution:
+    :param sea_level_anomaly_data:
+    :param sla_data:
+    :param start_sum_of_distances:
+    :param sum_distances_to_subspaces:
+    :return:
+    """
+    # start iterations
+    change = True
+    counter = 0
+    # save the sum of the distances from grid points to the subspaces in each iteration
+    sum_distances_to_subspaces[counter] = start_sum_of_distances
+    counter += 1
+    # grid_point_assignment = cluster_to_grid_point_ids_dict.copy()
+    best_solution = cluster_dict_lat_lon
+    best_distances_to_subspaces = start_sum_of_distances
+    best_iteration = 0
+    while change:
+        print(".", end="")
+        # for each cluster, determine its subspace
+        subspaces, explained_variance_per_cluster = calculate_subspaces_for_clusters(
+            cluster_to_grid_point_ids_dict, number_of_components,
+            sla_data)
+        explained_variance_per_iteration[counter] = explained_variance_per_cluster
+        # # calculate how similar/different the subspaces are
+        # similarities = calculate_principal_angles(subspaces)
+        # assign each grid point to its closest subspace
+        cluster_to_grid_point_ids_dict, change, summed_distances = determine_closest_subspace(sla_data,
+                                                                                              subspaces,
+                                                                                              number_of_components,
+                                                                                              cluster_to_grid_point_ids_dict)
+        # map the grid point assignment to the lat/lon coordinates and plot
+        grid_point_assignment_lat_lon = convert_idx_idy_to_lat_lon(cluster_to_grid_point_ids_dict, min_lat,
+                                                                   min_lon,
+                                                                   resolution)
+        name = f"{counter}"
+        plot_clustering(grid_point_assignment_lat_lon, current_out_dir, resolution,
+                        name, cluster_id_to_color)
+
+        cluster_map = create_cluster_map(cluster_data, cluster_to_grid_point_ids_dict)
+
+        if filter_grid_point_assignment:
+            half_width = 200  # in km
+            current_filter = SphericalGaussFilterClustering(clustering.latitude.values,
+                                                            clustering.longitude.values, half_width)
+            cluster_to_grid_point_ids_dict = current_filter.parallelized_filter(cluster_map)
+            cluster_to_lat_lon = convert_idx_idy_to_lat_lon(cluster_to_grid_point_ids_dict, min_lat, min_lon,
+                                                            resolution)
+            name = f"filtered_{counter}"
+            plot_clustering(cluster_to_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
+        if make_connected_every_round:
+            cluster_to_grid_point_ids_dict = reestablish_connectivity(sea_level_anomaly_data,
+                                                                      grid_point_assignment_lat_lon,
+                                                                      cluster_map, subspaces,
+                                                                      counter, OUT_DIR, cluster_id_to_color,
+                                                                      number_of_clusters)
+
+            # plot filtered data
+            cluster_to_lat_lon = convert_idx_idy_to_lat_lon(cluster_to_grid_point_ids_dict, min_lat, min_lon,
+                                                            resolution)
+            name = f"reconnected_{counter}"
+            plot_clustering(cluster_to_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
+        # for cluster in cluster_to_grid_point_ids_dict.keys():
+        #     print(f"cluster {cluster}: {len(cluster_to_grid_point_ids_dict[cluster])}")
+        sum_of_distances_after_conn, explained_variance_after_conn = evaluate_distances_to_subspaces(
+            cluster_to_grid_point_ids_dict,
+            sla_data, number_of_components,
+            out_dir,
+            name)
+        # save the sum of the distances to the subspaces in each iteration
+        sum_distances_to_subspaces[counter] = sum_of_distances_after_conn
+        if sum_of_distances_after_conn < best_distances_to_subspaces:
+            best_distances_to_subspaces = sum_of_distances_after_conn
+            best_solution = cluster_to_lat_lon
+            best_iteration = counter
+        counter += 1
+        if counter >= 50:
+            break
+    counter += 1
+    return best_distances_to_subspaces, best_iteration, best_solution, cluster_map, counter, subspaces
+
+
+def settings_for_filtering_for_connectivity(original_out_dir):
+    """
+    Settings for filtering every round and establishing connectivity once after clustering
+    :param original_out_dir:
+    :return:
+    """
+    filter_grid_point_assignment = True
+    make_connected_every_round = False
+    establish_connectivity_afterwards = False
+    out_dir = f"{original_out_dir}/filter_every_round_connectivity_once/"
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+    logger.info("Filtering every round and establishing connectivity once after clustering")
+    return establish_connectivity_afterwards, filter_grid_point_assignment, make_connected_every_round, out_dir
+
+
+def settings_for_connectivity_once(original_out_dir):
+    """
+    Settings for establishing connectivity once after clustering
+    :param original_out_dir:
+    :return:
+    """
+    filter_grid_point_assignment = False
+    make_connected_every_round = False
+    establish_connectivity_afterwards = True
+    out_dir = f"{original_out_dir}/establish_connectivity_once/"
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+    logger.info("Establishing connectivity once after clustering")
+    return establish_connectivity_afterwards, filter_grid_point_assignment, make_connected_every_round, out_dir
+
+
+def settings_for_connectivity_every_iteration(original_out_dir):
+    """
+    Settings for establishing connectivity every iteration
+    :param original_out_dir:
+    :return:
+    """
+    filter_grid_point_assignment = False
+    make_connected_every_round = True
+    establish_connectivity_afterwards = False
+    out_dir = f"{original_out_dir}/establish_connectivity_every_iteration/"
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+    logger.info("Establishing connectivity every iteration")
+    return establish_connectivity_afterwards, filter_grid_point_assignment, make_connected_every_round, out_dir
 
 
 def create_cluster_map(cluster_data, cluster_to_grid_point_ids_dict):

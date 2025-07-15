@@ -27,7 +27,7 @@ class GlobalSettings(BaseSettings):
     sea_level_anomaly_data_download_path: str = "../data/SEALEVEL_GLO_PHY_L4_MY_008_047"
     half_width: int = 500
     filtered_data_path: str = f"../output/spherical_gaussian_filtering/sea_level_anomaly_data_filtered_{half_width}.nc"
-    filtering_sla: bool = False
+    filtering_sla: bool = True
     resolution: int = 2
 
 
