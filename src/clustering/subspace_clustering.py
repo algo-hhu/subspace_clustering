@@ -52,15 +52,16 @@ def plot_explained_variance_per_iteration(explained_variance_per_iteration: dict
     return
 
 
-def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering: xarray.Dataset, original_out_dir: str,
+def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering_dataset: xarray.Dataset,
+                              original_out_dir: str,
                               components: list[int], number_of_clusters: int):
     """
     Start the subspace clustering
+    :param clustering_dataset:
     :param number_of_clusters:
     :param original_out_dir:
     :param components:
     :param sea_level_anomaly_data:
-    :param clustering:
     :return:
     """
     # # use profiler to find bottlenecks
@@ -69,12 +70,13 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
 
     global OUT_DIR
     print(f"number of components: {components}")
-    min_lat = clustering.latitude.values.min()
-    min_lon = clustering.longitude.values.min()
-    resolution = float(clustering.latitude.values[1]) - float(clustering.latitude.values[0])
+    min_lat = clustering_dataset.latitude.values.min()
+    min_lon = clustering_dataset.longitude.values.min()
+    resolution = float(clustering_dataset.latitude.values[1]) - float(clustering_dataset.latitude.values[0])
     # plot first time step
     plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, original_out_dir, "sla", name="input_data")
     sla_data = sea_level_anomaly_data["sla"].values
+    cluster_data = clustering_dataset.__xarray_dataarray_variable__.values
     # perform the subspace clustering for each set number of components three times, once with filtering, once with
     # connectivity after the clustering and once with connectivity every iteration
     establish_connectivity_afterwards, filter_grid_point_assignment, make_connected_every_round = False, False, False
@@ -101,53 +103,116 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
             logger.info(f"assigning subspaces for {number_of_components} components")
 
             # get start clustering dictionary from initial clustering netcdf data and plot
-            cluster_dict_lat_lon, cluster_to_grid_point_ids_dict = extract_clusters_from_xarray_dataset(clustering,
-                                                                                                        min_lat,
-                                                                                                        min_lon,
-                                                                                                        resolution,
-                                                                                                        sla_data)
+            cluster_dict_lat_lon, cluster_to_grid_point_ids_dict = extract_clusters_from_xarray_dataset(
+                clustering_dataset, min_lat, min_lon, resolution, sla_data)
             cluster_id_to_color = assign_color_to_cluster(cluster_to_grid_point_ids_dict)
             current_out_dir = f"{out_dir}/components_{number_of_components}/"
             OUT_DIR = current_out_dir
 
             # evaluate start-clustering
-            name = f"initial_clustering_{number_of_components}"
             start_sum_of_distances, start_explained_variance_per_cluster = evaluate_distances_to_subspaces(
                 cluster_to_grid_point_ids_dict, sla_data, number_of_components,
-                current_out_dir, name)
+                current_out_dir)
             name = f"initial_clustering_{number_of_components}"
+            with open(f"{current_out_dir}/{name}.txt", "w") as f:
+                f.write(f"Start sum of distances to subspaces: {start_sum_of_distances}\n")
+
             plot_clustering(cluster_dict_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
             sum_distances_to_subspaces = {}
 
             # iteratively determine the subspaces for each cluster and assign grid points to the closest subspace
-            (best_distances_to_subspaces, best_iteration, best_solution, counter, subspaces,
-             explained_variance_per_iteration) = subspace_clustering_iterations(
-                cluster_id_to_color, cluster_to_grid_point_ids_dict,
-                clustering, current_out_dir, filter_grid_point_assignment, make_connected_every_round, min_lat, min_lon,
-                number_of_clusters, number_of_components, resolution, sea_level_anomaly_data, start_sum_of_distances,
-                sum_distances_to_subspaces)
+            change = True
+            counter = 0
+            # save the sum of the distances from grid points to the subspaces in each iteration
+            sum_distances_to_subspaces[counter] = start_sum_of_distances
+            counter += 1
+            # grid_point_assignment = cluster_to_grid_point_ids_dict.copy()
+            best_solution = None
+            best_distances_to_subspaces = start_sum_of_distances
+            best_iteration = 0
+            explained_variance_per_iteration = {}
+            while change:
+                print(".", end="")
+                # for each cluster, determine its subspace
+                subspaces, explained_variance_per_cluster = calculate_subspaces_for_clusters(
+                    cluster_to_grid_point_ids_dict, number_of_components,
+                    sla_data)
+                explained_variance_per_iteration[counter] = explained_variance_per_cluster
+                # # calculate how similar/different the subspaces are
+                # similarities = calculate_principal_angles(subspaces)
+                # assign each grid point to its closest subspace
+                cluster_to_grid_point_ids_dict, change, summed_distances = determine_closest_subspace(sla_data,
+                                                                                                      subspaces,
+                                                                                                      number_of_components,
+                                                                                                      cluster_to_grid_point_ids_dict)
+                # map the grid point assignment to the lat/lon coordinates and plot
+                grid_point_assignment_lat_lon = convert_idx_idy_to_lat_lon(cluster_to_grid_point_ids_dict, min_lat,
+                                                                           min_lon,
+                                                                           resolution)
+                name = f"{counter}"
+                plot_clustering(grid_point_assignment_lat_lon, current_out_dir, resolution,
+                                name, cluster_id_to_color)
+
+                cluster_map = create_cluster_map(cluster_data, cluster_to_grid_point_ids_dict)
+
+                if filter_grid_point_assignment:
+                    half_width = 200  # in km
+                    current_filter = SphericalGaussFilterClustering(clustering_dataset.latitude.values,
+                                                                    clustering_dataset.longitude.values, half_width)
+                    cluster_to_grid_point_ids_dict = current_filter.parallelized_filter(cluster_map)
+                    cluster_to_lat_lon = convert_idx_idy_to_lat_lon(cluster_to_grid_point_ids_dict, min_lat, min_lon,
+                                                                    resolution)
+                    name = f"filtered_{counter}"
+                    plot_clustering(cluster_to_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
+                elif make_connected_every_round:
+                    cluster_to_grid_point_ids_dict = reestablish_connectivity(sea_level_anomaly_data,
+                                                                              grid_point_assignment_lat_lon,
+                                                                              subspaces,
+                                                                              counter, OUT_DIR, cluster_id_to_color,
+                                                                              number_of_clusters)
+
+                    # plot filtered data
+                    cluster_to_lat_lon = convert_idx_idy_to_lat_lon(cluster_to_grid_point_ids_dict, min_lat, min_lon,
+                                                                    resolution)
+                    name = f"reconnected_{counter}"
+                    plot_clustering(cluster_to_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
+                else:
+                    cluster_to_lat_lon = grid_point_assignment_lat_lon
+                # evaluate the distances to the subspaces after the current clustering
+                sum_of_distances_after_conn, explained_variance_after_conn = evaluate_distances_to_subspaces(
+                    cluster_to_grid_point_ids_dict, sla_data, number_of_components, current_out_dir)
+                # save the sum of the distances to the subspaces in each iteration
+                sum_distances_to_subspaces[counter] = sum_of_distances_after_conn
+                if sum_of_distances_after_conn < best_distances_to_subspaces:
+                    best_distances_to_subspaces = sum_of_distances_after_conn
+                    best_solution = cluster_to_lat_lon
+                    best_iteration = counter
+                counter += 1
+                if counter >= 50:
+                    break
+            counter += 1
 
             if best_solution is None:
                 logger.error(f"No best solution found for {number_of_components} components. Skipping.")
                 continue
             # if connectivity has not been established in every iteration, do it now
             if establish_connectivity_afterwards == True or filter_grid_point_assignment == True:
+                # TODO: double check this - data points go missing here
                 cluster_to_grid_point_ids_dict = reestablish_connectivity(sea_level_anomaly_data,
-                                                                          best_solution,
+                                                                          cluster_to_lat_lon,
                                                                           subspaces,
                                                                           counter, OUT_DIR, cluster_id_to_color,
                                                                           number_of_clusters)
                 cluster_to_lat_lon = convert_idx_idy_to_lat_lon(cluster_to_grid_point_ids_dict, min_lat, min_lon,
                                                                 resolution)
-                name = f"reconnected_{counter}"
+                name = f"final_clustering_{number_of_components}"
                 plot_clustering(cluster_to_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
                 # calculate resulting value
-                name = f"final_clustering_{number_of_components}"
                 summed_distances, explained_variance = evaluate_distances_to_subspaces(cluster_to_grid_point_ids_dict,
                                                                                        sla_data,
                                                                                        number_of_components,
-                                                                                       current_out_dir,
-                                                                                       name)
+                                                                                       current_out_dir)
+                best_distances_to_subspaces = summed_distances
                 sum_distances_to_subspaces[counter] = summed_distances
             # plot the summed distances to the subspaces
             plotting.plot_summed_distances_to_subspaces(sum_distances_to_subspaces, current_out_dir,
@@ -171,113 +236,6 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
             with open(f"{current_out_dir}/explained_variance_per_iteration.json", "w") as outfile:
                 json.dump(explained_variance_per_iteration, outfile)
     return
-
-
-def subspace_clustering_iterations(cluster_id_to_color: dict[int, str],
-                                   cluster_to_grid_point_ids_dict: dict[int, list[tuple[float, float]]],
-                                   clustering_dataset: xarray.Dataset, current_out_dir: str,
-                                   filter_grid_point_assignment: bool, make_connected_every_round: bool, min_lat: float,
-                                   min_lon: float, number_of_clusters: int, number_of_components: int,
-                                   resolution: float, sea_level_anomaly_data: xarray.Dataset,
-                                   start_sum_of_distances: float, sum_distances_to_subspaces: dict[int:float]):
-    """
-    Iteratively determine the subspaces for each cluster and assign grid points to the closest subspace until
-    convergence
-    :param cluster_id_to_color:
-    :param cluster_to_grid_point_ids_dict:
-    :param clustering_dataset:
-    :param current_out_dir:
-    :param filter_grid_point_assignment:
-    :param make_connected_every_round:
-    :param min_lat:
-    :param min_lon:
-    :param number_of_clusters:
-    :param number_of_components:
-    :param resolution:
-    :param sea_level_anomaly_data:
-    :param start_sum_of_distances:
-    :param sum_distances_to_subspaces:
-    :return:
-    """
-    cluster_data = clustering_dataset["__xarray_dataarray_variable__"].values
-    sla_data = sea_level_anomaly_data["sla"].values
-    # start iterations
-    change = True
-    counter = 0
-    # save the sum of the distances from grid points to the subspaces in each iteration
-    sum_distances_to_subspaces[counter] = start_sum_of_distances
-    counter += 1
-    # grid_point_assignment = cluster_to_grid_point_ids_dict.copy()
-    best_solution = None
-    best_distances_to_subspaces = start_sum_of_distances
-    best_iteration = 0
-    explained_variance_per_iteration = {}
-    while change:
-        print(".", end="")
-        # for each cluster, determine its subspace
-        subspaces, explained_variance_per_cluster = calculate_subspaces_for_clusters(
-            cluster_to_grid_point_ids_dict, number_of_components,
-            sla_data)
-        explained_variance_per_iteration[counter] = explained_variance_per_cluster
-        # # calculate how similar/different the subspaces are
-        # similarities = calculate_principal_angles(subspaces)
-        # assign each grid point to its closest subspace
-        cluster_to_grid_point_ids_dict, change, summed_distances = determine_closest_subspace(sla_data,
-                                                                                              subspaces,
-                                                                                              number_of_components,
-                                                                                              cluster_to_grid_point_ids_dict)
-        # map the grid point assignment to the lat/lon coordinates and plot
-        grid_point_assignment_lat_lon = convert_idx_idy_to_lat_lon(cluster_to_grid_point_ids_dict, min_lat,
-                                                                   min_lon,
-                                                                   resolution)
-        name = f"{counter}"
-        plot_clustering(grid_point_assignment_lat_lon, current_out_dir, resolution,
-                        name, cluster_id_to_color)
-
-        cluster_map = create_cluster_map(cluster_data, cluster_to_grid_point_ids_dict)
-
-        if filter_grid_point_assignment:
-            half_width = 200  # in km
-            current_filter = SphericalGaussFilterClustering(clustering_dataset.latitude.values,
-                                                            clustering_dataset.longitude.values, half_width)
-            cluster_to_grid_point_ids_dict = current_filter.parallelized_filter(cluster_map)
-            cluster_to_lat_lon = convert_idx_idy_to_lat_lon(cluster_to_grid_point_ids_dict, min_lat, min_lon,
-                                                            resolution)
-            name = f"filtered_{counter}"
-            plot_clustering(cluster_to_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
-        elif make_connected_every_round:
-            cluster_to_grid_point_ids_dict = reestablish_connectivity(sea_level_anomaly_data,
-                                                                      grid_point_assignment_lat_lon,
-                                                                      subspaces,
-                                                                      counter, OUT_DIR, cluster_id_to_color,
-                                                                      number_of_clusters)
-
-            # plot filtered data
-            cluster_to_lat_lon = convert_idx_idy_to_lat_lon(cluster_to_grid_point_ids_dict, min_lat, min_lon,
-                                                            resolution)
-            name = f"reconnected_{counter}"
-            plot_clustering(cluster_to_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
-        else:
-            cluster_to_lat_lon = grid_point_assignment_lat_lon
-        # for cluster in cluster_to_grid_point_ids_dict.keys():
-        #     print(f"cluster {cluster}: {len(cluster_to_grid_point_ids_dict[cluster])}")
-        sum_of_distances_after_conn, explained_variance_after_conn = evaluate_distances_to_subspaces(
-            cluster_to_grid_point_ids_dict,
-            sla_data, number_of_components,
-            current_out_dir,
-            name)
-        # save the sum of the distances to the subspaces in each iteration
-        sum_distances_to_subspaces[counter] = sum_of_distances_after_conn
-        if sum_of_distances_after_conn < best_distances_to_subspaces:
-            best_distances_to_subspaces = sum_of_distances_after_conn
-            best_solution = cluster_to_lat_lon
-            best_iteration = counter
-        counter += 1
-        if counter >= 50:
-            break
-    counter += 1
-    return (best_distances_to_subspaces, best_iteration, best_solution, counter, subspaces,
-            explained_variance_per_iteration)
 
 
 def settings_for_filtering_for_connectivity(original_out_dir):
@@ -360,10 +318,9 @@ def adjust_resolution(clustering: xarray.Dataset, sea_level_anomaly_data: xarray
 
 
 def evaluate_distances_to_subspaces(cluster_to_grid_point_ids_dict: dict[int, list[tuple[float, float]]],
-                                    sla_data: np.ndarray, number_of_components: int, out_dir: str, name: str):
+                                    sla_data: np.ndarray, number_of_components: int, out_dir: str):
     """
 
-    :param name:
     :param out_dir:
     :param number_of_components:
     :param sla_data:
@@ -395,12 +352,7 @@ def evaluate_distances_to_subspaces(cluster_to_grid_point_ids_dict: dict[int, li
             distance = subspace_timeseries_distance_calculation([], current_time_series, mean, subspace)
             sum_of_distances += distance
             number_of_grid_points += 1
-    with open(f"{out_dir}/{name}_average_distance_to_subspace.txt", "a") as f:
-        f.write(
-            f"Average distance to subspace for each cluster components: "
-            f"{sum_of_distances / len(cluster_to_grid_point_ids_dict)}\n")
-        f.write(f"average distance to subspace per grid point: {sum_of_distances / number_of_grid_points}\n")
-        f.write(f"total sum of distances to subspace: {sum_of_distances}\n")
+
     return sum_of_distances, explained_variance_per_cluster
 
 
@@ -700,8 +652,7 @@ def start_subspace_clustering_with_integrated_connectivity(sea_level_anomaly_dat
         cluster_id_to_color = assign_color_to_cluster(cluster_to_grid_point_ids_dict)
         name = f"initial_clustering_{current_number_of_components}"
         summed_distances, explained_variance = evaluate_distances_to_subspaces(cluster_to_grid_point_ids_dict, sla_data,
-                                                                               current_number_of_components, out_dir,
-                                                                               name)
+                                                                               current_number_of_components, out_dir)
         plot_clustering(cluster_dict, current_out_dir, resolution, name, cluster_id_to_color)
         summed_distances_to_subspaces[iteration_counter] = summed_distances
         change = True
@@ -736,9 +687,7 @@ def start_subspace_clustering_with_integrated_connectivity(sea_level_anomaly_dat
         plot_clustering(grid_point_assignment_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
         summed_distances, explained_variance = evaluate_distances_to_subspaces(cluster_to_grid_point_ids_dict, sla_data,
                                                                                current_number_of_components,
-                                                                               current_out_dir,
-                                                                               f"final_clustering_"
-                                                                               f"{current_number_of_components}")
+                                                                               current_out_dir)
         summed_distances_to_subspaces[iteration_counter] = summed_distances
         plotting.plot_summed_distances_to_subspaces(summed_distances_to_subspaces, current_out_dir,
                                                     current_number_of_components, None, None)

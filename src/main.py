@@ -55,7 +55,7 @@ def main():
         logger.info("Applying weights before subspace clustering")
         unfiltered_sea_level_anomaly_data = weighting.apply_weights_to_sea_level_anomaly_data(
             unfiltered_sea_level_anomaly_data)
-        
+
     initial_clustering = xarray.open_dataset(
         f"{out_dir}/clustering_{subspace_clustering_settings.number_of_clusters}.nc")
     # subspace clustering
@@ -65,7 +65,7 @@ def main():
     # evaluate clustering results
     evaluate_clustering(evaluation_settings, out_dir, unfiltered_sea_level_anomaly_data,
                         subspace_clustering_settings)
-
+    
     exit()
 
 
