@@ -635,7 +635,8 @@ def start_subspace_clustering_with_integrated_connectivity(sea_level_anomaly_dat
     cluster_data = initial_clustering["__xarray_dataarray_variable__"].values
 
     for current_number_of_components in number_of_components:
-        logger.info(f"Starting subspace clustering with {current_number_of_components} components")
+        logger.info(
+            f"Starting subspace clustering with integrated connectivity with {current_number_of_components} components")
         current_out_dir = f"{out_dir}/components_{current_number_of_components}/"
         if not os.path.exists(current_out_dir):
             os.makedirs(current_out_dir)
@@ -688,6 +689,9 @@ def start_subspace_clustering_with_integrated_connectivity(sea_level_anomaly_dat
         summed_distances, explained_variance = evaluate_distances_to_subspaces(cluster_to_grid_point_ids_dict, sla_data,
                                                                                current_number_of_components,
                                                                                current_out_dir)
+        with open(f"{current_out_dir}/summed_distances_to_subspaces.txt", "w") as f:
+            f.write(f"Summed distances to subspaces: {summed_distances}\n")
+
         summed_distances_to_subspaces[iteration_counter] = summed_distances
         plotting.plot_summed_distances_to_subspaces(summed_distances_to_subspaces, current_out_dir,
                                                     current_number_of_components, None, None)
