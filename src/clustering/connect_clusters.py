@@ -55,6 +55,14 @@ def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering,
                                                                                          grid_graph)  # connected
     # component graph with connected components (i.e. clusters) as nodes and edges between connected components that
     # are neighbors
+    # plot each graph
+    # plot_graph_on_clustering_map(clustering, cluster_graph, grid_point_to_lat_lon, resolution, out_dir,
+    #                              "cluster_graph_initial",
+    #                              cluster_id_to_color)
+    #
+    # plot_clustering_with_component_graph(clustering, out_dir, resolution, "component_graph_initial",
+    #                                      connected_component_graph, connected_components, grid_point_to_lat_lon,
+    #                                      cluster_id_to_color)
 
     counter = 0
     while len(connected_components) > number_of_clusters:
@@ -63,13 +71,14 @@ def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering,
         # recalculate connected components & connected component graph and start again
         cluster_graph = generate_cluster_graph(clustering, grid_graph, lat_lon_to_grid_point_id)
         connected_component_graph, connected_components = generate_connected_component_graph(cluster_graph, grid_graph)
-        if len(connected_components) <= number_of_clusters:
-            break
+
         # extract the smallest component
         sorted_connected_components_list = sorted(connected_components.values(), key=lambda c: c.size)
         smallest_connected_component = sorted_connected_components_list[0]
         neighbors = list(connected_component_graph.neighbors(smallest_connected_component.id))
-
+        # plot_with_highlighting_of_component(clustering, smallest_connected_component, neighbors, out_dir, counter,
+        #                                     resolution, connected_components, grid_point_to_lat_lon,
+        #                                     cluster_id_to_color)
         best_neighbor = None
         neighbor_count = {}
         for neighbor in neighbors:
@@ -183,4 +192,8 @@ def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering,
     # profiler.disable()
     # stats = pstats.Stats(profiler).sort_stats('cumtime')
     # stats.print_stats()
+    # plot_clustering(new_clustering_with_lat_lon, out_dir, resolution,
+    #                 f"reestablished_connectivity_after {counter} iterations",
+    #                 cluster_id_to_color)
+    # exit()
     return new_clustering

@@ -471,7 +471,7 @@ def plot_regions_with_component_graph(land_gdf: geopandas.GeoDataFrame, output_p
     handles = [mpatches.Patch(color=color, label=f"Cluster {cluster_id}")
                for cluster_id, color in
                zip(clusters_gdf["cluster_id"].unique(), clusters_gdf["color"].unique())]
-    ax.legend(handles=handles, title="Clusters")
+    ax.legend(handles=handles, title="Clusters", loc='center right', bbox_to_anchor=(1.25, 0.5))
     plt.savefig(os.path.join(output_path, f"{name}.png"))
     plt.close()
 
@@ -596,7 +596,7 @@ def plot_with_highlighting_of_component(clustering, smallest_component, neighbor
     handles = [mpatches.Patch(color=color, label=f"Cluster {cluster_id}")
                for cluster_id, color in
                zip(clusters_gdf["cluster_id"].unique(), clusters_gdf["color"].unique())]
-    ax.legend(handles=handles, title="Clusters")
+    ax.legend(handles=handles, title="Clusters", loc='center right', bbox_to_anchor=(1.25, 0.5))
     plt.savefig(os.path.join(out_dir, f"{name}.png"))
     plt.close()
 
