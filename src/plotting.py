@@ -1,10 +1,7 @@
 import colorsys
-import os
 import random
 from statistics import median
 
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
 import geopandas
 import matplotlib.colors as mcolors
 import matplotlib.dates as mdates
@@ -14,7 +11,6 @@ import pandas as pd
 import shapely
 import xarray
 import xarray as xr
-from matplotlib import pyplot as plt
 from shapely.geometry import MultiPolygon, Polygon
 from shapely.geometry.point import Point
 from shapely.ops import transform, unary_union
@@ -654,14 +650,50 @@ def plot_time_series(first_component: np.array, out_dir: str, name: str, sea_lev
     :param out_dir:
     :return:
     """
+    # plot ENSO pattern to time series
+    # read txt file
+    path = "../data/enso_meiv2_filtered_1979_2024.txt"
+    enso_dates = []
+    enso_values = []
+    enso_dict = {}
+    with open(path, "r") as f:
+        lines = f.readlines()
+        # split line, first colum is date, second column is value
+        for line in lines:
+            date, value = line.split()
+            # the date is given as the year.fraction of the year
+            decimal = float(date)
+            year = int(decimal)
+            fraction = decimal - year
+
+            # multiply value by -1
+            value = -1 * float(value)
+
+            # Approximate date by adding the fraction as days (365.25 days/year)
+            date = pd.Timestamp(f"{year}-01-01") + pd.to_timedelta(fraction * 365.25, unit='D')
+            if date.year < 1993:
+                continue  # Skip dates before 1993
+            enso_dates.append(date)
+            enso_values.append(value)
+            enso_dict[date] = value
+
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     time_steps = sea_level_anomaly_data['time'].values
     date_times = pd.to_datetime(time_steps)
 
+    # subtract mean from values
+    first_component = first_component - np.nanmean(first_component)
+    # # check if last value in PC is smaller than first, if so multiply by -1
+    # if first_component[-1] < first_component[0]:
+    #     first_component = -1 * first_component
+    enso_values = enso_values - np.nanmean(enso_values)
+
     fig, ax = plt.subplots(figsize=(12, 5))
     # Plot the time series
-    ax.plot(date_times, first_component, color='navy', linewidth=1.5)
+    # Plot the ENSO data
+    ax.plot(enso_dates, enso_values, color='#120078', linewidth=1.5, label='ENSO Index')
+    ax.plot(date_times, first_component, color='#FD3A69', linewidth=1.8, label='Principal Component')
 
     # Set the locator to show a tick for every year
     ax.xaxis.set_major_locator(mdates.YearLocator())
@@ -675,44 +707,58 @@ def plot_time_series(first_component: np.array, out_dir: str, name: str, sea_lev
 
     ax.grid(True, which='major', linestyle='--', alpha=0.6)
     fig.tight_layout()
+    fig.legend()
 
     output_path = os.path.join(out_dir, f'{name}.jpg')
-    plt.savefig(output_path, dpi=1200, bbox_inches='tight')
+    plt.savefig(output_path, dpi=600, bbox_inches='tight')
     plt.close(fig)
+
+
+import numpy as np
+import os
+import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 
 
 def plot_eof(eof_to_plot: np.array, output_dir: str, name: str):
     """
-    Plot a given EOF
-    :param eof_to_plot:
-    :param output_dir:
-    :param name:
-    :return:
+    Plot a given EOF with a border around non-NaN cluster
+    :param eof_to_plot: 2D array with NaNs outside cluster
+    :param output_dir: path to save the output
+    :param name: name of the output file
     """
-    # Define coordinate extent (longitude/latitude or other units)
     extent = [-180, 180, -90, 90]  # [xmin, xmax, ymin, ymax]
 
-    # Plot using a projection (PlateCarree = regular lat/lon grid)
-    # Define figure size suitable for 300–1200 DPI
     fig, ax = plt.subplots(figsize=(12, 6), subplot_kw={'projection': ccrs.PlateCarree()})
 
-    # Plot the data
-    im = ax.imshow(eof_to_plot, extent=extent, origin='lower', cmap='viridis', interpolation='none')
+    # Plot the EOF data
+    im = ax.imshow(eof_to_plot, extent=extent, origin='lower', cmap='seismic', interpolation='none')
 
-    # Add geographic features with highest resolution
+    # Add a contour around the cluster (non-NaN region)
+    # Create a mask of non-NaN values (1 = data, 0 = NaN)
+    mask = np.where(np.isnan(eof_to_plot), 0, 1)
+
+    # Plot contour where mask == 1
+    lon = np.linspace(extent[0], extent[1], eof_to_plot.shape[1])
+    lat = np.linspace(extent[2], extent[3], eof_to_plot.shape[0])
+    Lon, Lat = np.meshgrid(lon, lat)
+
+    # Add contour outlining the cluster
+    ax.contour(Lon, Lat, mask, levels=[0.5], colors='black', linewidths=1.2, transform=ccrs.PlateCarree())
+
+    # Add geographic features
     ax.coastlines(resolution='10m', linewidth=0.8)
     ax.add_feature(cfeature.BORDERS, linewidth=0.5)
     ax.add_feature(cfeature.LAND, facecolor='burlywood', zorder=0, alpha=0.5)
-    # Colorbar with improved layout and font
+
+    # Colorbar
     cbar = plt.colorbar(im, ax=ax, orientation='vertical', pad=0.02, shrink=0.85)
     cbar.set_label('Sea Level (m)', fontsize=12)
 
-    # Title with better font sizing
-    # plt.title(f"{name}", fontsize=14)
-
-    # Improve layout and save at high DPI
+    # Save the figure
     output_path = os.path.join(output_dir, f'{name}.jpg')
-    plt.savefig(output_path, dpi=1200, bbox_inches='tight', quality=95, optimize=True)
+    plt.savefig(output_path, dpi=600, bbox_inches='tight')
     plt.close()
 
 
@@ -764,7 +810,6 @@ def plot_average_explained_variance(explained_variance_per_iteration, current_ou
     plt.yticks([0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1])
     plt.ylabel("Explained Variance")
     plt.title("Average explained Variance per Iteration")
-    plt.legend(loc='center right', bbox_to_anchor=(1.25, 0.5))
     plt.savefig(f"{current_out_dir}/average_explained_variance_per_iteration.jpg", bbox_inches='tight')
     plt.close()
     return

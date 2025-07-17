@@ -45,9 +45,11 @@ def filtering(sea_level_anomaly_data: xr.Dataset, filtered_data_path: str, half_
     # check if longitude is correct (-180 to 180)
     if sea_level_anomaly_data.longitude.max() > 180 or sea_level_anomaly_data.longitude.min() < -180:
         logger.warning(
-            "Longitude is not correct, it should range from -180 to 180, try deleting the sea_level_anomaly_data.nc file and rerun the program")
+            "Longitude is not correct, it should range from -180 to 180, try deleting the sea_level_anomaly_data.nc "
+            "file and rerun the program")
 
-    # filter spatially with a symmetric Gaussian filter of half-width 500 km (here the CRS is transformed to meters using a geocentric CRS EPSG:4978)
+    # filter spatially with a symmetric Gaussian filter of half-width 500 km (here the CRS is transformed to meters
+    # using a geocentric CRS EPSG:4978)
     # and temporally with a low-pass filter of 15 months
     sea_level_anomaly_data = apply_filters(sea_level_anomaly_data, half_width)
     save_xarray_dataset(filtered_data_path, sea_level_anomaly_data)
@@ -123,16 +125,16 @@ def start_preprocessing(global_settings, variable_to_plot: str):
             sea_level_anomaly_data = xr.open_dataset(global_settings.filtered_data_path)
         # adjust resolution
         out_dir = f"{out_dir}/{global_settings.resolution}_degree_grid"
-        resolution_path = f"../output/resolutions/sea_level_anomaly_data_filtered_{global_settings.half_width}_{global_settings.resolution}_degree.nc"
+        resolution_path = f"../output/resolutions/sea_level_anomaly_data_filtered_{global_settings.half_width}"
         sea_level_anomaly_data = adjust_resolution(global_settings.resolution, resolution_path, sea_level_anomaly_data)
     else:
         out_dir = f"{out_dir}/no_filtering"
         out_dir = f"{out_dir}/{global_settings.resolution}_degree_grid"
-        resolution_path = f"../output/resolutions/sea_level_anomaly_data_no_filter_{global_settings.resolution}_degree.nc"
+        resolution_path = (f"../output/resolutions/sea_level_anomaly_data_no_filter")
         # check for correct resolution
         sea_level_anomaly_data = adjust_resolution(global_settings.resolution, resolution_path,
                                                    unfiltered_sea_level_anomaly_data)
-    resolution_path = f"../output/resolutions/sea_level_anomaly_data_no_filter_{global_settings.resolution}_degree.nc"
+    resolution_path = f"../output/resolutions/sea_level_anomaly_data_no_filter"
     unfiltered_sea_level_anomaly_data = adjust_resolution(global_settings.resolution, resolution_path,
                                                           unfiltered_sea_level_anomaly_data)
     return out_dir, sea_level_anomaly_data, unfiltered_sea_level_anomaly_data, unprocessed_sea_level_anomaly_data

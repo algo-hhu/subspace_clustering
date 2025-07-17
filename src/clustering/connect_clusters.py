@@ -8,7 +8,8 @@ from loguru import logger
 from src.clustering.connectivity_helper import generate_grid_graph, generate_cluster_graph, \
     generate_connected_component_graph
 from src.distance import subspace_timeseries_distance_calculation
-from src.plotting import plot_graph_on_clustering_map, plot_with_highlighting_of_component
+from src.plotting import plot_graph_on_clustering_map, plot_with_highlighting_of_component, \
+    plot_clustering_with_component_graph
 
 
 def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering, subspaces,
@@ -56,13 +57,13 @@ def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering,
     # component graph with connected components (i.e. clusters) as nodes and edges between connected components that
     # are neighbors
     # plot each graph
-    # plot_graph_on_clustering_map(clustering, cluster_graph, grid_point_to_lat_lon, resolution, out_dir,
-    #                              "cluster_graph_initial",
-    #                              cluster_id_to_color)
-    #
-    # plot_clustering_with_component_graph(clustering, out_dir, resolution, "component_graph_initial",
-    #                                      connected_component_graph, connected_components, grid_point_to_lat_lon,
-    #                                      cluster_id_to_color)
+    plot_graph_on_clustering_map(clustering, cluster_graph, grid_point_to_lat_lon, resolution, out_dir,
+                                 "cluster_graph_initial",
+                                 cluster_id_to_color)
+
+    plot_clustering_with_component_graph(clustering, out_dir, resolution, "component_graph_initial",
+                                         connected_component_graph, connected_components, grid_point_to_lat_lon,
+                                         cluster_id_to_color)
 
     counter = 0
     while len(connected_components) > number_of_clusters:
@@ -155,6 +156,7 @@ def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering,
             clustering[smallest_connected_component.cluster_id].remove((lat, lon))
             clustering[best_neighbor].append((lat, lon))
 
+    all_cluster_ids = set(range(number_of_clusters))
     empty_cluster_ids = set()
     cluster_ids = set()
     for connected_component in connected_components.values():
@@ -162,6 +164,9 @@ def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering,
     for cluster in clustering.keys():
         if cluster not in cluster_ids:
             empty_cluster_ids.add(cluster)
+    # if there are less clusters than expected, add from the cluster ids that should be there
+    if len(cluster_ids) < number_of_clusters:
+        empty_cluster_ids = empty_cluster_ids.union(all_cluster_ids - cluster_ids)
 
     new_clustering = {}
     new_clustering_with_lat_lon = {}

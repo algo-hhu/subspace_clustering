@@ -82,13 +82,15 @@ def adjust_resolution(resolution: int, resolution_path: str, sea_level_anomaly_d
         if resolution < 1:
             logger.warning("The desired resolution is smaller than 1 degree. This is not supported.")
             exit()
+        resolution = int(resolution)
+        resolution_path = resolution_path + f"_{resolution}_degree.nc"
         # interpolate the data to the desired resolution
         if not os.path.exists(resolution_path):
             logger.info(f"Interpolating sea level anomaly data to {resolution} degree resolution")
             if not os.path.exists("../output/resolutions"):
                 mkdir("../output/resolutions")
-            sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, resolution),
-                                                                   longitude=range(-180, 180, resolution))
+            sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, int(resolution)),
+                                                                   longitude=range(-180, 180, int(resolution)))
             # save the interpolated data
             save_xarray_dataset(resolution_path, sea_level_anomaly_data)
         else:
@@ -106,7 +108,8 @@ def extract_clusters_from_xarray_dataset(clustering: xarray.Dataset, min_lat: fl
     :param min_lat:
     :param min_lon:
     :param resolution:
-    :return: cluster_id_to_lat_lon_pairs: dict[int, list[tuple[float, float]]], cluster_id_to_grid_point_id: dict[int, list[tuple[int, int]]]
+    :return: cluster_id_to_lat_lon_pairs: dict[int, list[tuple[float, float]]], cluster_id_to_grid_point_id: dict[
+    int, list[tuple[int, int]]]
     """
     # nan mask
     non_nan_mask = ~np.isnan(sla_data).any(axis=0)

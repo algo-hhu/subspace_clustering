@@ -46,7 +46,8 @@ def main():
         start_preprocessing(
             global_settings,
             variable_to_plot))
-
+    print(len(unprocessed_sea_level_anomaly_data.latitude.values))
+    print(len(unprocessed_sea_level_anomaly_data.longitude.values))
     # initial clustering
     # TODO: do k-means clustering for start-clustering and then make connected via our method
     out_dir = calculate_initial_clustering(initial_clustering_settings, out_dir, sea_level_anomaly_data)
@@ -65,7 +66,7 @@ def main():
     # evaluate clustering results
     evaluate_clustering(evaluation_settings, out_dir, unfiltered_sea_level_anomaly_data,
                         subspace_clustering_settings)
-    
+
     exit()
 
 

@@ -473,8 +473,6 @@ def calculate_subspaces_for_clusters(cluster_id_dict, number_of_components, sla_
     explained_variance_per_cluster = {}  # contains the explained variance for each cluster
     # iterate over all clusters and determine the subspace
     for cluster in cluster_id_dict.keys():
-        if len(cluster_id_dict[cluster]) < number_of_components:
-            print(f"{cluster} has {number_of_components - len(cluster_id_dict[cluster])} entries")
         if not len(cluster_id_dict[cluster]) <= number_of_components:
             # print(f"current cluster for subspace clustering: {cluster}")
             current_subspace, mean, explained_variance = determine_subspace_per_cluster(cluster_id_dict[cluster],
@@ -652,10 +650,11 @@ def start_subspace_clustering_with_integrated_connectivity(sea_level_anomaly_dat
                                                                                             resolution, sla_data)
         cluster_id_to_color = assign_color_to_cluster(cluster_to_grid_point_ids_dict)
         name = f"initial_clustering_{current_number_of_components}"
-        summed_distances, explained_variance = evaluate_distances_to_subspaces(cluster_to_grid_point_ids_dict, sla_data,
-                                                                               current_number_of_components, out_dir)
+
+        start_summed_distances, start_explained_variance = evaluate_distances_to_subspaces(
+            cluster_to_grid_point_ids_dict, sla_data, current_number_of_components, out_dir)
         plot_clustering(cluster_dict, current_out_dir, resolution, name, cluster_id_to_color)
-        summed_distances_to_subspaces[iteration_counter] = summed_distances
+        summed_distances_to_subspaces[iteration_counter] = start_summed_distances
         change = True
         logger.info(f"Subspace clustering with {current_number_of_components} components started")
         while change:
@@ -689,8 +688,9 @@ def start_subspace_clustering_with_integrated_connectivity(sea_level_anomaly_dat
         summed_distances, explained_variance = evaluate_distances_to_subspaces(cluster_to_grid_point_ids_dict, sla_data,
                                                                                current_number_of_components,
                                                                                current_out_dir)
-        with open(f"{current_out_dir}/summed_distances_to_subspaces.txt", "w") as f:
+        with open(f"{current_out_dir}/final.txt", "w") as f:
             f.write(f"Summed distances to subspaces: {summed_distances}\n")
+            f.write(f"Start summed distances to subspaces: {start_summed_distances}\n")
 
         summed_distances_to_subspaces[iteration_counter] = summed_distances
         plotting.plot_summed_distances_to_subspaces(summed_distances_to_subspaces, current_out_dir,
