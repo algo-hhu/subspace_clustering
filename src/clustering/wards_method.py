@@ -202,6 +202,10 @@ class WardsMethodConnected(InitialClustering):
                                                     lat_lon_to_clusters, lat_range, latitudes, long_range, longitudes,
                                                     nan_mask,
                                                     neighbors, unique_pairs, unique_pairs_with_time_series)
+        # print average number of neighbors per cluster
+        neighbor_counts = [len(neighbor_set) for neighbor_set in neighbors.values()]
+        avg_neighbors = sum(neighbor_counts) / len(neighbors)
+        logger.info(f"Average number of neighbors per cluster: {avg_neighbors}")
         return neighbors, unique_pairs_with_time_series
 
     def iteratively_find_neighbors(self, first_longitude, last_longitude, lat_lon_to_clusters,

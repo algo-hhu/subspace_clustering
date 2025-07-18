@@ -52,15 +52,10 @@ def euclidean_distance(lat1: float, long1: float, timeseries1: [float], lat2: fl
     return distance
 
 
-def distance_for_wards_method(lat1: float, long1: float, timeseries1: [float], lat2: float, long2: float,
-                              timeseries2: [float]):
+def distance_for_wards_method(timeseries1: [float], timeseries2: [float]):
     """
 
-    :param lat1:
-    :param long1:
     :param timeseries1:
-    :param lat2:
-    :param long2:
     :param timeseries2:
     :return:
     """
