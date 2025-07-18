@@ -120,7 +120,7 @@ class SphericalGaussFilterClustering:
         # extract grid points with valid data
         non_nan_mask = ~np.isnan(clustering_array)
         valid_grid_points = list(map(tuple, np.argwhere(non_nan_mask)))
-        logger.info(f"Processing {len(valid_grid_points)} valid grid points.")
+        # logger.info(f"Processing {len(valid_grid_points)} valid grid points.")
         # create a list of args for parallel processing
         args_list = [(idx_to_lat[grid_point[0]], idx_to_lon[grid_point[1]], lat_to_index, lon_to_index,
                       clustering_array, max_dist_in_degrees) for grid_point

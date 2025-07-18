@@ -5,12 +5,15 @@ import xarray
 import xarray as xr
 from loguru import logger
 
-from src import plotting, weighting
+from src import plotting, weighting, distance
 from src.clustering.complete_hierarchical_clustering import CompleteHierarchicalClustering
 from src.clustering.k_means_clustering import KMeansClustering
 from src.clustering.neighborhood_clustering import NeighborhoodClustering
 from src.clustering.subspace_clustering import calculate_subspace_clustering
+from src.clustering.wards_method import WardsMethodConnected
+from src.clustering.wards_method_new import WardsMethodConnectedNew
 from src.evaluation.evaluate import evaluate_clustering
+from src.plotting import plot_gradient
 from src.preprocessing.preprocessing_data import start_preprocessing
 from src.settings import settings
 from src.settings.settings import InitialClusteringMethod
@@ -48,6 +51,9 @@ def main():
             variable_to_plot))
     print(len(unprocessed_sea_level_anomaly_data.latitude.values))
     print(len(unprocessed_sea_level_anomaly_data.longitude.values))
+
+    plot_gradient(out_dir, unfiltered_sea_level_anomaly_data)
+
     # initial clustering
     # TODO: do k-means clustering for start-clustering and then make connected via our method
     out_dir = calculate_initial_clustering(initial_clustering_settings, out_dir, sea_level_anomaly_data)
@@ -111,6 +117,14 @@ def calculate_initial_clustering(initial_clustering_settings, out_dir: str,
     elif initial_clustering_settings.method == InitialClusteringMethod.k_means_clustering:
         initial_clustering = KMeansClustering(sea_level_anomaly_data, initial_clustering_settings.number_of_clusters,
                                               initial_clustering_settings.distance_function, out_dir)
+    elif initial_clustering_settings.method == InitialClusteringMethod.wards_method_clustering:
+        initial_clustering = WardsMethodConnected(sea_level_anomaly_data,
+                                                  initial_clustering_settings.number_of_clusters,
+                                                  distance.distance_for_wards_method, out_dir)
+    elif initial_clustering_settings.method == InitialClusteringMethod.wards_method_new:
+        initial_clustering = WardsMethodConnectedNew(sea_level_anomaly_data,
+                                                     initial_clustering_settings.number_of_clusters,
+                                                     distance.distance_for_wards_method, out_dir)
     else:
         raise NotImplementedError
     initial_clustering.start_initial_clustering()

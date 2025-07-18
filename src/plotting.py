@@ -11,6 +11,7 @@ import pandas as pd
 import shapely
 import xarray
 import xarray as xr
+from matplotlib import pyplot as plt
 from shapely.geometry import MultiPolygon, Polygon
 from shapely.geometry.point import Point
 from shapely.ops import transform, unary_union
@@ -667,7 +668,8 @@ def plot_time_series(first_component: np.array, out_dir: str, name: str, sea_lev
             fraction = decimal - year
 
             # multiply value by -1
-            value = -1 * float(value)
+            # value = -1 * float(value)
+            value = float(value)
 
             # Approximate date by adding the fraction as days (365.25 days/year)
             date = pd.Timestamp(f"{year}-01-01") + pd.to_timedelta(fraction * 365.25, unit='D')
@@ -813,3 +815,46 @@ def plot_average_explained_variance(explained_variance_per_iteration, current_ou
     plt.savefig(f"{current_out_dir}/average_explained_variance_per_iteration.jpg", bbox_inches='tight')
     plt.close()
     return
+
+
+def plot_gradient(out_dir, unfiltered_sea_level_anomaly_data):
+    """
+    Plot the gradient of the sea level anomaly data to analyze smoothness
+    :param out_dir:
+    :param unfiltered_sea_level_anomaly_data:
+    :return:
+    """
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+    # analyze input data
+    # Load the dataset
+    ds = unfiltered_sea_level_anomaly_data
+    # Extract first time slice
+    sla = ds["sla"].isel(time=0)
+    # Plot the raw SLA field
+    plt.figure(figsize=(10, 5))
+    sla.plot(cmap="viridis")
+    plt.title("SLA at Time Step 0")
+    plt.savefig(f"{out_dir}/sla_raw.jpg", dpi=600)
+    # Compute approximate spatial gradient magnitude
+    sla_values = sla.values
+    grad_mag = np.sqrt(np.gradient(sla_values, axis=0) ** 2 + np.gradient(sla_values, axis=1) ** 2)
+    # Plot gradient magnitude (to visualize smoothness)
+    plt.figure(figsize=(10, 5))
+    plt.imshow(grad_mag, cmap="magma", origin="lower")
+    plt.colorbar(label="Gradient Magnitude")
+    plt.title("Spatial Gradient of SLA at Time Step 0")
+    plt.savefig(f"{out_dir}/sla_grad_mag.jpg", dpi=600)
+    sla_3d = ds["sla"]  # shape: (time, lat, lon)
+    # Compute gradients along each axis
+    g_time, g_lat, g_lon = np.gradient(sla_3d)
+    # Compute gradient magnitude
+    grad_mag_3d = np.sqrt(g_time ** 2 + g_lat ** 2 + g_lon ** 2)
+    avg_gradient = np.mean(grad_mag_3d, axis=0)
+    plt.figure(figsize=(12, 6))
+    plt.imshow(avg_gradient, cmap="magma", origin="lower")
+    plt.colorbar(label="Mean Spatial Gradient Over Time")
+    plt.title("Spatial Smoothness of SLA (Averaged Over Time)")
+    plt.savefig(f"{out_dir}/sla_avg_grad_mag.jpg", dpi=600)
+    print("Mean gradient magnitude over time:", np.nanmean(avg_gradient))
+    print("Median:", np.nanmedian(avg_gradient))

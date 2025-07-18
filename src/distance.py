@@ -52,6 +52,22 @@ def euclidean_distance(lat1: float, long1: float, timeseries1: [float], lat2: fl
     return distance
 
 
+def distance_for_wards_method(lat1: float, long1: float, timeseries1: [float], lat2: float, long2: float,
+                              timeseries2: [float]):
+    """
+
+    :param lat1:
+    :param long1:
+    :param timeseries1:
+    :param lat2:
+    :param long2:
+    :param timeseries2:
+    :return:
+    """
+    distance = np.sum((np.array(timeseries1) - np.array(timeseries2)) ** 2)
+    return distance
+
+
 def subspace_timeseries_distance_calculation(all_distances, current_time_series, mean, subspace):
     """
     Calculate the distance of the current time series to the subspace
