@@ -3,6 +3,7 @@ import os
 import numpy as np
 import xarray
 import xarray as xr
+from loguru import logger
 from sklearn.decomposition import PCA
 
 from src import plotting
@@ -128,10 +129,17 @@ def evaluate_clustering(evaluation_settings, out_dir: str,
                    "filter_every_round_connectivity_once", "integrated_connectivity")
         for connectivity_option in options:
             for number_of_components in subspace_clustering_settings.number_of_components:
-                current_out_dir = f"{out_dir}/subspace_clustering_{subspace_clustering_settings.number_of_clusters}/{connectivity_option}/components_{number_of_components}/evaluation"
-                eval_clustering_path = f"{out_dir}/subspace_clustering_{subspace_clustering_settings.number_of_clusters}/{connectivity_option}/components_{number_of_components}/clustering_{evaluation_settings.number_of_clusters}.nc"
+                current_out_dir = (f"{out_dir}/subspace_clustering_{subspace_clustering_settings.number_of_clusters}/"
+                                   f"{connectivity_option}/components_{number_of_components}/evaluation")
+                eval_clustering_path = (f"{out_dir}/s"
+                                        f"ubspace_clustering_{subspace_clustering_settings.number_of_clusters}/{
+                                        connectivity_option}/components_{number_of_components}/clustering_"
+                                        f"{evaluation_settings.number_of_clusters}.nc")
                 if not os.path.exists(current_out_dir):
                     os.makedirs(current_out_dir)
                 print(f"output directory: {current_out_dir}")
+                if not os.path.exists(eval_clustering_path):
+                    logger.warning(f"Clustering file {eval_clustering_path} does not exist. Skipping evaluation.")
+                    continue
                 clustering = xr.open_dataset(eval_clustering_path)
                 start_evaluation(clustering, current_out_dir, unfiltered_sea_level_anomaly_data)

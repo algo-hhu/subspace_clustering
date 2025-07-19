@@ -88,7 +88,6 @@ class KMeansClustering(InitialClustering):
             subspaces, explained_variance_per_cluster = subspace_clustering.calculate_subspaces_for_clusters(
                 cluster_to_grid_point_dict, 1, self.data_array)
 
-            # create fake subspaces for clusters,because it does not matter which neighbor is chosen
             if subspaces.keys() != cluster_to_grid_point_dict.keys():
                 print(sorted(subspaces.keys()))
                 print(sorted(cluster_to_grid_point_dict.keys()))
@@ -96,17 +95,33 @@ class KMeansClustering(InitialClustering):
                 print("Subspaces and cluster_to_grid_point_dict keys match.")
             cluster_map = create_cluster_map(clustering_data_array, cluster_to_grid_point_dict)
             cluster_id_to_color = plotting.assign_color_to_cluster(cluster_to_grid_point_dict)
-            cluster_id_to_grid_point_id = subspace_clustering.reestablish_connectivity(self.sea_level_anomaly_data,
-                                                                                       cluster_id_to_lat_lon,
-                                                                                       subspaces, 1, self.out_dir,
-                                                                                       cluster_id_to_color,
-                                                                                       cluster_count)
+            cluster_id_to_grid_point_id_reconnected = subspace_clustering.reestablish_connectivity(
+                self.sea_level_anomaly_data,
+                cluster_id_to_lat_lon,
+                subspaces, 1, self.out_dir,
+                cluster_id_to_color,
+                cluster_count)
 
-            cluster_id_to_lat_lon = subspace_clustering.convert_idx_idy_to_lat_lon(cluster_id_to_grid_point_id,
-                                                                                   self.min_lat,
-                                                                                   self.min_lon, self.resolution)
+            cluster_id_to_lat_lon_reconnected = subspace_clustering.convert_idx_idy_to_lat_lon(
+                cluster_id_to_grid_point_id_reconnected, self.min_lat, self.min_lon, self.resolution)
+            # make a new xarray dataset with the clustering data
+            final_clustering_data_array = np.full(
+                (self.sea_level_anomaly_data.latitude.size, self.sea_level_anomaly_data.longitude.size), np.nan)
+            for cluster_id, grid_point_id in cluster_id_to_grid_point_id_reconnected.items():
+                for idx, idy in grid_point_id:
+                    final_clustering_data_array[idx, idy] = cluster_id
+            clustering_data = xarray.Dataset(
+                {
+                    "__xarray_dataarray_variable__": (["latitude", "longitude"], final_clustering_data_array)
+                },
+                coords={
+                    "latitude": self.sea_level_anomaly_data.latitude,
+                    "longitude": self.sea_level_anomaly_data.longitude
+                }
+            )
 
             clustering_data.to_netcdf(f"{self.out_dir}/clustering_{cluster_count}.nc")
-            plotting.plot_clustering_without_preassigned_colors(cluster_id_to_lat_lon, self.out_dir,
+            plotting.plot_clustering_without_preassigned_colors(cluster_id_to_lat_lon_reconnected, self.out_dir,
                                                                 self.resolution,
                                                                 f"clustering_{cluster_count}")
+            plotting.plot_xarray_dataset_on_map(clustering_data, self.out_dir, f"saved_clustering{cluster_count}")
