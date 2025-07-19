@@ -124,7 +124,7 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
                 current_out_dir)
             if i == 0:
                 with open(collect_output_file_path, "a") as f:
-                    f.write(f"{number_of_components}, {start_sum_of_distances} \n")
+                    f.write(f"initial; {number_of_components}; {start_sum_of_distances} \n")
             name = f"initial_clustering_{number_of_components}"
             with open(f"{current_out_dir}/{name}.txt", "w") as f:
                 f.write(f"Start sum of distances to subspaces: {start_sum_of_distances}\n")
@@ -208,7 +208,7 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
                 logger.error(f"No best solution found for {number_of_components} components. Skipping.")
                 with open(collect_output_file_path, "a") as f:
                     # A & B \\ in latex table inside table
-                    f.write(f" - ; - \\\\")
+                    f.write(f" ;- ; - \\\\")
                 continue
             # if connectivity has not been established in every iteration, do it now
             if establish_connectivity_afterwards == True or filter_grid_point_assignment == True:
@@ -252,7 +252,7 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
             # save the final distances to subspaces in the file:
             with open(collect_output_file_path, "a") as f:
                 # A & B \\ in latex table inside table
-                f.write(f" {number_of_components:} ; {best_distances_to_subspaces} \\\\")
+                f.write(f"; {number_of_components:} ; {best_distances_to_subspaces} \\\\")
     return
 
 
@@ -718,7 +718,7 @@ def start_subspace_clustering_with_integrated_connectivity(sea_level_anomaly_dat
         save_clustering(grid_point_assignment_lat_lon, current_out_dir, sea_level_anomaly_data, name)
         with open(collect_output_file_path, "a") as f:
             f.write(
-                f"{current_number_of_components} ; {summed_distances} \n"
+                f";{current_number_of_components} ; {summed_distances} \n"
             )
 
     return

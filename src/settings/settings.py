@@ -28,7 +28,7 @@ class GlobalSettings(BaseSettings):
     sea_level_anomaly_data_download_path: str = "../data/SEALEVEL_GLO_PHY_L4_MY_008_047"
     half_width: int = 500
     filtered_data_path: str = f"../output/spherical_gaussian_filtering/sea_level_anomaly_data_filtered_{half_width}.nc"
-    filtering_sla: bool = False
+    filtering_sla: bool = True
     # resolution: float = 0.25
     resolution: int = 2
 
@@ -51,7 +51,7 @@ class SubspaceClusteringSettings(BaseSettings):
     do_subspace_clustering: bool = True
     number_of_clusters: int = 15
     # number_of_components: list[int] = [30]
-    number_of_components: list[int] = [30]
+    number_of_components: list[int] = [5, 10, 15, 30]
     integrated_connectivity: bool = True
 
 
