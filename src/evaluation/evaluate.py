@@ -33,6 +33,9 @@ def plot_first_two_components(clustering: dict[int: list[tuple[float, float]]], 
             data_for_pca[counter] = time_series
             counter += 1
         U, s, Vt = np.linalg.svd(data_for_pca)
+        if len(s) < 2:
+            logger.warning(f"Cluster {cluster_id} has less than 2 components. Skipping.")
+            continue
         first_pc = s[0] * Vt[0, :]
         first_component_per_cluster[cluster_id] = first_pc
         # plot the first component
