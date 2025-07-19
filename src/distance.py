@@ -3,8 +3,8 @@ import math
 import numpy as np
 
 
-def thompson_distance_function(lat1: float, long1: float, timeseries1: [float], lat2: float, long2: float,
-                               timeseries2: [float]):
+def spatio_temporal_distance_function(lat1: float, long1: float, timeseries1: [float], lat2: float, long2: float,
+                                      timeseries2: [float]):
     """
     Calculate the distance function between two points D(x_i, x_j) = 1 - exp(- d(x_i, x_j)/2a^2) r(x_i, x_j)
     :param timeseries2:

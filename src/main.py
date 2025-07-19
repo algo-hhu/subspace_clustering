@@ -10,13 +10,12 @@ from src.clustering.complete_hierarchical_clustering import CompleteHierarchical
 from src.clustering.k_means_clustering import KMeansClustering
 from src.clustering.neighborhood_clustering import NeighborhoodClustering
 from src.clustering.subspace_clustering import calculate_subspace_clustering
-from src.clustering.wards_method import WardsMethodConnected
-from src.clustering.wards_method_new import WardsMethodConnectedNew
+from src.clustering.wards_method_scikit_learn_connectivity import WardsMethodConnected
 from src.evaluation.evaluate import evaluate_clustering
 from src.plotting import plot_gradient
 from src.preprocessing.preprocessing_data import start_preprocessing
 from src.settings import settings
-from src.settings.settings import InitialClusteringMethod
+from src.settings.settings import InitialClusteringMethod, InitialDistanceFunction
 
 
 def main():
@@ -25,53 +24,98 @@ def main():
     initial_clustering_settings = settings.InitialClusteringSettings()
     subspace_clustering_settings = settings.SubspaceClusteringSettings()
     evaluation_settings = settings.EvaluationSettings()
-    # for i in range(6):
-    #     if i == 0:
-    #         pass
-    #     if i == 1:
-    #         #  # filter 500 km halfwidth, hierarchical neighbor clustering, thompson distance function
-    #         initial_clustering_settings.method = InitialClusteringMethod.hierarchical_neighbor_clustering
-    #     elif i == 2:
-    #         # filter 500 km halfwidth, hierarchical neighbor clustering, euclidean distance function
-    #         initial_clustering_distance_function = InitialDistanceFunction.euclidean
-    #     elif i == 3:
-    #         # no filter, hierarchical neighbor clustering, euclidean distance function
-    #         global_settings.filtering_sla = False
-    #     elif i == 4:
-    #         # no filter, hierarchical neighbor clustering, thompson distance function
-    #         initial_clustering_settings.distance_function = InitialDistanceFunction.thompson
-    #     elif i == 5:
-    #         # filter 500 km halfwidth, full hierarchical clustering, thompson distance function
-    #         initial_clustering_settings.method = InitialClusteringMethod.full_hierarchical_clustering
-    variable_to_plot = "sla"
+    # output_file to collect distances from clusters to subspaces in a latex table
+    collect_output_file_path = f"{global_settings.output_path}/complete_output_file_{subspace_clustering_settings.number_of_clusters}_clusters.csv"
+    if not os.path.exists(global_settings.output_path):
+        os.makedirs(global_settings.output_path)
+    with open(collect_output_file_path, "w") as f:
+        f.write(
+            f"Distances from clusters to subspaces for {subspace_clustering_settings.number_of_clusters} clusters: \n")
+        f.write("Filter 500 km halfwidth \n")
+    for i in range(10):
+        # change the settings for each iteration
+        if i == 0:
+            # filter 500 km halfwidth, agglomerative clustering, spatio-temporal distance function
+            pass
+            with open(collect_output_file_path, "a") as f:
+                f.write("Agglomerative clustering with spatio-temporal distance function: \n")
+        if i == 1:
+            #  # filter 500 km halfwidth, agglomerative connected clustering, spatio-temporal distance function
+            initial_clustering_settings.method = InitialClusteringMethod.agglomerative_connected_clustering
+            with open(collect_output_file_path, "a") as f:
+                f.write("Agglomerative connected clustering with spatio-temporal distance function: \n")
+        elif i == 2:
+            # filter 500 km halfwidth, agglomerative clustering, euclidean distance function
+            initial_clustering_distance_function = InitialDistanceFunction.euclidean
+            with open(collect_output_file_path, "a") as f:
+                f.write("Agglomerative clustering with euclidean distance function : \n ")
+        elif i == 3:
+            # filter 500 km halfwidth, k-means clustering, euclidean distance function
+            initial_clustering_settings.method = InitialClusteringMethod.k_means_clustering
+            with open(collect_output_file_path, "a") as f:
+                f.write("K-means clustering with euclidean distance function : \n ")
+        elif i == 4:
+            # filter 500 km halfwidth, wards method with connectivity
+            initial_clustering_settings.method = InitialClusteringMethod.wards_method_connected
+            with open(collect_output_file_path, "a") as f:
+                f.write("Wards method with connectivity : \n ")
+        elif i == 5:
 
-    out_dir, sea_level_anomaly_data, unfiltered_sea_level_anomaly_data, unprocessed_sea_level_anomaly_data = (
-        start_preprocessing(
-            global_settings,
-            variable_to_plot))
-    print(len(unprocessed_sea_level_anomaly_data.latitude.values))
-    print(len(unprocessed_sea_level_anomaly_data.longitude.values))
+            # no filter, agglomerative connected clustering, euclidean distance function
+            global_settings.filtering_sla = False
+            with open(collect_output_file_path, "a") as f:
+                f.write("\n No filter: \n")
+                f.write("Agglomerative connected clustering with euclidean distance function : \n ")
+        elif i == 6:
+            # no filter, agglomerative connected clustering, spatio-temporal distance function
+            initial_clustering_settings.distance_function = InitialDistanceFunction.spatio_temporal_distance_function
+            with open(collect_output_file_path, "a") as f:
+                f.write("Agglomerative connected clustering with spatio-temporal distance function : \n ")
+        elif i == 7:
+            # no filter, k-means clustering, euclidean distance function
+            initial_clustering_settings.method = InitialClusteringMethod.k_means_clustering
+            with open(collect_output_file_path, "a") as f:
+                f.write("K-means clustering with euclidean distance function : \n ")
+        elif i == 8:
+            # no filter, wards method with connectivity
+            initial_clustering_settings.method = InitialClusteringMethod.wards_method_connected
+            with open(collect_output_file_path, "a") as f:
+                f.write("\n No filter: \n")
+                f.write("Wards method with connectivity : \n ")
+        elif i == 9:
+            # no filter, agglomerative clustering, spatio-temporal distance function
+            initial_clustering_settings.method = InitialClusteringMethod.agglomerative_clustering
+            with open(collect_output_file_path, "a") as f:
+                f.write("Agglomerative clustering with spatio-temporal distance function : \n ")
 
-    plot_gradient(out_dir, unfiltered_sea_level_anomaly_data)
+        variable_to_plot = "sla"
 
-    # initial clustering
-    # TODO: do k-means clustering for start-clustering and then make connected via our method
-    out_dir = calculate_initial_clustering(initial_clustering_settings, out_dir, sea_level_anomaly_data)
+        out_dir, sea_level_anomaly_data, unfiltered_sea_level_anomaly_data, unprocessed_sea_level_anomaly_data = (
+            start_preprocessing(
+                global_settings,
+                variable_to_plot))
+        print(len(unprocessed_sea_level_anomaly_data.latitude.values))
+        print(len(unprocessed_sea_level_anomaly_data.longitude.values))
 
-    if subspace_clustering_settings.apply_weights:
-        logger.info("Applying weights before subspace clustering")
-        unfiltered_sea_level_anomaly_data = weighting.apply_weights_to_sea_level_anomaly_data(
-            unfiltered_sea_level_anomaly_data)
+        plot_gradient(out_dir, unfiltered_sea_level_anomaly_data)
 
-    initial_clustering = xarray.open_dataset(
-        f"{out_dir}/clustering_{subspace_clustering_settings.number_of_clusters}.nc")
-    # subspace clustering
-    calculate_subspace_clustering(global_settings, out_dir, subspace_clustering_settings,
-                                  unfiltered_sea_level_anomaly_data, initial_clustering)
+        # initial clustering
+        out_dir = calculate_initial_clustering(initial_clustering_settings, out_dir, sea_level_anomaly_data)
 
-    # evaluate clustering results
-    evaluate_clustering(evaluation_settings, out_dir, unfiltered_sea_level_anomaly_data,
-                        subspace_clustering_settings)
+        if subspace_clustering_settings.apply_weights:
+            logger.info("Applying weights before subspace clustering")
+            unfiltered_sea_level_anomaly_data = weighting.apply_weights_to_sea_level_anomaly_data(
+                unfiltered_sea_level_anomaly_data)
+
+        initial_clustering = xarray.open_dataset(
+            f"{out_dir}/clustering_{subspace_clustering_settings.number_of_clusters}.nc")
+        # subspace clustering
+        calculate_subspace_clustering(global_settings, out_dir, subspace_clustering_settings,
+                                      unfiltered_sea_level_anomaly_data, initial_clustering, collect_output_file_path)
+
+        # evaluate clustering results
+        evaluate_clustering(evaluation_settings, out_dir, unfiltered_sea_level_anomaly_data,
+                            subspace_clustering_settings)
 
     exit()
 
@@ -106,25 +150,21 @@ def calculate_initial_clustering(initial_clustering_settings, out_dir: str,
             f"function {initial_clustering_settings.distance_function.__name__} have already been calculated")
         return out_dir
 
-    if initial_clustering_settings.method == InitialClusteringMethod.full_hierarchical_clustering:
+    if initial_clustering_settings.method == InitialClusteringMethod.agglomerative_clustering:
         initial_clustering = CompleteHierarchicalClustering(sea_level_anomaly_data,
                                                             initial_clustering_settings.number_of_clusters,
                                                             initial_clustering_settings.distance_function, out_dir)
-    elif initial_clustering_settings.method == InitialClusteringMethod.hierarchical_neighbor_clustering:
+    elif initial_clustering_settings.method == InitialClusteringMethod.agglomerative_connected_clustering:
         initial_clustering = NeighborhoodClustering(sea_level_anomaly_data,
                                                     initial_clustering_settings.number_of_clusters,
                                                     initial_clustering_settings.distance_function, out_dir)
     elif initial_clustering_settings.method == InitialClusteringMethod.k_means_clustering:
         initial_clustering = KMeansClustering(sea_level_anomaly_data, initial_clustering_settings.number_of_clusters,
                                               initial_clustering_settings.distance_function, out_dir)
-    elif initial_clustering_settings.method == InitialClusteringMethod.wards_method_clustering:
+    elif initial_clustering_settings.method == InitialClusteringMethod.wards_method_connected:
         initial_clustering = WardsMethodConnected(sea_level_anomaly_data,
                                                   initial_clustering_settings.number_of_clusters,
                                                   distance.distance_for_wards_method, out_dir)
-    elif initial_clustering_settings.method == InitialClusteringMethod.wards_method_new:
-        initial_clustering = WardsMethodConnectedNew(sea_level_anomaly_data,
-                                                     initial_clustering_settings.number_of_clusters,
-                                                     distance.distance_for_wards_method, out_dir)
     else:
         raise NotImplementedError
     initial_clustering.start_initial_clustering()

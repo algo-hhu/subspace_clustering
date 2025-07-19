@@ -1,3 +1,4 @@
+import copy
 import os
 from dataclasses import dataclass
 
@@ -8,6 +9,7 @@ from joblib import Parallel, delayed
 from loguru import logger
 from tqdm import tqdm
 
+from src import plotting
 from src.clustering.cluster_entities.initial_clustering import InitialClustering
 
 
@@ -107,10 +109,12 @@ class WardsMethodConnectedNew(InitialClustering):
         start hierarchical neighborhood clustering
         :return:
         """
-        self.min_lat = self.sea_level_anomaly_data.latitude.min().values
-        self.min_lon = self.sea_level_anomaly_data.longitude.min().values
-        self.resolution = self.sea_level_anomaly_data.latitude.values[1] - self.sea_level_anomaly_data.latitude.values[
-            0]
+        self.min_lat = float(self.sea_level_anomaly_data.latitude.min().values)
+        self.min_lon = float(self.sea_level_anomaly_data.longitude.min().values)
+        self.resolution = float(
+            self.sea_level_anomaly_data.latitude.values[1] - self.sea_level_anomaly_data.latitude.values[
+                0])
+        print(type(self.min_lat), type(self.min_lon), type(self.resolution))
         # in the beginning each cluster is a single point
         self.data_array = self.sea_level_anomaly_data["sla"].values
         # make 2d nan mask, that is True for all points that have at least one NaN in the time series
@@ -147,8 +151,8 @@ class WardsMethodConnectedNew(InitialClustering):
                     continue
                 time_series = self.data_array[:, i, j]
                 # each grid point has its position in the data array as id
-                grid_point = GridPoint((i, j), self.sea_level_anomaly_data.latitude[i],
-                                       self.sea_level_anomaly_data.longitude[j], time_series)
+                grid_point = GridPoint((i, j), float(self.sea_level_anomaly_data.latitude[i].values),
+                                       float(self.sea_level_anomaly_data.longitude[j].values), time_series)
                 all_grid_points[grid_point.id] = grid_point
                 # each grid point has a list of potential neighbors, which are the eight points around it
                 potential_neighbors_for_grid_points[grid_point.id] = [(i - 1, j), (i + 1, j), (i, j - 1), (i, j + 1),
@@ -177,7 +181,7 @@ class WardsMethodConnectedNew(InitialClustering):
         total_number_of_clusters = len(all_clusters)
         logger.info(f"Total number of clusters: {total_number_of_clusters}")
         logger.info(f"Begin clustering...")
-        for current_number_of_clusters in tqdm(range(total_number_of_clusters)):
+        for _ in tqdm(range(total_number_of_clusters)):
             # merge the two clusters with the smallest distance
             try:
                 min_pair, min_value = min(distances.items(), key=lambda item: item[1])
@@ -187,12 +191,34 @@ class WardsMethodConnectedNew(InitialClustering):
                 exit()
 
             all_clusters, distances = self.merge_min_clusters(all_clusters, min_pair, distances, min_value)
-            if len(all_clusters) <= min(self.number_of_clusters):
-                exit()
+            if len(all_clusters) in self.number_of_clusters:
+                clustering_results[len(all_clusters)] = copy.deepcopy(all_clusters)
+                with open(os.path.join(self.out_dir, f"wards_method_new_distances{len(all_clusters)}.txt"), "w") as f:
+                    for pair, distance in distances.items():
+                        f.write(f"{pair}: {distance}\n")
+                    f.write("--------------------\n")
+                    f.write(f"min pair {min(distances.items(), key=lambda item: item[1])}\n")
+                if len(all_clusters) == min(self.number_of_clusters):
+                    print(type(clustering_results))
+                    return clustering_results
+
         return clustering_results
 
     def plot_and_save_clustering_results(self, clustering_results):
-        pass
+        """
+        Plot and save the clustering results.
+        :param clustering_results:
+        :return:
+        """
+        for cluster_size, clusters in clustering_results.items():
+            current_cluster_dict = {}
+            for cluster_id, cluster in clusters.items():
+                # create a dictionary with the cluster id as key and the lat,lon of the members as values
+                current_cluster_dict[cluster_id] = [(member.latitude, member.longitude) for member in cluster.members]
+            # plot cluster dictionary
+            plotting.plot_clustering_without_preassigned_colors(current_cluster_dict, self.out_dir, self.resolution,
+                                                                f"wards_method_new{cluster_size}")
+        return
 
     def calculate_initial_distances(self, all_clusters):
         """

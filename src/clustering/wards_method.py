@@ -144,6 +144,10 @@ class WardsMethodConnected(InitialClustering):
             if len(all_clusters.keys()) in self.number_of_clusters:
                 solutions_for_k[len(all_clusters.keys())] = {key: value[:] for key, value in
                                                              all_clusters.items()}
+                # save distances between clusters to a text file
+                with open(os.path.join(self.out_dir, f"distances{len(all_clusters.keys())}.txt"), "a") as f:
+                    for key, value in distances.items():
+                        f.write(f"{key[0]} {key[1]} {value}\n")
                 if len(all_clusters.keys()) == 15:
                     for cluster_id, grid_points in all_clusters.items():
                         # calculate the squared distance of the grid points to the centroid of their cluster
@@ -318,7 +322,7 @@ def wrap_distance_function(args):
     :return:
     """
     distance_function, (lat1, lon1), time_series1, (lat2, lon2), time_series2 = args
-    distance = distance_function(lat1, lon1, time_series1, lat2, lon2, time_series2)
+    distance = distance_function(time_series1, time_series2)
     return (lat1, lon1), (lat2, lon2), distance
 
 
