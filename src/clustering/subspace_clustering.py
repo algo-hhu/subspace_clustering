@@ -1,7 +1,5 @@
-import cProfile
 import json
 import os
-import pstats
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -54,9 +52,10 @@ def plot_explained_variance_per_iteration(explained_variance_per_iteration: dict
 
 def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering_dataset: xarray.Dataset,
                               original_out_dir: str,
-                              components: list[int], number_of_clusters: int):
+                              components: list[int], number_of_clusters: int, collect_output_file_path: str):
     """
     Start the subspace clustering
+    :param collect_output_file_path:
     :param clustering_dataset:
     :param number_of_clusters:
     :param original_out_dir:
@@ -86,14 +85,24 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
             (establish_connectivity_afterwards, filter_grid_point_assignment, make_connected_every_round,
              out_dir) = settings_for_connectivity_every_iteration(
                 original_out_dir)
+            with open(collect_output_file_path, "a") as f:
+                f.write(
+                    f"merging every iteration: \n"
+                )
+
         elif i == 1:
             (establish_connectivity_afterwards, filter_grid_point_assignment, make_connected_every_round,
              out_dir) = settings_for_connectivity_once(
                 original_out_dir)
+            with open(collect_output_file_path, "a") as f:
+                f.write(f"merging once after clustering: \n")
         elif i == 2:
             (establish_connectivity_afterwards, filter_grid_point_assignment, make_connected_every_round,
              out_dir) = settings_for_filtering_for_connectivity(
                 original_out_dir)
+            with open(collect_output_file_path, "a") as f:
+                f.write(f"filtering every iteration, merging once after clustering: \n")
+
         for number_of_components in components:
             # check if this has already been done
 
@@ -113,6 +122,9 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
             start_sum_of_distances, start_explained_variance_per_cluster = evaluate_distances_to_subspaces(
                 cluster_to_grid_point_ids_dict, sla_data, number_of_components,
                 current_out_dir)
+            if i == 0:
+                with open(collect_output_file_path, "a") as f:
+                    f.write(f"{number_of_components}, {start_sum_of_distances} \n")
             name = f"initial_clustering_{number_of_components}"
             with open(f"{current_out_dir}/{name}.txt", "w") as f:
                 f.write(f"Start sum of distances to subspaces: {start_sum_of_distances}\n")
@@ -194,10 +206,12 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
 
             if best_solution is None:
                 logger.error(f"No best solution found for {number_of_components} components. Skipping.")
+                with open(collect_output_file_path, "a") as f:
+                    # A & B \\ in latex table inside table
+                    f.write(f" - ; - \\\\")
                 continue
             # if connectivity has not been established in every iteration, do it now
             if establish_connectivity_afterwards == True or filter_grid_point_assignment == True:
-                # TODO: double check this - data points go missing here
                 cluster_to_grid_point_ids_dict = reestablish_connectivity(sea_level_anomaly_data,
                                                                           cluster_to_lat_lon,
                                                                           subspaces,
@@ -235,6 +249,10 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
             # write the explained variance to a json file
             with open(f"{current_out_dir}/explained_variance_per_iteration.json", "w") as outfile:
                 json.dump(explained_variance_per_iteration, outfile)
+            # save the final distances to subspaces in the file:
+            with open(collect_output_file_path, "a") as f:
+                # A & B \\ in latex table inside table
+                f.write(f" {number_of_components:} ; {best_distances_to_subspaces} \\\\")
     return
 
 
@@ -609,7 +627,7 @@ Modify the clustering with subspaces by checking if the grid points are closer t
 def start_subspace_clustering_with_integrated_connectivity(sea_level_anomaly_data: xarray.Dataset,
                                                            initial_clustering: xarray.Dataset, out_dir: str,
                                                            number_of_components: list, resolution: float,
-                                                           number_of_clusters: int):
+                                                           number_of_clusters: int, collect_output_file_path: str):
     """
     Start the subspace clustering with integrated connectivity
     :param resolution:
@@ -620,8 +638,7 @@ def start_subspace_clustering_with_integrated_connectivity(sea_level_anomaly_dat
     :param number_of_components:
     :return:
     """
-    profiler = cProfile.Profile()
-    profiler.enable()
+
     global OUT_DIR
     OUT_DIR = out_dir
     logger.info("Starting subspace clustering with integrated connectivity")
@@ -631,7 +648,8 @@ def start_subspace_clustering_with_integrated_connectivity(sea_level_anomaly_dat
     plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, "sla", name="input_data")
     sla_data = sea_level_anomaly_data["sla"].values
     cluster_data = initial_clustering["__xarray_dataarray_variable__"].values
-
+    with open(collect_output_file_path, "a") as f:
+        f.write(f"subspace_clustering_integrated_connectivity\n")
     for current_number_of_components in number_of_components:
         logger.info(
             f"Starting subspace clustering with integrated connectivity with {current_number_of_components} components")
@@ -698,19 +716,22 @@ def start_subspace_clustering_with_integrated_connectivity(sea_level_anomaly_dat
         # save clustering as netcdf
         name = f"clustering_{number_of_clusters}"
         save_clustering(grid_point_assignment_lat_lon, current_out_dir, sea_level_anomaly_data, name)
+        with open(collect_output_file_path, "a") as f:
+            f.write(
+                f"{current_number_of_components} ; {summed_distances} \n"
+            )
 
-    # evaluate profiling
-    profiler.disable()
-    stats = pstats.Stats(profiler)
-    stats.strip_dirs().sort_stats("cumulative").print_stats(20)
     return
 
 
 def calculate_subspace_clustering(global_settings, out_dir: str,
                                   subspace_clustering_settings,
-                                  unfiltered_sea_level_anomaly_data: xr.Dataset, initial_clustering: xarray.Dataset):
+                                  unfiltered_sea_level_anomaly_data: xr.Dataset, initial_clustering: xarray.Dataset,
+                                  collect_output_file_path: str):
     """
     Calculate subspace clustering
+    :param collect_output_file_path:
+    :param initial_clustering:
     :param out_dir:
     :param global_settings:
     :param subspace_clustering_settings:
@@ -729,7 +750,7 @@ def calculate_subspace_clustering(global_settings, out_dir: str,
         start_subspace_clustering(unfiltered_sea_level_anomaly_data, initial_clustering,
                                   f"{current_out_dir}",
                                   subspace_clustering_settings.number_of_components,
-                                  subspace_clustering_settings.number_of_clusters)
+                                  subspace_clustering_settings.number_of_clusters, collect_output_file_path)
 
     if subspace_clustering_settings.integrated_connectivity:
         if not subspace_clustering_settings.do_subspace_clustering:
@@ -743,4 +764,4 @@ def calculate_subspace_clustering(global_settings, out_dir: str,
             initial_clustering,
             current_out_dir,
             subspace_clustering_settings.number_of_components,
-            global_settings.resolution, subspace_clustering_settings.number_of_clusters)
+            global_settings.resolution, subspace_clustering_settings.number_of_clusters, collect_output_file_path)
