@@ -100,7 +100,7 @@ class WardsMethodConnected(InitialClustering):
                     clustering_array[grid_point[0], grid_point[1]] = cluster
             clustering_dataset = xarray.Dataset(
                 {
-                    "clustering": (["latitude", "longitude"], clustering_array)
+                    "__xarray_dataarray_variable__": (["latitude", "longitude"], clustering_array)
                 },
                 coords={
                     "latitude": self.sea_level_anomaly_data.latitude,

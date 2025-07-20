@@ -35,21 +35,25 @@ def main():
     for i in range(10):
         # change the settings for each iteration
         if i == 0:
+            continue
             # filter 500 km halfwidth, agglomerative clustering, spatio-temporal distance function
             pass
             with open(collect_output_file_path, "a") as f:
                 f.write("Agglomerative clustering with spatio-temporal distance function: \n")
         if i == 1:
+            continue
             #  # filter 500 km halfwidth, agglomerative connected clustering, spatio-temporal distance function
             initial_clustering_settings.method = InitialClusteringMethod.agglomerative_connected_clustering
             with open(collect_output_file_path, "a") as f:
                 f.write("Agglomerative connected clustering with spatio-temporal distance function: \n")
         elif i == 2:
+            continue
             # filter 500 km halfwidth, agglomerative clustering, euclidean distance function
             initial_clustering_distance_function = InitialDistanceFunction.euclidean
             with open(collect_output_file_path, "a") as f:
                 f.write("Agglomerative clustering with euclidean distance function : \n ")
         elif i == 3:
+            continue
             # filter 500 km halfwidth, k-means clustering, euclidean distance function
             initial_clustering_settings.method = InitialClusteringMethod.k_means_clustering
             with open(collect_output_file_path, "a") as f:
