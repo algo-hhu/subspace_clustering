@@ -29,22 +29,19 @@ def main():
                                 f"{subspace_clustering_settings.number_of_clusters}_clusters.csv")
     if not os.path.exists(global_settings.output_path):
         os.makedirs(global_settings.output_path)
-    # with open(collect_output_file_path, "w") as f:
-    #     f.write(
-    #         f"Distances from clusters to subspaces for {subspace_clustering_settings.number_of_clusters} clusters:
-    #         \n")
-    #     f.write("Filter 500 km halfwidth \n")
+    with open(collect_output_file_path, "w") as f:
+        f.write(
+            f"Distances from clusters to subspaces for {subspace_clustering_settings.number_of_clusters} clusters:\n")
+        f.write("Filter 500 km halfwidth \n")
     for i in range(10):
         # change the settings for each iteration
         if i == 0:
-            continue
             # filter 500 km halfwidth, agglomerative clustering, spatio-temporal distance function
             pass
             with open(collect_output_file_path, "a") as f:
                 f.write("Filter 500 km halfwidth \n")
                 f.write("Agglomerative clustering with spatio-temporal distance function: \n")
         if i == 1:
-            continue
             #  # filter 500 km halfwidth, agglomerative connected clustering, spatio-temporal distance function
             initial_clustering_settings.method = InitialClusteringMethod.agglomerative_connected_clustering
             initial_clustering_settings.distance_function = InitialDistanceFunction.spatio_temporal_distance_function
@@ -59,7 +56,6 @@ def main():
                 f.write("Filter 500 km halfwidth \n")
                 f.write("Agglomerative clustering with euclidean distance function : \n ")
         elif i == 3:
-            continue
             # filter 500 km halfwidth, k-means clustering, euclidean distance function
             initial_clustering_settings.method = InitialClusteringMethod.k_means_clustering
             initial_clustering_settings.distance_function = InitialDistanceFunction.euclidean
@@ -67,7 +63,6 @@ def main():
                 f.write("Filter 500 km halfwidth \n")
                 f.write("K-means clustering with euclidean distance function : \n ")
         elif i == 4:
-            continue
             # filter 500 km halfwidth, wards method with connectivity
             initial_clustering_settings.method = InitialClusteringMethod.wards_method_connected
             initial_clustering_settings.distance_function = distance.distance_for_wards_method
@@ -75,7 +70,6 @@ def main():
                 f.write("Filter 500 km halfwidth \n")
                 f.write("Wards method with connectivity : \n ")
         elif i == 5:
-            continue
             # no filter, agglomerative connected clustering, euclidean distance function
             global_settings.filtering_sla = False
             initial_clustering_settings.method = InitialClusteringMethod.agglomerative_connected_clustering
@@ -92,7 +86,6 @@ def main():
                 f.write("No filter: \n")
                 f.write("Agglomerative connected clustering with spatio-temporal distance function : \n ")
         elif i == 7:
-            continue
             # no filter, k-means clustering, euclidean distance function
             global_settings.filtering_sla = False
             initial_clustering_settings.method = InitialClusteringMethod.k_means_clustering
@@ -109,7 +102,6 @@ def main():
                 f.write("No filter: \n")
                 f.write("Wards method with connectivity : \n ")
         elif i == 9:
-            continue
             # no filter, agglomerative clustering, spatio-temporal distance function
             initial_clustering_settings.method = InitialClusteringMethod.agglomerative_clustering
             initial_clustering_settings.distance_function = InitialDistanceFunction.spatio_temporal_distance_function
