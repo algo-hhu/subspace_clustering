@@ -232,6 +232,9 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
             plotting.plot_summed_distances_to_subspaces(sum_distances_to_subspaces, current_out_dir,
                                                         number_of_components, best_iteration,
                                                         best_distances_to_subspaces)
+            # save summed distances to subspaces to a file
+            with open(f"{current_out_dir}/sum_distances_to_subspaces.pkl", "w") as outfile:
+                pickle.dump(sum_distances_to_subspaces, outfile)
             # plot the explained variance
             # save best clustering and start / end distances
             final_results_name = f"final_results_{number_of_components}.txt"
