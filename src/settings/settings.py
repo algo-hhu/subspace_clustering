@@ -23,7 +23,7 @@ class GlobalSettings(BaseSettings):
     """
     global parameters
     """
-    output_path: str = "../output/final_results"
+    output_path: str = "../output/results_1_2"
     data_path: str = "../data"
     sea_level_anomaly_data_download_path: str = "../data/SEALEVEL_GLO_PHY_L4_MY_008_047"
     half_width: int = 500
