@@ -80,7 +80,7 @@ def main():
         elif i == 6:
             # no filter, agglomerative connected clustering, spatio-temporal distance function
             global_settings.filtering_sla = False
-            initial_clustering_settings.method = InitialClusteringMethod.k_means_clustering
+            initial_clustering_settings.method = InitialClusteringMethod.agglomerative_connected_clustering
             initial_clustering_settings.distance_function = InitialDistanceFunction.spatio_temporal_distance_function
             with open(collect_output_file_path, "a") as f:
                 f.write("No filter: \n")
