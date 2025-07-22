@@ -36,7 +36,7 @@ def main():
         # change the settings for each iteration
         if i == 0:
             # filter 500 km halfwidth, agglomerative clustering, spatio-temporal distance function
-            pass
+
             with open(collect_output_file_path, "a") as f:
                 f.write("Filter 500 km halfwidth \n")
                 f.write("Agglomerative clustering with spatio-temporal distance function: \n")
