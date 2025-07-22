@@ -11,7 +11,6 @@ import pandas as pd
 import shapely
 import xarray
 import xarray as xr
-from matplotlib import pyplot as plt
 from shapely.geometry import MultiPolygon, Polygon
 from shapely.geometry.point import Point
 from shapely.ops import transform, unary_union
@@ -39,7 +38,7 @@ def plot_xarray_dataset_on_map(xarray_dataset: xarray.Dataset, out_dir: str, nam
     data.plot(ax=ax, transform=ccrs.PlateCarree(), cmap=cmap, norm=norm, add_colorbar=True)
     ax.coastlines()
     ax.gridlines(draw_labels=True)
-    plt.savefig(os.path.join(out_dir, f"{name}.png"), dpi=500)
+    plt.savefig(os.path.join(out_dir, f"{name}.jpg"), dpi=500, bbox_inches='tight')
     plt.close(fig)
     return
 
@@ -61,7 +60,7 @@ def plot_sla_for_point_in_time(sea_level_anomaly_data: xr.Dataset, out_dir: str,
     ax.coastlines()
     ax.gridlines(draw_labels=True)
     plt.savefig(os.path.join(out_dir, f"{name}.pdf"), dpi=500)
-    plt.close(fig)
+    plt.close()
 
 
 def shift_all_longitudes(geom):
@@ -139,7 +138,7 @@ def plot_regions(land_gdf: geopandas.GeoDataFrame, output_path: str,
                zip(clusters_gdf["cluster_id"].unique(), clusters_gdf["color"].unique())]
     ax.legend(handles=handles, title="Clusters")
     # plt.savefig(os.path.join(output_path, f"{name}.svg"))
-    plt.savefig(os.path.join(output_path, f"{name}.png"))
+    plt.savefig(os.path.join(output_path, f"{name}.jpg"), bbox_inches='tight')
     plt.close()
     # # also plot ranging from 0 to 360 degrees longitude for better comparability of the images
     # land_gdf_360 = land_gdf.copy()
@@ -177,7 +176,7 @@ def plot_one_timeseries(sea_level_anomaly_data, out_dir, id_x, id_y, name: str):
     plt.xlabel('Time')
     plt.ylabel('Sea Level Anomaly')
     plt.title(f'Sea Level Anomaly at ({data.latitude.values}, {data.longitude.values})')
-    plt.savefig(os.path.join(out_dir, f"{name}timeseries_{id_x}_{id_y}.png"))
+    plt.savefig(os.path.join(out_dir, f"{name}timeseries_{id_x}_{id_y}.jpg"), bbox_inches='tight')
     plt.close()
 
 
@@ -288,7 +287,8 @@ def plot_nan_values(data, time_step):
     plt.ylabel('Latitude')
     plt.title(f'NaN Distribution at Time Step {time_step}')
     plt.colorbar(label='NaN Mask (1 = NaN, 0 = Valid Data)')
-    plt.savefig(f'../output/nan_distribution_{time_step}.png')
+    plt.savefig(f'../output/nan_distribution_{time_step}.jpg', bbox_inches='tight')
+    plt.close()
 
 
 def turn_dict_into_gdf(cluster_dict: {float: [(float, float)]}, grid_point_area: float,
@@ -469,7 +469,7 @@ def plot_regions_with_component_graph(land_gdf: geopandas.GeoDataFrame, output_p
                for cluster_id, color in
                zip(clusters_gdf["cluster_id"].unique(), clusters_gdf["color"].unique())]
     ax.legend(handles=handles, title="Clusters", loc='center right', bbox_to_anchor=(1.25, 0.5))
-    plt.savefig(os.path.join(output_path, f"{name}.png"))
+    plt.savefig(os.path.join(output_path, f"{name}.jpg"), bbox_inches='tight')
     plt.close()
 
 
@@ -594,7 +594,7 @@ def plot_with_highlighting_of_component(clustering, smallest_component, neighbor
                for cluster_id, color in
                zip(clusters_gdf["cluster_id"].unique(), clusters_gdf["color"].unique())]
     ax.legend(handles=handles, title="Clusters", loc='center right', bbox_to_anchor=(1.25, 0.5))
-    plt.savefig(os.path.join(out_dir, f"{name}.png"))
+    plt.savefig(os.path.join(out_dir, f"{name}.jpg"), bbox_inches='tight')
     plt.close()
 
 
@@ -638,7 +638,9 @@ def plot_summed_distances_to_subspaces(sum_distances_to_subspaces, current_out_d
     plt.xlabel('Iteration')
     plt.ylabel('Sum of Distances to Subspaces')
     plt.title(f'Summed Distances to Subspaces for {number_of_components} Components')
-    plt.savefig(os.path.join(current_out_dir, f'summed_distances_to_subspaces_{number_of_components}.png'))
+    plt.savefig(os.path.join(current_out_dir, f'summed_distances_to_subspaces_{number_of_components}.jpg'),
+                bbox_inches='tight')
+    plt.close()
     return None
 
 
@@ -836,6 +838,7 @@ def plot_gradient(out_dir, unfiltered_sea_level_anomaly_data):
     sla.plot(cmap="viridis")
     plt.title("SLA at Time Step 0")
     plt.savefig(f"{out_dir}/sla_raw.jpg", dpi=600)
+    plt.close()
     # Compute approximate spatial gradient magnitude
     sla_values = sla.values
     grad_mag = np.sqrt(np.gradient(sla_values, axis=0) ** 2 + np.gradient(sla_values, axis=1) ** 2)
@@ -845,6 +848,7 @@ def plot_gradient(out_dir, unfiltered_sea_level_anomaly_data):
     plt.colorbar(label="Gradient Magnitude")
     plt.title("Spatial Gradient of SLA at Time Step 0")
     plt.savefig(f"{out_dir}/sla_grad_mag.jpg", dpi=600)
+    plt.close()
     sla_3d = ds["sla"]  # shape: (time, lat, lon)
     # Compute gradients along each axis
     g_time, g_lat, g_lon = np.gradient(sla_3d)
@@ -856,5 +860,6 @@ def plot_gradient(out_dir, unfiltered_sea_level_anomaly_data):
     plt.colorbar(label="Mean Spatial Gradient Over Time")
     plt.title("Spatial Smoothness of SLA (Averaged Over Time)")
     plt.savefig(f"{out_dir}/sla_avg_grad_mag.jpg", dpi=600)
+    plt.close()
     print("Mean gradient magnitude over time:", np.nanmean(avg_gradient))
     print("Median:", np.nanmedian(avg_gradient))

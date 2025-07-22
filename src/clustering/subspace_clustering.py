@@ -74,7 +74,7 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
     min_lon = clustering_dataset.longitude.values.min()
     resolution = float(clustering_dataset.latitude.values[1]) - float(clustering_dataset.latitude.values[0])
     # plot first time step
-    plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, original_out_dir, "sla", name="input_data")
+    # plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, original_out_dir, "sla", name="input_data")
     sla_data = sea_level_anomaly_data["sla"].values
     cluster_data = clustering_dataset.__xarray_dataarray_variable__.values
     # perform the subspace clustering for each set number of components three times, once with filtering, once with
@@ -125,12 +125,12 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
                 current_out_dir)
             if i == 0:
                 with open(collect_output_file_path, "a") as f:
-                    f.write(f"initial; {number_of_components}; {start_sum_of_distances} \n")
+                    f.write(f"initial; {number_of_components}; {round(start_sum_of_distances, 5)} \\\\ \n")
             name = f"initial_clustering_{number_of_components}"
             with open(f"{current_out_dir}/{name}.txt", "w") as f:
                 f.write(f"Start sum of distances to subspaces: {start_sum_of_distances}\n")
 
-            plot_clustering(cluster_dict_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
+            # plot_clustering(cluster_dict_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
             sum_distances_to_subspaces = {}
 
             # iteratively determine the subspaces for each cluster and assign grid points to the closest subspace
@@ -163,8 +163,8 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
                                                                            min_lon,
                                                                            resolution)
                 name = f"{counter}"
-                plot_clustering(grid_point_assignment_lat_lon, current_out_dir, resolution,
-                                name, cluster_id_to_color)
+                # plot_clustering(grid_point_assignment_lat_lon, current_out_dir, resolution,
+                #                 name, cluster_id_to_color)
 
                 cluster_map = create_cluster_map(cluster_data, cluster_to_grid_point_ids_dict)
 
@@ -176,7 +176,7 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
                     cluster_to_lat_lon = convert_idx_idy_to_lat_lon(cluster_to_grid_point_ids_dict, min_lat, min_lon,
                                                                     resolution)
                     name = f"filtered_{counter}"
-                    plot_clustering(cluster_to_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
+                    # plot_clustering(cluster_to_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
                 elif make_connected_every_round:
                     cluster_to_grid_point_ids_dict = reestablish_connectivity(sea_level_anomaly_data,
                                                                               grid_point_assignment_lat_lon,
@@ -188,7 +188,7 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
                     cluster_to_lat_lon = convert_idx_idy_to_lat_lon(cluster_to_grid_point_ids_dict, min_lat, min_lon,
                                                                     resolution)
                     name = f"reconnected_{counter}"
-                    plot_clustering(cluster_to_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
+                    # plot_clustering(cluster_to_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
                 else:
                     cluster_to_lat_lon = grid_point_assignment_lat_lon
                 # evaluate the distances to the subspaces after the current clustering
@@ -249,7 +249,7 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
             save_clustering(best_solution, current_out_dir, sea_level_anomaly_data, name)
             # plot the explained variance
             plot_explained_variance_per_iteration(explained_variance_per_iteration, current_out_dir)
-            plotting.plot_average_explained_variance(explained_variance_per_iteration, current_out_dir)
+            # plotting.plot_average_explained_variance(explained_variance_per_iteration, current_out_dir)
             # write the explained variance to a json file
             with open(f"{current_out_dir}/explained_variance_per_iteration.json", "w") as outfile:
                 json.dump(explained_variance_per_iteration, outfile)
@@ -649,7 +649,7 @@ def start_subspace_clustering_with_integrated_connectivity(sea_level_anomaly_dat
     # adjust resolution, such that it is the same for the sea level anomaly data as it is for the clustering
     min_lat = sea_level_anomaly_data.latitude.values[0]
     min_lon = sea_level_anomaly_data.longitude.values[0]
-    plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, "sla", name="input_data")
+    # plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, "sla", name="input_data")
     sla_data = sea_level_anomaly_data["sla"].values
     cluster_data = initial_clustering["__xarray_dataarray_variable__"].values
     with open(collect_output_file_path, "a") as f:
@@ -693,7 +693,7 @@ def start_subspace_clustering_with_integrated_connectivity(sea_level_anomaly_dat
                                                                        resolution)
             summed_distances_to_subspaces[iteration_counter] = summed_distances
             name = f"{iteration_counter}"
-            plot_clustering(grid_point_assignment_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
+            # plot_clustering(grid_point_assignment_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
             if iteration_counter >= 100:
                 break
 
@@ -715,6 +715,9 @@ def start_subspace_clustering_with_integrated_connectivity(sea_level_anomaly_dat
             f.write(f"Start summed distances to subspaces: {start_summed_distances}\n")
 
         summed_distances_to_subspaces[iteration_counter] = summed_distances
+        with open(f"{current_out_dir}/sum_distances_to_subspaces.pkl", "wb") as outfile:
+            pickle.dump(summed_distances_to_subspaces, outfile)
+
         plotting.plot_summed_distances_to_subspaces(summed_distances_to_subspaces, current_out_dir,
                                                     current_number_of_components, None, None)
         # save clustering as netcdf
@@ -744,7 +747,7 @@ def calculate_subspace_clustering(global_settings, out_dir: str,
     """
 
     # plot underlying data
-    plotting.plot_sla_for_point_in_time(unfiltered_sea_level_anomaly_data, out_dir, "sla", name="input_data")
+    # plotting.plot_sla_for_point_in_time(unfiltered_sea_level_anomaly_data, out_dir, "sla", name="input_data")
     if subspace_clustering_settings.do_subspace_clustering:
         current_out_dir = f"{out_dir}/subspace_clustering_{subspace_clustering_settings.number_of_clusters}"
         if not os.path.exists(current_out_dir):

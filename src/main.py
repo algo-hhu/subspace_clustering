@@ -12,7 +12,6 @@ from src.clustering.neighborhood_clustering import NeighborhoodClustering
 from src.clustering.subspace_clustering import calculate_subspace_clustering
 from src.clustering.wards_method_scikit_learn_connectivity import WardsMethodConnected
 from src.evaluation.evaluate import evaluate_clustering
-from src.plotting import plot_gradient
 from src.preprocessing.preprocessing_data import start_preprocessing
 from src.settings import settings
 from src.settings.settings import InitialClusteringMethod, InitialDistanceFunction
@@ -29,7 +28,7 @@ def main():
                                 f"{subspace_clustering_settings.number_of_clusters}_clusters.csv")
     if not os.path.exists(global_settings.output_path):
         os.makedirs(global_settings.output_path)
-    with open(collect_output_file_path, "w") as f:
+    with open(collect_output_file_path, "a") as f:
         f.write(
             f"Distances from clusters to subspaces for {subspace_clustering_settings.number_of_clusters} clusters:\n")
         f.write("Filter 500 km halfwidth \n")
@@ -119,7 +118,7 @@ def main():
         print(len(unprocessed_sea_level_anomaly_data.latitude.values))
         print(len(unprocessed_sea_level_anomaly_data.longitude.values))
 
-        plot_gradient(out_dir, unfiltered_sea_level_anomaly_data)
+        # plot_gradient(out_dir, unfiltered_sea_level_anomaly_data)
 
         # initial clustering
         out_dir = calculate_initial_clustering(initial_clustering_settings, out_dir, sea_level_anomaly_data)
