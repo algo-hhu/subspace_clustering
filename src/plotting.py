@@ -347,7 +347,7 @@ def plot_clustering_without_preassigned_colors(cluster_dict, out_dir, resolution
     :return:
     """
     cluster_dict = dict(sorted(cluster_dict.items(), key=lambda item: item[0]))
-    cluster_id_to_color = assign_color_to_cluster(cluster_dict)
+    cluster_id_to_color = assign_color_to_cluster(cluster_dict, len(cluster_dict.keys()))
     plot_clustering(cluster_dict, out_dir, resolution, name, cluster_id_to_color)
 
 
@@ -598,7 +598,7 @@ def plot_with_highlighting_of_component(clustering, smallest_component, neighbor
     plt.close()
 
 
-def assign_color_to_cluster(cluster_to_grid_point_ids_dict):
+def assign_color_to_cluster(cluster_to_grid_point_ids_dict, number_of_clusters):
     """
     Assign a color to each cluster based on the cluster id
     :param cluster_to_grid_point_ids_dict:
@@ -615,6 +615,11 @@ def assign_color_to_cluster(cluster_to_grid_point_ids_dict):
     # create a dictionary that maps the cluster id to the color
     cluster_id_to_color = {cluster_id: cluster_colors[int(i)] for i, cluster_id in
                            enumerate(cluster_to_grid_point_ids_dict.keys())}
+    if len(cluster_id_to_color.keys()) < number_of_clusters:
+        print("adding colors")
+        for i in range(number_of_clusters - len(cluster_id_to_color.keys())):
+            cluster_id_to_color[len(cluster_id_to_color.keys()) + i] = cluster_colors[
+                len(cluster_id_to_color.keys()) + i]
     return cluster_id_to_color
 
 
