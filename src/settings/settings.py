@@ -23,14 +23,14 @@ class GlobalSettings(BaseSettings):
     """
     global parameters
     """
-    output_path: str = "../output/results_1_2"
+    output_path: str = "../output"
     data_path: str = "../data"
     sea_level_anomaly_data_download_path: str = "../data/SEALEVEL_GLO_PHY_L4_MY_008_047"
-    half_width: int = 500
-    filtered_data_path: str = f"../output/spherical_gaussian_filtering/sea_level_anomaly_data_filtered_{half_width}.nc"
-    filtering_sla: bool = True
-    # resolution: float = 0.25
+    variable = "sla"
     resolution: int = 2
+    filtering_sla: bool = True
+    half_width: int = 500
+    filtered_data_path: str = f"{output_path}/spherical_gaussian_filtering/sea_level_anomaly_data_filtered_{half_width}.nc"
 
 
 class InitialClusteringSettings(BaseSettings):
@@ -49,12 +49,7 @@ class SubspaceClusteringSettings(BaseSettings):
     # specific parameters for subspace clustering
     apply_weights: bool = True
     do_subspace_clustering: bool = True
-<<<<<<< Updated upstream
-    number_of_clusters: int = 15
-=======
-    number_of_clusters: int = 10
->>>>>>> Stashed changes
-    # number_of_components: list[int] = [30]
+    number_of_clusters: int = 25
     number_of_components: list[int] = [5, 10, 15, 30]
     integrated_connectivity: bool = True
 
@@ -64,4 +59,4 @@ class EvaluationSettings(BaseSettings):
     specific parameters for evaluation
     """
     do_evaluation: bool = False
-    number_of_clusters: int = 10
+    number_of_clusters: int = 25

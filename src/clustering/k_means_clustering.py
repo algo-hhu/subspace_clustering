@@ -94,7 +94,7 @@ class KMeansClustering(InitialClustering):
             else:
                 print("Subspaces and cluster_to_grid_point_dict keys match.")
             cluster_map = create_cluster_map(clustering_data_array, cluster_to_grid_point_dict)
-            cluster_id_to_color = plotting.assign_color_to_cluster(cluster_to_grid_point_dict)
+            cluster_id_to_color = plotting.assign_color_to_cluster(cluster_to_grid_point_dict, self.number_of_clusters)
             cluster_id_to_grid_point_id_reconnected = subspace_clustering.reestablish_connectivity(
                 self.sea_level_anomaly_data,
                 cluster_id_to_lat_lon,

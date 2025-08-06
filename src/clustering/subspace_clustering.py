@@ -115,7 +115,9 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
             # get start clustering dictionary from initial clustering netcdf data and plot
             cluster_dict_lat_lon, cluster_to_grid_point_ids_dict = extract_clusters_from_xarray_dataset(
                 clustering_dataset, min_lat, min_lon, resolution, sla_data)
-            cluster_id_to_color = assign_color_to_cluster(cluster_to_grid_point_ids_dict)
+            cluster_id_to_color = assign_color_to_cluster(cluster_to_grid_point_ids_dict, number_of_clusters)
+
+            # create output directory for current number of components
             current_out_dir = f"{out_dir}/components_{number_of_components}/"
             OUT_DIR = current_out_dir
 
@@ -670,7 +672,7 @@ def start_subspace_clustering_with_integrated_connectivity(sea_level_anomaly_dat
         cluster_dict, cluster_to_grid_point_ids_dict = extract_clusters_from_xarray_dataset(initial_clustering, min_lat,
                                                                                             min_lon,
                                                                                             resolution, sla_data)
-        cluster_id_to_color = assign_color_to_cluster(cluster_to_grid_point_ids_dict)
+        cluster_id_to_color = assign_color_to_cluster(cluster_to_grid_point_ids_dict, number_of_clusters)
         name = f"initial_clustering_{current_number_of_components}"
 
         start_summed_distances, start_explained_variance = evaluate_distances_to_subspaces(

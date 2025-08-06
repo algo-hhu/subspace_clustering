@@ -95,7 +95,8 @@ def start_preprocessing(global_settings, variable_to_plot: str):
     # There are 720 latitude points and 1440 longitude points => 1036800 grid points (the resolution is 0.25 degrees)
     # Merge the data from all files into one xarray dataset
     if not os.path.exists(f"{global_settings.data_path}/sea_level_anomaly_data.nc"):
-        logger.info(f"Reading sea level anomaly data from files in ../data/SEALEVEL_GLO_PHY_L4_MY_008_047")
+        logger.info(
+            f"Reading sea level anomaly data from files in {global_settings.sea_level_anomaly_data_download_path}")
         unfiltered_sea_level_anomaly_data = read_satellite_data(
             global_settings.sea_level_anomaly_data_download_path)
         # change longitude from 0-360 to -180-180
