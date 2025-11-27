@@ -3,7 +3,7 @@
 
 # netcdf files and generated images
 *.png
-*.jpg
+# *.jpg
 *.jpeg
 *.gif
 *.svg
