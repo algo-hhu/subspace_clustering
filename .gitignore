@@ -7,7 +7,7 @@
 *.jpeg
 *.gif
 *.svg
-*.pdf
+# *.pdf
 
 # ignore output files
 ./output/
