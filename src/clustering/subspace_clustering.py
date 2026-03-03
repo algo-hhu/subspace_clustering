@@ -461,8 +461,7 @@ def determine_closest_subspace(data: np.ndarray, subspaces: {int: np.array}, num
     return grid_point_assignment, change, summed_distances
 
 
-def compare_distances_to_subspaces(average_distances_to_each_subspace: {int: int}, current_time_series: np.array,
-                                   subspaces: {int: (np.array, np.array)}):
+def compare_distances_to_subspaces(average_distances_to_each_subspace: dict[int, float], current_time_series: np.array, subspaces: dict[int: (np.array, np.array)]):
     """
     Compare the distances to each subspace
     :param average_distances_to_each_subspace:

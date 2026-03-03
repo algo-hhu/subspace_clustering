@@ -1,10 +1,11 @@
 import math
+from typing import Any
 
 import numpy as np
 
 
-def spatio_temporal_distance_function(lat1: float, long1: float, timeseries1: [float], lat2: float, long2: float,
-                                      timeseries2: [float]):
+def spatio_temporal_distance_function(lat1: float, long1: float, timeseries1: list[float], lat2: float, long2: float,
+                                      timeseries2: list[float]):
     """
     Calculate the distance function between two points D(x_i, x_j) = 1 - exp(- d(x_i, x_j)/2a^2) r(x_i, x_j)
     :param timeseries2:
@@ -32,12 +33,12 @@ def spatio_temporal_distance_function(lat1: float, long1: float, timeseries1: [f
     return difference
 
 
-def test_distance_function(lat1, long1, time_series1, lat2, long2, time_series2):
+def distance_function_test(lat1, long1, time_series1, lat2, long2, time_series2):
     return abs(sum(time_series1) - sum(time_series2))
 
 
-def euclidean_distance(lat1: float, long1: float, timeseries1: [float], lat2: float, long2: float,
-                       timeseries2: [float]):
+def euclidean_distance(lat1: float, long1: float, timeseries1: list[float], lat2: float, long2: float,
+                       timeseries2: list[float]) -> np.floating[Any]:
     """
 
     :param lat1:

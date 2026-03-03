@@ -3,14 +3,16 @@ from unittest import TestCase
 
 import numpy as np
 
-from src.clustering.complete_hierarchical_clustering import GridPoint, Cluster, clustering
+from src.clustering.complete_hierarchical_clustering import GridPoint, Cluster, CompleteHierarchicalClustering
+from src.distance import euclidean_distance
 
 
 class Test(TestCase):
     def test_hierarchical_clustering(self):
-        grid_point1 = GridPoint(id=uuid.uuid4(), latitude=0, longitude=0, timeseries=[0, 4, 5])
-        grid_point2 = GridPoint(id=uuid.uuid4(), latitude=0, longitude=1, timeseries=[4, 2, 3])
-        grid_point3 = GridPoint(id=uuid.uuid4(), latitude=1, longitude=0, timeseries=[5, 2, 4])
+        grid_point1 = GridPoint(id=uuid.uuid4(), latitude=0, longitude=0, 
+        timeseries= np.array([0, 4, 5]))
+        grid_point2 = GridPoint(id=uuid.uuid4(), latitude=0, longitude=1, timeseries=np.array([4, 2, 3]))
+        grid_point3 = GridPoint(id=uuid.uuid4(), latitude=1, longitude=0, timeseries=np.array([5, 2, 4]))
         cluster1 = Cluster(id=0, grid_points=[grid_point1])
         cluster2 = Cluster(id=1, grid_points=[grid_point2])
         cluster3 = Cluster(id=2, grid_points=[grid_point3])
@@ -25,7 +27,8 @@ class Test(TestCase):
         sea_level_anomaly_data = None
         number_of_clusters = len(clusters.values())
         k = [1]
-        clusterings = clustering(distances, number_of_clusters, k, clusters)
+        hierarchical_clustering = CompleteHierarchicalClustering(sea_level_anomaly_data,k , euclidean_distance, "", 0.0 )
+        clusterings = hierarchical_clustering.clustering(distances, clusters)
         self.assertEqual(1, len(clusterings))
         self.assertEqual(1, len(clusterings[1]))
         self.assertEqual(3, len(clusterings[1][0].grid_points))
@@ -34,26 +37,26 @@ class Test(TestCase):
         assert grid_point3 in clusterings[1][0].grid_points
 
     def test_hierarchical_clusterin_with_20_grid_points(self):
-        grid_point0 = GridPoint(id=uuid.uuid4(), latitude=-1, longitude=-1, timeseries=[0, 4, 5])
-        grid_point1 = GridPoint(id=uuid.uuid4(), latitude=0, longitude=0, timeseries=[0, 4, 5])
-        grid_point2 = GridPoint(id=uuid.uuid4(), latitude=0, longitude=1, timeseries=[4, 2, 3])
-        grid_point3 = GridPoint(id=uuid.uuid4(), latitude=1, longitude=0, timeseries=[5, 2, 4])
-        grid_point4 = GridPoint(id=uuid.uuid4(), latitude=1, longitude=1, timeseries=[5, 2, 4])
-        grid_point5 = GridPoint(id=uuid.uuid4(), latitude=2, longitude=0, timeseries=[5, 2, 4])
-        grid_point6 = GridPoint(id=uuid.uuid4(), latitude=2, longitude=1, timeseries=[5, 2, 4])
-        grid_point7 = GridPoint(id=uuid.uuid4(), latitude=3, longitude=0, timeseries=[5, 2, 4])
-        grid_point8 = GridPoint(id=uuid.uuid4(), latitude=3, longitude=1, timeseries=[5, 2, 4])
-        grid_point9 = GridPoint(id=uuid.uuid4(), latitude=4, longitude=0, timeseries=[5, 2, 4])
-        grid_point10 = GridPoint(id=uuid.uuid4(), latitude=4, longitude=1, timeseries=[5, 2, 4])
-        grid_point11 = GridPoint(id=uuid.uuid4(), latitude=5, longitude=0, timeseries=[5, 2, 4])
-        grid_point12 = GridPoint(id=uuid.uuid4(), latitude=5, longitude=1, timeseries=[5, 2, 4])
-        grid_point13 = GridPoint(id=uuid.uuid4(), latitude=6, longitude=0, timeseries=[5, 2, 4])
-        grid_point14 = GridPoint(id=uuid.uuid4(), latitude=6, longitude=1, timeseries=[5, 2, 4])
-        grid_point15 = GridPoint(id=uuid.uuid4(), latitude=7, longitude=0, timeseries=[5, 2, 4])
-        grid_point16 = GridPoint(id=uuid.uuid4(), latitude=7, longitude=1, timeseries=[5, 2, 4])
-        grid_point17 = GridPoint(id=uuid.uuid4(), latitude=8, longitude=0, timeseries=[5, 2, 4])
-        grid_point18 = GridPoint(id=uuid.uuid4(), latitude=8, longitude=1, timeseries=[5, 2, 4])
-        grid_point19 = GridPoint(id=uuid.uuid4(), latitude=9, longitude=0, timeseries=[5, 2, 4])
+        grid_point0 = GridPoint(id=uuid.uuid4(), latitude=-1, longitude=-1, timeseries=np.array([0, 4, 5]))
+        grid_point1 = GridPoint(id=uuid.uuid4(), latitude=0, longitude=0, timeseries=np.array([0, 4, 5]))
+        grid_point2 = GridPoint(id=uuid.uuid4(), latitude=0, longitude=1, timeseries=np.array([4, 2, 3]))
+        grid_point3 = GridPoint(id=uuid.uuid4(), latitude=1, longitude=0, timeseries=np.array([5, 2, 4]))
+        grid_point4 = GridPoint(id=uuid.uuid4(), latitude=1, longitude=1, timeseries=np.array([5, 2, 4]))
+        grid_point5 = GridPoint(id=uuid.uuid4(), latitude=2, longitude=0, timeseries=np.array([5, 2, 4]))
+        grid_point6 = GridPoint(id=uuid.uuid4(), latitude=2, longitude=1, timeseries=np.array([5, 2, 4]))
+        grid_point7 = GridPoint(id=uuid.uuid4(), latitude=3, longitude=0, timeseries=np.array([5, 2, 4]))
+        grid_point8 = GridPoint(id=uuid.uuid4(), latitude=3, longitude=1, timeseries=np.array([5, 2, 4]))
+        grid_point9 = GridPoint(id=uuid.uuid4(), latitude=4, longitude=0, timeseries=np.array([5, 2, 4]))
+        grid_point10 = GridPoint(id=uuid.uuid4(), latitude=4, longitude=1, timeseries=np.array([5, 2, 4]))
+        grid_point11 = GridPoint(id=uuid.uuid4(), latitude=5, longitude=0, timeseries=np.array([5, 2, 4]))
+        grid_point12 = GridPoint(id=uuid.uuid4(), latitude=5, longitude=1, timeseries=np.array([5, 2, 4]))
+        grid_point13 = GridPoint(id=uuid.uuid4(), latitude=6, longitude=0, timeseries=np.array([5, 2, 4]))
+        grid_point14 = GridPoint(id=uuid.uuid4(), latitude=6, longitude=1, timeseries=np.array([5, 2, 4]))
+        grid_point15 = GridPoint(id=uuid.uuid4(), latitude=7, longitude=0, timeseries=np.array([5, 2, 4]))
+        grid_point16 = GridPoint(id=uuid.uuid4(), latitude=7, longitude=1, timeseries=np.array([5, 2, 4]))
+        grid_point17 = GridPoint(id=uuid.uuid4(), latitude=8, longitude=0, timeseries=np.array([5, 2, 4]))
+        grid_point18 = GridPoint(id=uuid.uuid4(), latitude=8, longitude=1, timeseries=np.array([5, 2, 4]))
+        grid_point19 = GridPoint(id=uuid.uuid4(), latitude=9, longitude=0, timeseries=np.array([5, 2, 4]))
         cluster0 = Cluster(id=0, grid_points=[grid_point0])
         cluster1 = Cluster(id=1, grid_points=[grid_point1])
         cluster2 = Cluster(id=2, grid_points=[grid_point2])
@@ -86,6 +89,7 @@ class Test(TestCase):
         sea_level_anomaly_data = None
         number_of_clusters = len(clusters.values())
         k = [3]
-        clusterings = clustering(distances, number_of_clusters, k, clusters)
+        hierarchical_clustering = CompleteHierarchicalClustering(sea_level_anomaly_data, k, euclidean_distance, "", 0.0)
+        clusterings = hierarchical_clustering.clustering(distances, clusters)
         self.assertEqual(1, len(clusterings))
         self.assertEqual(3, len(clusterings[3]))

@@ -97,10 +97,10 @@ class SphericalGaussFilter:
         valid_lat_indices = np.where(lat_mask)[0]
         valid_lon_indices = np.where(lon_mask)[0]
         candidate_indices = np.array(np.meshgrid(valid_lat_indices, valid_lon_indices)).T.reshape(-1, 2)
-        candidate_coords = [(float(self.lat[i]), float(self.lon[j])) for i, j in candidate_indices if
+        candidate_coords = np.array([(float(self.lat[i]), float(self.lon[j])) for i, j in candidate_indices if
                             (not np.isnan(self.lat[i]) and not np.isnan(self.lon[j])) and (
-                                    self.lat[i] != lat1 or self.lon[j] != lon1)]
-        current_point = [(lat1, lon1) for _ in range(len(candidate_coords))]
+                                    self.lat[i] != lat1 or self.lon[j] != lon1)])
+        current_point = np.array([(lat1, lon1) for _ in range(len(candidate_coords))])
         distances = haversine.haversine_vector(current_point, candidate_coords)
         lat_lon_dist = [[(lat1, lon1), candidate_coords[i], distances[i]] for i in range(len(candidate_coords)) if
                         distances[i] < self.cut_off]

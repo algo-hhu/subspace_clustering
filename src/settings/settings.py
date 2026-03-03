@@ -24,9 +24,9 @@ class GlobalSettings(BaseSettings):
     global parameters
     """
     output_path: str = "../output"
-    data_path: str = "../data"
-    sea_level_anomaly_data_download_path: str = "../data/SEALEVEL_GLO_PHY_L4_MY_008_047"
-    variable = "sla"
+    data_path: str = "../../data"
+    sea_level_anomaly_data_download_path: str = "../../data/SEALEVEL_GLO_PHY_L4_MY_008_047"
+    variable: str = "sla"
     resolution: int = 2
     filtering_sla: bool = True
     half_width: int = 500

@@ -1,7 +1,6 @@
 import os
 from dataclasses import dataclass
 
-import numpy
 import numpy as np
 import xarray
 from joblib import Parallel, delayed
@@ -20,7 +19,7 @@ class NeighborhoodClustering(InitialClustering):
     number_of_clusters: list[int]
     distance_function: callable
     out_dir: str
-    data_array: numpy.ndarray = None
+    data_array: np.ndarray = None
     min_lat: float = None
     min_lon: float = None
     resolution: float = None
@@ -40,7 +39,7 @@ class NeighborhoodClustering(InitialClustering):
         self.data_array = self.sea_level_anomaly_data["sla"].values
         # find grid points with NaN values
         # nan_mask = sea_level_anomaly_data["sla"].isnull().values
-        nan_mask = numpy.isnan(self.data_array).any(axis=0)
+        nan_mask = np.isnan(self.data_array).any(axis=0)
 
         lat_lon_to_idx = {(lat, lon): (i, j) for i, lat in enumerate(self.sea_level_anomaly_data.latitude.values) for
                           j, lon
@@ -99,8 +98,7 @@ class NeighborhoodClustering(InitialClustering):
             save_clustering(clustering_dict, self.out_dir, self.sea_level_anomaly_data, filename)
         return
 
-    def clustering(self, all_clusters: dict[int, tuple[float, float]], neighbors: dict[int, set[int]],
-                   distances: dict[tuple[int, int], float]) -> dict:
+    def clustering(self, all_clusters: dict[int, list[tuple[float, float]]], neighbors: dict[int, set[int]], distances: dict[tuple[int, int], float]) -> dict:
         """
         Hierarchical clustering of neighboring grid points
         :param all_clusters:
@@ -169,8 +167,7 @@ class NeighborhoodClustering(InitialClustering):
         for neighbor in new_neighbors:
             distance_cluster1 = distances.get((cluster1, neighbor))
             distance_cluster2 = distances.get((cluster2, neighbor))
-            new_distance = self.new_recalculate_distance_function(cluster1, cluster2, neighbor, all_clusters,
-                                                                  distance_cluster1, distance_cluster2)
+            new_distance = self.new_recalculate_distance_function(cluster1, cluster2, neighbor, all_clusters, distance_cluster1, distance_cluster2)
             distances[(cluster1, neighbor)] = new_distance
             distances[(neighbor, cluster1)] = new_distance
             if neighbor in neighbors[cluster2]:
@@ -188,9 +185,7 @@ class NeighborhoodClustering(InitialClustering):
                 neighbors[neighbor].add(cluster1)
         return all_clusters, neighbors, distances
 
-    def new_recalculate_distance_function(self, cluster1: int, cluster2: int, neighbor: int,
-                                          clustering_results: {int: (float, float)}, distance_cluster1,
-                                          distance_cluster2) -> float:
+    def new_recalculate_distance_function(self, cluster1: int, cluster2: int, neighbor: int, clustering_results: dict[int, list[tuple[float, float]]], distance_cluster1: float, distance_cluster2: float) -> float:
         """
         Recalculate the distance between a cluster and a neighbor
         :param distance_cluster1:
@@ -366,7 +361,7 @@ class NeighborhoodClustering(InitialClustering):
         results = Parallel(n_jobs=-2, verbose=1)(
             delayed(wrap_distance_function)(args) for args in unique_pairs_with_time_series)
         for (lat1, lon1), (lat2, lon2), distance in results:
-            if distance is not numpy.nan:
+            if distance is not np.nan:
                 distances[(lat_lon_to_clusters[lat1, lon1], lat_lon_to_clusters[lat2, lon2])] = distance
                 distances[(lat_lon_to_clusters[lat2, lon2], lat_lon_to_clusters[lat1, lon1])] = distance
         return distances

@@ -87,7 +87,7 @@ class CompleteHierarchicalClustering(InitialClustering):
                                                                     name)
         logger.info(f"Clustering done")
 
-    def clustering(self, distances: np.array, clusters: {int: Cluster}):
+    def clustering(self, distances: np.ndarray, clusters: dict[int, Cluster]) -> dict[int, dict[int, Cluster]]:
         """
         Perform hierarchical clustering
         :param clusters:
@@ -154,8 +154,7 @@ class CompleteHierarchicalClustering(InitialClustering):
 
         return all_clusters
 
-    def precalculate_distances(self) -> (np.ndarray, int,
-                                         {int: Cluster}):
+    def precalculate_distances(self) -> tuple[np.ndarray, int, dict[int, Cluster]]:
         """
         Calculate the distances between each pair of grid points.
         This function does the following steps:
