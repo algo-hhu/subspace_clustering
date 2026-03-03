@@ -3,15 +3,18 @@
 
 # netcdf files and generated images
 *.png
-# *.jpg
+*.jpg
 *.jpeg
 *.gif
 *.svg
-# *.pdf
+*.pdf
+*.nc
+*.csv
 
 # ignore output files
-./output/
-./data/
+./output/*
+./data/*
+./deleted/*
 # Ignore database files
 database/data/
 img/
