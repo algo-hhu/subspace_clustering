@@ -46,3 +46,12 @@ subspace-clustering = "src.main:main"
 dev = [
     "pytest (>=9.0.2,<10.0.0)"
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+filterwarnings = [
+    # netCDF4's compiled extension self-reports a NumPy C-ABI size mismatch (dtype struct grew in
+    # NumPy 2.x). It is benign here (I/O works); the real fix is aligning the netCDF4/NumPy build,
+    # e.g. by running on the declared Python 3.12. Scoped to this exact message only.
+    "ignore:numpy.ndarray size changed:RuntimeWarning",
+]

@@ -629,7 +629,7 @@ def write_subspace_similarity(file_path, ordered_ids, largest_angle, chordal_dis
 
     with open(file_path, "w") as f:
         f.write("Cluster-by-cluster subspace similarity of the final clustering\n")
-        f.write(f"Clusters: {ordered_ids}\n\n")
+        f.write(f"Clusters: {[float(cluster_id) for cluster_id in ordered_ids]}\n\n")
         f.write("Largest principal angle (degrees; small = similar subspaces)\n")
         f.write(format_matrix(largest_angle) + "\n\n")
         f.write("Chordal distance (0 = identical subspaces, larger = more different)\n")

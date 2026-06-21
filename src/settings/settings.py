@@ -27,14 +27,14 @@ class GlobalSettings(BaseModel):
     """
     global parameters
     """
-    output_path: str = str(PROJECT_ROOT / "output")
+    output_path: str = str(PROJECT_ROOT / "output/principle_angles")
     data_path: str = str(PROJECT_ROOT.parent / "data")
     sea_level_anomaly_data_download_path: str = str(PROJECT_ROOT.parent / "data" / "SEALEVEL_GLO_PHY_L4_MY_008_047")
     variable: str = "sla"
     resolution: int = 2
     filtering_sla: bool = True
     half_width: int = 500
-    random_seed: int = 42
+    random_seed: int = 13
 
     @property
     def filtered_data_path(self) -> str:
@@ -49,7 +49,7 @@ class InitialClusteringSettings(BaseModel):
     """
     method: InitialClusteringMethod = InitialClusteringMethod.agglomerative_clustering
     distance_function: Annotated[Callable, SkipValidation] = InitialDistanceFunction.spatio_temporal_distance_function
-    number_of_clusters: list[int] = [25, 20, 15, 12, 10, 8]
+    number_of_clusters: list[int] = [25]
 
 
 class SubspaceClusteringSettings(BaseModel):

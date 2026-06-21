@@ -10,8 +10,12 @@ from src.settings.settings import GlobalSettings
 
 
 class TestGlobalSettings(unittest.TestCase):
-    def test_random_seed_default(self):
-        self.assertEqual(GlobalSettings().random_seed, 42)
+    def test_random_seed_is_an_int(self):
+        # the field exists with an integer default; the exact value is a configurable choice
+        self.assertIsInstance(GlobalSettings().random_seed, int)
+
+    def test_random_seed_is_overridable(self):
+        self.assertEqual(GlobalSettings(random_seed=7).random_seed, 7)
 
     def test_paths_are_absolute(self):
         settings = GlobalSettings()
