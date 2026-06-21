@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from src.clustering.subspace_clustering import compare_distances_to_subspaces
+from src.clustering.subspace_clustering import compare_distances_to_subspaces, determine_subspace_per_cluster
 
 
 class TestCompareDistancesToSubspaces(unittest.TestCase):
@@ -66,3 +66,36 @@ class TestCompareDistancesToSubspaces(unittest.TestCase):
         distances, closest_cluster, best_distance = compare_distances_to_subspaces(avg_dists, v, subspaces)
         self.assertEqual(len(distances), 4)
         self.assertEqual(closest_cluster, 3)
+
+
+class TestDetermineSubspacePerCluster(unittest.TestCase):
+
+    def test_returns_none_when_too_few_points(self):
+        data = np.random.rand(4, 2, 2)
+        # a single grid point cannot span a 5-dimensional subspace
+        self.assertIsNone(determine_subspace_per_cluster([(0, 0)], data, 5))
+
+    def test_collinear_cluster_is_captured_by_one_component(self):
+        # all grid-point time series are scalar multiples of a common base vector, so after centering
+        # they lie on a single line -> the first principal component explains ~100% of the variance
+        base = np.array([1.0, 2.0, 3.0, 4.0])
+        data = np.zeros((4, 2, 2))
+        data[:, 0, 0] = 1.0 * base
+        data[:, 0, 1] = 2.0 * base
+        data[:, 1, 0] = 3.0 * base
+        data[:, 1, 1] = 5.0 * base
+        grid_points = [(0, 0), (0, 1), (1, 0), (1, 1)]
+
+        components, mean, explained_variance = determine_subspace_per_cluster(grid_points, data, 1)
+
+        self.assertEqual(components.shape, (1, 4))
+        self.assertEqual(mean.shape, (4,))
+        self.assertAlmostEqual(explained_variance, 1.0, places=5)
+
+    def test_raises_runtime_error_when_pca_cannot_fit(self):
+        # all-NaN time series are dropped, leaving an empty data matrix that PCA cannot fit;
+        # this must surface as a RuntimeError (not a bare exit) per the library-error contract
+        data = np.full((4, 2, 2), np.nan)
+        grid_points = [(0, 0), (0, 1), (1, 0)]
+        with self.assertRaises(RuntimeError):
+            determine_subspace_per_cluster(grid_points, data, 1)
