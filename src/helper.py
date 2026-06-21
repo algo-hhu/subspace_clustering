@@ -1,5 +1,4 @@
 import os
-from os import mkdir
 
 import numpy
 import numpy as np
@@ -88,8 +87,7 @@ def adjust_resolution(resolution: int, resolution_path: str, sea_level_anomaly_d
         # interpolate the data to the desired resolution
         if not os.path.exists(resolution_path):
             logger.info(f"Interpolating sea level anomaly data to {resolution} degree resolution")
-            if not os.path.exists("../output/resolutions"):
-                mkdir("../output/resolutions")
+            os.makedirs(os.path.dirname(resolution_path), exist_ok=True)
             sea_level_anomaly_data = sea_level_anomaly_data.interp(latitude=range(-90, 91, int(resolution)),
                                                                    longitude=range(-180, 180, int(resolution)))
             # save the interpolated data

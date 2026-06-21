@@ -1,10 +1,14 @@
 from enum import Enum
+from pathlib import Path
 from typing import Annotated, Callable
 
-from pydantic import SkipValidation
-from pydantic_settings import BaseSettings
+from pydantic import BaseModel, SkipValidation
 
 from src import distance
+
+# Project root, resolved from this file's location (src/settings/settings.py -> repo root).
+# Anchoring paths here keeps them independent of the current working directory.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class InitialClusteringMethod(str, Enum):
@@ -19,21 +23,27 @@ class InitialDistanceFunction(str, Enum):
     spatio_temporal_distance_function = distance.spatio_temporal_distance_function
 
 
-class GlobalSettings(BaseSettings):
+class GlobalSettings(BaseModel):
     """
     global parameters
     """
-    output_path: str = "../output"
-    data_path: str = "../../data"
-    sea_level_anomaly_data_download_path: str = "../../data/SEALEVEL_GLO_PHY_L4_MY_008_047"
+    output_path: str = str(PROJECT_ROOT / "output")
+    data_path: str = str(PROJECT_ROOT.parent / "data")
+    sea_level_anomaly_data_download_path: str = str(PROJECT_ROOT.parent / "data" / "SEALEVEL_GLO_PHY_L4_MY_008_047")
     variable: str = "sla"
     resolution: int = 2
     filtering_sla: bool = True
     half_width: int = 500
-    filtered_data_path: str = f"{output_path}/spherical_gaussian_filtering/sea_level_anomaly_data_filtered_{half_width}.nc"
+    random_seed: int = 42
+
+    @property
+    def filtered_data_path(self) -> str:
+        # Computed from the live values so overriding output_path or half_width stays consistent.
+        return (f"{self.output_path}/spherical_gaussian_filtering/"
+                f"sea_level_anomaly_data_filtered_{self.half_width}.nc")
 
 
-class InitialClusteringSettings(BaseSettings):
+class InitialClusteringSettings(BaseModel):
     """
     specific parameters for initial clustering
     """
@@ -42,7 +52,7 @@ class InitialClusteringSettings(BaseSettings):
     number_of_clusters: list[int] = [25, 20, 15, 12, 10, 8]
 
 
-class SubspaceClusteringSettings(BaseSettings):
+class SubspaceClusteringSettings(BaseModel):
     """
     specific parameters for subspace clustering
     """
@@ -54,7 +64,7 @@ class SubspaceClusteringSettings(BaseSettings):
     integrated_connectivity: bool = True
 
 
-class EvaluationSettings(BaseSettings):
+class EvaluationSettings(BaseModel):
     """
     specific parameters for evaluation
     """

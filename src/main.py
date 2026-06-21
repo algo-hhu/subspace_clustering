@@ -1,4 +1,5 @@
 import os
+import random
 
 import numpy as np
 import xarray
@@ -6,15 +7,31 @@ import xarray as xr
 from loguru import logger
 
 from src import plotting, weighting, distance
+from src.clustering import subspace_clustering
 from src.clustering.complete_hierarchical_clustering import CompleteHierarchicalClustering
 from src.clustering.k_means_clustering import KMeansClustering
 from src.clustering.neighborhood_clustering import NeighborhoodClustering
 from src.clustering.subspace_clustering import calculate_subspace_clustering
 from src.clustering.wards_method_scikit_learn_connectivity import WardsMethodConnected
+from src.evaluation import evaluate
 from src.evaluation.evaluate import evaluate_clustering
 from src.preprocessing.preprocessing_data import start_preprocessing
 from src.settings import settings
 from src.settings.settings import InitialClusteringMethod
+
+
+def seed_random_number_generators(seed: int) -> None:
+    """
+    Seed all sources of randomness so that runs are reproducible. This covers the numpy global RNG used by
+    scikit-learn (KMeans, PCA's randomized solver) as well as the explicit PCA seeds in the subspace-clustering
+    and evaluation modules.
+    :param seed:
+    :return:
+    """
+    np.random.seed(seed)
+    random.seed(seed)
+    subspace_clustering.PCA_RANDOM_STATE = seed
+    evaluate.PCA_RANDOM_STATE = seed
 
 
 def main():
@@ -23,6 +40,8 @@ def main():
     initial_clustering_settings = settings.InitialClusteringSettings()
     subspace_clustering_settings = settings.SubspaceClusteringSettings()
     evaluation_settings = settings.EvaluationSettings()
+
+    seed_random_number_generators(global_settings.random_seed)
 
     collect_output_file_path = prepare_output_file(global_settings, initial_clustering_settings,
                                                    subspace_clustering_settings)
@@ -36,7 +55,8 @@ def main():
     # plot_gradient(out_dir, unfiltered_sea_level_anomaly_data)
 
     # initial clustering
-    out_dir = calculate_initial_clustering(initial_clustering_settings, out_dir, sea_level_anomaly_data)
+    out_dir = calculate_initial_clustering(initial_clustering_settings, out_dir, sea_level_anomaly_data,
+                                           global_settings.random_seed)
 
     if subspace_clustering_settings.apply_weights:
         logger.info("Applying weights before subspace clustering")
@@ -77,12 +97,13 @@ def prepare_output_file(global_settings, initial_clustering_settings, subspace_c
 
 
 def calculate_initial_clustering(initial_clustering_settings, out_dir: str,
-                                 sea_level_anomaly_data: xr.Dataset):
+                                 sea_level_anomaly_data: xr.Dataset, random_seed: int):
     """
     Calculate initial clustering
     :param initial_clustering_settings:
     :param out_dir:
     :param sea_level_anomaly_data:
+    :param random_seed:
     :return:
     """
     out_dir = (
@@ -116,7 +137,8 @@ def calculate_initial_clustering(initial_clustering_settings, out_dir: str,
                                                     initial_clustering_settings.distance_function, out_dir)
     elif initial_clustering_settings.method == InitialClusteringMethod.k_means_clustering:
         initial_clustering = KMeansClustering(sea_level_anomaly_data, initial_clustering_settings.number_of_clusters,
-                                              initial_clustering_settings.distance_function, out_dir)
+                                              initial_clustering_settings.distance_function, out_dir,
+                                              random_seed=random_seed)
     elif initial_clustering_settings.method == InitialClusteringMethod.wards_method_connected:
         initial_clustering = WardsMethodConnected(sea_level_anomaly_data,
                                                   initial_clustering_settings.number_of_clusters,

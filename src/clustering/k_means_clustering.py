@@ -21,6 +21,7 @@ class KMeansClustering(InitialClustering):
     min_lat: float = None
     min_lon: float = None
     resolution: float = None
+    random_seed: int = 42
 
     def start_initial_clustering(self) -> None:
         """
@@ -55,7 +56,7 @@ class KMeansClustering(InitialClustering):
                                                                         self.resolution)
                     counter += 1
         for cluster_count in self.number_of_clusters:
-            kmeans = KMeans(n_clusters=cluster_count, random_state=0)
+            kmeans = KMeans(n_clusters=cluster_count, random_state=self.random_seed)
             labels = kmeans.fit_predict(time_series_data.T)  # Transpose, because KMeans expects (n_samples, n_features)
             clustering_data_array = np.full(nan_mask.shape, numpy.nan)
             cluster_id_to_lat_lon = {}

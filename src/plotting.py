@@ -1,5 +1,6 @@
 import colorsys
 import random
+from pathlib import Path
 from statistics import median
 
 import geopandas
@@ -15,6 +16,11 @@ from loguru import logger
 from shapely.geometry import MultiPolygon, Polygon
 from shapely.geometry.point import Point
 from shapely.ops import transform, unary_union
+
+# Project root (plotting.py lives in <repo>/src). Auxiliary inputs/outputs are anchored here so they
+# resolve independently of the working directory.
+_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = _PROJECT_ROOT / "data"
 
 
 def plot_xarray_dataset_on_map(xarray_dataset: xarray.Dataset, out_dir: str, name: str):
@@ -221,7 +227,7 @@ async def create_gdf_from_xarray_dataset(clusters, number_of_clusters):
     :param number_of_clusters:
     :return:
     """
-    land_gdf = geopandas.read_file("../data/ne_10m_land/ne_10m_land.shp")
+    land_gdf = geopandas.read_file(str(DATA_DIR / "ne_10m_land" / "ne_10m_land.shp"))
     colors = random_color_generator(number_of_clusters + 1)
     grid_point_area = 1
     # turn clusters into a geopandas dataframe
@@ -289,7 +295,7 @@ def plot_nan_values(data, time_step):
     plt.ylabel('Latitude')
     plt.title(f'NaN Distribution at Time Step {time_step}')
     plt.colorbar(label='NaN Mask (1 = NaN, 0 = Valid Data)')
-    plt.savefig(f'../output/nan_distribution_{time_step}.jpg', bbox_inches='tight')
+    plt.savefig(str(_PROJECT_ROOT / "output" / f"nan_distribution_{time_step}.jpg"), bbox_inches='tight')
     plt.close()
 
 
@@ -302,7 +308,7 @@ def turn_dict_into_gdf(cluster_dict: {float: [(float, float)]}, grid_point_area:
     :param cluster_dict:
     :return:
     """
-    land_gdf = geopandas.read_file("../data/ne_10m_land/ne_10m_land.shp")
+    land_gdf = geopandas.read_file(str(DATA_DIR / "ne_10m_land" / "ne_10m_land.shp"))
     # print(f"number of clusters {len(cluster_dict.keys())}")
     # turn clusters into a geopandas dataframe
     cluster_ids = []
@@ -662,7 +668,7 @@ def plot_time_series(first_component: np.array, out_dir: str, name: str, sea_lev
     """
     # plot ENSO pattern to time series
     # read txt file
-    path = "../data/enso_meiv2_filtered_1979_2024.txt"
+    path = str(DATA_DIR / "enso_meiv2_filtered_1979_2024.txt")
     enso_dates = []
     enso_values = []
     enso_dict = {}

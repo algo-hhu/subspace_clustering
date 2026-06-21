@@ -9,6 +9,9 @@ from sklearn.decomposition import PCA
 from src import plotting
 from src.helper import extract_clusters_from_xarray_dataset
 
+# Seed for PCA's randomized SVD solver; set from GlobalSettings.random_seed in main() for reproducibility.
+PCA_RANDOM_STATE = 42
+
 
 def plot_first_two_components(clustering: dict[int: list[tuple[float, float]]], sla_data: np.array, output_dir: str,
                               sea_level_anomaly_data: xarray.Dataset):
@@ -91,7 +94,7 @@ def plot_first_component_for_entire_dataset(output_dir: str, sla_data: np.array,
             time_series = sla_data[:, idx, idy]
             data_for_pca[counter] = time_series
             counter += 1
-    pca = PCA(n_components=1)
+    pca = PCA(n_components=1, random_state=PCA_RANDOM_STATE)
     pca.fit(data_for_pca)
     first_component = pca.components_[0]
     # plot the first component

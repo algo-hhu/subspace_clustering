@@ -126,16 +126,17 @@ def start_preprocessing(global_settings, variable_to_plot: str):
             sea_level_anomaly_data = xr.open_dataset(global_settings.filtered_data_path)
         # adjust resolution
         out_dir = f"{out_dir}/{global_settings.resolution}_degree_grid"
-        resolution_path = f"../output/resolutions/sea_level_anomaly_data_filtered_{global_settings.half_width}"
+        resolution_path = (f"{global_settings.output_path}/resolutions/"
+                           f"sea_level_anomaly_data_filtered_{global_settings.half_width}")
         sea_level_anomaly_data = adjust_resolution(global_settings.resolution, resolution_path, sea_level_anomaly_data)
     else:
         out_dir = f"{out_dir}/no_filtering"
         out_dir = f"{out_dir}/{global_settings.resolution}_degree_grid"
-        resolution_path = (f"../output/resolutions/sea_level_anomaly_data_no_filter")
+        resolution_path = f"{global_settings.output_path}/resolutions/sea_level_anomaly_data_no_filter"
         # check for correct resolution
         sea_level_anomaly_data = adjust_resolution(global_settings.resolution, resolution_path,
                                                    unfiltered_sea_level_anomaly_data)
-    resolution_path = f"../output/resolutions/sea_level_anomaly_data_no_filter"
+    resolution_path = f"{global_settings.output_path}/resolutions/sea_level_anomaly_data_no_filter"
     unfiltered_sea_level_anomaly_data = adjust_resolution(global_settings.resolution, resolution_path,
                                                           unfiltered_sea_level_anomaly_data)
     return out_dir, sea_level_anomaly_data, unfiltered_sea_level_anomaly_data, unprocessed_sea_level_anomaly_data

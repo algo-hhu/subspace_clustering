@@ -17,6 +17,8 @@ from src.helper import extract_clusters_from_xarray_dataset, save_clustering
 from src.plotting import plot_clustering, assign_color_to_cluster
 
 OUT_DIR = None
+# Seed for PCA's randomized SVD solver; set from GlobalSettings.random_seed in main() for reproducibility.
+PCA_RANDOM_STATE = 42
 
 
 def plot_explained_variance_per_iteration(explained_variance_per_iteration: dict[int: dict[int: float]],
@@ -404,7 +406,7 @@ def determine_subspace_per_cluster(cluster_grid_point_ids: [(int, int)], data: n
     # remove nans
     data_matrix = data_matrix[~np.isnan(data_matrix).any(axis=1)]
     # perform PCA
-    pca = PCA(number_of_components)
+    pca = PCA(number_of_components, random_state=PCA_RANDOM_STATE)
     try:
         pca.fit(data_matrix)
     except ValueError as e:
