@@ -145,6 +145,7 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
             counter += 1
             # grid_point_assignment = cluster_to_grid_point_ids_dict.copy()
             best_solution = None
+            best_grid_point_assignment = None  # grid-point form of best_solution, for subspace similarity
             best_distances_to_subspaces = start_sum_of_distances
             best_iteration = 0
             explained_variance_per_iteration = {}
@@ -155,8 +156,8 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
                     cluster_to_grid_point_ids_dict, number_of_components,
                     sla_data)
                 explained_variance_per_iteration[counter] = explained_variance_per_cluster
-                # # calculate how similar/different the subspaces are
-                # similarities = calculate_principal_angles(subspaces)
+                # subspace similarity (principal angles) is computed once on the final
+                # clustering below, after the loop, rather than every iteration
                 # assign each grid point to its closest subspace
                 cluster_to_grid_point_ids_dict, change, summed_distances = determine_closest_subspace(sla_data,
                                                                                                       subspaces,
@@ -203,6 +204,7 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
                 if sum_of_distances_after_conn < best_distances_to_subspaces:
                     best_distances_to_subspaces = sum_of_distances_after_conn
                     best_solution = cluster_to_lat_lon
+                    best_grid_point_assignment = cluster_to_grid_point_ids_dict.copy()
                     best_iteration = counter
                 counter += 1
                 if counter >= 50:
@@ -215,24 +217,37 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
                     # A & B \\ in latex table inside table
                     f.write(f" ;- ; - \\\\ \n")
                 continue
-            # if connectivity has not been established in every iteration, do it now
+            # if connectivity has not been established in every iteration, do it now.
+            # reconnect the best clustering (the one that gets saved), using its own subspaces,
+            # and treat the reconnected result as the new best clustering.
             if establish_connectivity_afterwards == True or filter_grid_point_assignment == True:
-                cluster_to_grid_point_ids_dict = reestablish_connectivity(sea_level_anomaly_data,
-                                                                          cluster_to_lat_lon,
-                                                                          subspaces,
-                                                                          counter, OUT_DIR, cluster_id_to_color,
-                                                                          number_of_clusters)
-                cluster_to_lat_lon = convert_idx_idy_to_lat_lon(cluster_to_grid_point_ids_dict, min_lat, min_lon,
-                                                                resolution)
+                best_subspaces, _ = calculate_subspaces_for_clusters(
+                    best_grid_point_assignment, number_of_components, sla_data)
+                best_grid_point_assignment = reestablish_connectivity(sea_level_anomaly_data,
+                                                                      best_solution,
+                                                                      best_subspaces,
+                                                                      counter, OUT_DIR, cluster_id_to_color,
+                                                                      number_of_clusters)
+                best_solution = convert_idx_idy_to_lat_lon(best_grid_point_assignment, min_lat, min_lon,
+                                                           resolution)
                 name = f"final_clustering_{number_of_components}"
-                plot_clustering(cluster_to_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
+                plot_clustering(best_solution, current_out_dir, resolution, name, cluster_id_to_color)
                 # calculate resulting value
-                summed_distances, explained_variance = evaluate_distances_to_subspaces(cluster_to_grid_point_ids_dict,
+                summed_distances, explained_variance = evaluate_distances_to_subspaces(best_grid_point_assignment,
                                                                                        sla_data,
                                                                                        number_of_components,
                                                                                        current_out_dir)
                 best_distances_to_subspaces = summed_distances
                 sum_distances_to_subspaces[counter] = summed_distances
+            # calculate how similar/different the subspaces of the returned (best) clustering are
+            final_subspaces, _ = calculate_subspaces_for_clusters(
+                best_grid_point_assignment, number_of_components, sla_data)
+            principal_angles = calculate_principal_angles(final_subspaces)
+            ordered_ids, largest_angle, chordal_distance, mean_angle = summarize_principal_angles(
+                principal_angles, final_subspaces.keys())
+            similarity_file = os.path.join(current_out_dir, f"subspace_similarity_{number_of_components}.txt")
+            write_subspace_similarity(similarity_file, ordered_ids, largest_angle, chordal_distance, mean_angle)
+            logger.info(f"wrote subspace similarity matrices to {similarity_file}")
             # plot the summed distances to the subspaces
             plotting.plot_summed_distances_to_subspaces(sum_distances_to_subspaces, current_out_dir,
                                                         number_of_components, best_iteration,
@@ -533,13 +548,13 @@ def calculate_principal_angles(subspaces):
     :return:
     """
     # determine similarity of subspaces
-    similarities = {}  # key: (subspace1, subspace2), value: similarity
+    similarities = {}  # key: (cluster_1, cluster_2), value: array of principal angles (degrees)
     for cluster_1 in subspaces.keys():
         for cluster_2 in subspaces.keys():
             if cluster_1 == cluster_2:
                 continue
-            if similarities.get(f"{cluster_1}_{cluster_2}") is None and similarities.get(
-                    f"{cluster_2}_{cluster_1}") is None:
+            if similarities.get((cluster_1, cluster_2)) is None and similarities.get(
+                    (cluster_2, cluster_1)) is None:
                 subspace_1 = subspaces[cluster_1][0]
                 subspace_2 = subspaces[cluster_2][0]
                 # orthonormalize the rows using QR decomposition
@@ -551,8 +566,76 @@ def calculate_principal_angles(subspaces):
                 # compute principal angles
                 principal_angles = np.arccos(np.clip(Sigma, -1, 1))
                 principal_angles = np.degrees(principal_angles)
-                similarities[f"{cluster_1}_{cluster_2}"] = principal_angles
+                similarities[(cluster_1, cluster_2)] = principal_angles
     return similarities
+
+
+def summarize_principal_angles(similarities, cluster_ids):
+    """
+    Reduce the pairwise principal angles to cluster-by-cluster similarity matrices.
+
+    For each cluster pair the array of principal angles (in degrees, as returned by
+    calculate_principal_angles) is collapsed into three scalar measures:
+      - largest principal angle (degrees): most conservative; small means one subspace
+        is nearly contained in the other (subspaces are similar).
+      - chordal distance: sqrt(sum_i sin^2(theta_i)), a metric on the Grassmannian;
+        0 = identical subspaces, larger = more different.
+      - mean principal angle (degrees).
+
+    :param similarities: dict {(cluster_1, cluster_2): array of angles in degrees}
+    :param cluster_ids: iterable of the cluster ids present in the clustering
+    :return: (ordered_ids, largest_angle, chordal_distance, mean_angle) where the three
+             values are symmetric (n x n) numpy matrices aligned with ordered_ids.
+             Self-comparisons on the diagonal are 0 (identical subspace).
+    """
+    ordered_ids = sorted(cluster_ids)
+    index = {cluster_id: i for i, cluster_id in enumerate(ordered_ids)}
+    n = len(ordered_ids)
+    largest_angle = np.full((n, n), np.nan)
+    chordal_distance = np.full((n, n), np.nan)
+    mean_angle = np.full((n, n), np.nan)
+    # a subspace is identical to itself
+    np.fill_diagonal(largest_angle, 0.0)
+    np.fill_diagonal(chordal_distance, 0.0)
+    np.fill_diagonal(mean_angle, 0.0)
+    for (cluster_1, cluster_2), angles_deg in similarities.items():
+        i, j = index[cluster_1], index[cluster_2]
+        angles_rad = np.radians(angles_deg)
+        largest = float(np.max(angles_deg))
+        chordal = float(np.sqrt(np.sum(np.sin(angles_rad) ** 2)))
+        mean = float(np.mean(angles_deg))
+        # principal angles are symmetric between two subspaces
+        largest_angle[i, j] = largest_angle[j, i] = largest
+        chordal_distance[i, j] = chordal_distance[j, i] = chordal
+        mean_angle[i, j] = mean_angle[j, i] = mean
+    return ordered_ids, largest_angle, chordal_distance, mean_angle
+
+
+def write_subspace_similarity(file_path, ordered_ids, largest_angle, chordal_distance, mean_angle):
+    """
+    Write the three cluster-by-cluster subspace-similarity matrices to a text file.
+    """
+
+    def format_matrix(matrix):
+        header = "          " + "".join(f"{cluster_id:>12}" for cluster_id in ordered_ids)
+        rows = [header]
+        for i, cluster_id in enumerate(ordered_ids):
+            cells = "".join(
+                "         nan" if np.isnan(value) else f"{value:>12.4f}"
+                for value in matrix[i]
+            )
+            rows.append(f"{cluster_id:>10}" + cells)
+        return "\n".join(rows)
+
+    with open(file_path, "w") as f:
+        f.write("Cluster-by-cluster subspace similarity of the final clustering\n")
+        f.write(f"Clusters: {ordered_ids}\n\n")
+        f.write("Largest principal angle (degrees; small = similar subspaces)\n")
+        f.write(format_matrix(largest_angle) + "\n\n")
+        f.write("Chordal distance (0 = identical subspaces, larger = more different)\n")
+        f.write(format_matrix(chordal_distance) + "\n\n")
+        f.write("Mean principal angle (degrees)\n")
+        f.write(format_matrix(mean_angle) + "\n")
 
 
 def modify_clustering_with_subspaces(cluster_to_grid_point_ids_dict: {int: (int, int)}, sla_data: np.array,

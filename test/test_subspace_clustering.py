@@ -2,7 +2,15 @@ import unittest
 
 import numpy as np
 
-from src.clustering.subspace_clustering import compare_distances_to_subspaces, determine_subspace_per_cluster
+from src.clustering.subspace_clustering import (
+    calculate_subspaces_for_clusters,
+    compare_distances_to_subspaces,
+    convert_idx_idy_to_lat_lon,
+    create_cluster_map,
+    determine_closest_subspace,
+    determine_subspace_per_cluster,
+    modify_clustering_with_subspaces,
+)
 
 
 class TestCompareDistancesToSubspaces(unittest.TestCase):
@@ -99,3 +107,106 @@ class TestDetermineSubspacePerCluster(unittest.TestCase):
         grid_points = [(0, 0), (0, 1), (1, 0)]
         with self.assertRaises(RuntimeError):
             determine_subspace_per_cluster(grid_points, data, 1)
+
+
+class TestCreateClusterMap(unittest.TestCase):
+
+    def test_grid_points_are_labelled_with_their_cluster_id(self):
+        cluster_data = np.zeros((3, 3))  # only the shape is used
+        assignment = {0: [(0, 0), (0, 1)], 1: [(2, 2)]}
+
+        cluster_map = create_cluster_map(cluster_data, assignment)
+
+        self.assertEqual(cluster_map[0, 0], 0)
+        self.assertEqual(cluster_map[0, 1], 0)
+        self.assertEqual(cluster_map[2, 2], 1)
+        # unassigned grid points stay NaN
+        self.assertTrue(np.isnan(cluster_map[1, 1]))
+
+
+class TestConvertIdxIdyToLatLon(unittest.TestCase):
+
+    def test_indices_map_to_coordinates(self):
+        assignment = {0: [(0, 0), (1, 2)]}
+        result = convert_idx_idy_to_lat_lon(assignment, min_lat=-10, min_lon=20, resolution=2)
+        # lat = min_lat + x*res, lon = min_lon + y*res
+        self.assertEqual(result, {0: [(-10, 20), (-8, 24)]})
+
+
+class TestCalculateSubspacesForClusters(unittest.TestCase):
+
+    def test_clusters_too_small_for_a_subspace_are_skipped(self):
+        base = np.array([1.0, 2.0, 3.0, 4.0])
+        data = np.zeros((4, 2, 3))
+        data[:, 0, 0] = 1.0 * base
+        data[:, 0, 1] = 2.0 * base
+        data[:, 0, 2] = 3.0 * base
+        data[:, 1, 0] = 5.0 * base
+        data[:, 1, 1] = base  # the single-point cluster below
+        cluster_id_dict = {0: [(0, 0), (0, 1), (0, 2), (1, 0)], 1: [(1, 1)]}
+
+        subspaces, explained_variance = calculate_subspaces_for_clusters(cluster_id_dict, 1, data)
+
+        # cluster 0 has enough points for a 1-d subspace; cluster 1 (one point) is skipped
+        self.assertIn(0, subspaces)
+        self.assertNotIn(1, subspaces)
+        components, mean = subspaces[0]
+        self.assertEqual(components.shape, (1, 4))
+
+
+class TestDetermineClosestSubspace(unittest.TestCase):
+
+    def _orthogonal_subspaces(self):
+        # subspace 0 = span(e1), subspace 1 = span(e2)
+        return {
+            0: (np.array([[1.0, 0.0, 0.0]]), np.array([0.0, 0.0, 0.0])),
+            1: (np.array([[0.0, 1.0, 0.0]]), np.array([0.0, 0.0, 0.0])),
+        }
+
+    def _data(self):
+        data = np.zeros((3, 1, 2))
+        data[:, 0, 0] = [5.0, 0.0, 0.0]  # lies in subspace 0
+        data[:, 0, 1] = [0.0, 5.0, 0.0]  # lies in subspace 1
+        return data
+
+    def test_points_are_assigned_to_their_own_subspace(self):
+        previous = {0: [(0, 0)], 1: [(0, 1)]}
+        assignment, change, summed = determine_closest_subspace(self._data(), self._orthogonal_subspaces(), 1, previous)
+        self.assertEqual(assignment[0], [(0, 0)])
+        self.assertEqual(assignment[1], [(0, 1)])
+        self.assertAlmostEqual(summed, 0.0)
+
+    def test_change_flag_is_false_when_assignment_is_stable(self):
+        previous = {0: [(0, 0)], 1: [(0, 1)]}
+        _, change, _ = determine_closest_subspace(self._data(), self._orthogonal_subspaces(), 1, previous)
+        self.assertFalse(change)
+
+    def test_change_flag_is_true_when_assignment_moves(self):
+        previous = {0: [(0, 1)], 1: [(0, 0)]}  # swapped vs. the true assignment
+        _, change, _ = determine_closest_subspace(self._data(), self._orthogonal_subspaces(), 1, previous)
+        self.assertTrue(change)
+
+
+class TestModifyClusteringWithSubspaces(unittest.TestCase):
+
+    def test_misassigned_point_migrates_to_neighbouring_better_subspace(self):
+        # 1x3 grid; the middle point belongs in subspace 1 but starts in cluster 0,
+        # and its right neighbour is in cluster 1, so it should migrate there (Alg. 3).
+        subspaces = {
+            0: (np.array([[1.0, 0.0, 0.0]]), np.array([0.0, 0.0, 0.0])),  # span(e1)
+            1: (np.array([[0.0, 1.0, 0.0]]), np.array([0.0, 0.0, 0.0])),  # span(e2)
+        }
+        sla_data = np.zeros((3, 1, 3))
+        sla_data[:, 0, 0] = [5.0, 0.0, 0.0]  # in subspace 0
+        sla_data[:, 0, 1] = [0.0, 5.0, 0.0]  # belongs in subspace 1, misassigned to cluster 0
+        sla_data[:, 0, 2] = [0.0, 5.0, 0.0]  # in subspace 1
+        cluster_data = np.zeros((1, 3))  # only its shape is used
+        assignment = {0: [(0, 0), (0, 1)], 1: [(0, 2)]}
+
+        new_assignment, change, summed = modify_clustering_with_subspaces(
+            assignment, sla_data, subspaces, cluster_data)
+
+        self.assertTrue(change)
+        self.assertIn((0, 1), new_assignment[1])
+        self.assertNotIn((0, 1), new_assignment[0])
+        self.assertEqual(new_assignment[0], [(0, 0)])

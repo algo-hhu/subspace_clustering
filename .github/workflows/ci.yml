@@ -27,7 +27,6 @@ jobs:
         run: poetry install --no-interaction --no-root
 
       - name: Run tests
-        working-directory: test
         env:
-          PYTHONPATH: ..
-        run: poetry run python -m unittest discover -s . -p "test_*.py"
+          PYTHONPATH: ${{ github.workspace }}
+        run: poetry run pytest test
