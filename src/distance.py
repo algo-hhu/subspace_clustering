@@ -64,24 +64,18 @@ def distance_for_wards_method(timeseries1: [float], timeseries2: [float]):
     return distance
 
 
-def subspace_timeseries_distance_calculation(all_distances, current_time_series, mean, subspace):
+def subspace_timeseries_distance_calculation(current_time_series, mean, subspace):
     """
-    Calculate the distance of the current time series to the subspace
-    :param all_distances:
+    Calculate the (squared) distance of the current time series to the subspace: project the
+    mean-centered series onto the subspace and return the squared norm of the residual.
     :param current_time_series:
     :param mean:
     :param subspace:
     :return:
     """
-    distance = 0
-    current_time_series_for_cluster = current_time_series - mean
-    # project current time series onto subspace
-    projection = subspace.T @ (subspace @ current_time_series_for_cluster)
-    # use squared Euclidean distance
-    residual = current_time_series_for_cluster - projection
-    distance = np.sum(residual ** 2)
-    all_distances.append(distance)
-    # otherwise could use the norm
-    # distance = np.linalg.norm(current_time_series_for_cluster - x_proj)
-    # if distance is less than the previous ones, update the minimum
-    return distance
+    centered_time_series = current_time_series - mean
+    # project the centered time series onto the subspace
+    projection = subspace.T @ (subspace @ centered_time_series)
+    # squared Euclidean distance of the residual (could also use np.linalg.norm for the non-squared distance)
+    residual = centered_time_series - projection
+    return np.sum(residual ** 2)

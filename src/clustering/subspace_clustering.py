@@ -390,7 +390,7 @@ def evaluate_distances_to_subspaces(cluster_to_grid_point_ids_dict: dict[int, li
         # calculate the distance to the subspace for each grid point in the cluster
         for (id_x, id_y) in cluster_to_grid_point_ids_dict[cluster_id]:
             current_time_series = sla_data[:, id_x, id_y]
-            distance = subspace_timeseries_distance_calculation([], current_time_series, mean, subspace)
+            distance = subspace_timeseries_distance_calculation(current_time_series, mean, subspace)
             sum_of_distances += distance
             number_of_grid_points += 1
 

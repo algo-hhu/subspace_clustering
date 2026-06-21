@@ -48,11 +48,12 @@ class TestSaveAndExtractClusteringRoundTrip(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as out_dir:
             save_clustering(clustering_dict, out_dir, sea_level, "clustering_test")
-            reloaded = xr.open_dataset(f"{out_dir}/clustering_test.nc")
-
-            _, cluster_to_grid_point_id = extract_clusters_from_xarray_dataset(
-                reloaded, min_lat=0.0, min_lon=10.0, resolution=2.0,
-                sla_data=sea_level["sla"].values)
+            # use as a context manager so the file handle is released before the
+            # TemporaryDirectory is cleaned up (Windows can't delete open files)
+            with xr.open_dataset(f"{out_dir}/clustering_test.nc") as reloaded:
+                _, cluster_to_grid_point_id = extract_clusters_from_xarray_dataset(
+                    reloaded, min_lat=0.0, min_lon=10.0, resolution=2.0,
+                    sla_data=sea_level["sla"].values)
 
         # two clusters, and the grid-point partition matches (compared as sets, since save_clustering
         # renumbers cluster ids 0..k-1); this guards the "__xarray_dataarray_variable__" round trip
