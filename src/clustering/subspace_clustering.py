@@ -679,7 +679,7 @@ Modify the clustering with subspaces by checking if the grid points are closer t
             # if there are no neighbors, continue
             if len(possible_clusters) == 0:
                 new_cluster_to_grid_point_ids_dict[current_cluster].append((id_x, id_y))
-                distance = subspace_timeseries_distance_calculation([], current_time_series,
+                distance = subspace_timeseries_distance_calculation(current_time_series,
                                                                     subspaces[current_cluster][1],
                                                                     subspaces[current_cluster][0])
                 summed_distances += distance
