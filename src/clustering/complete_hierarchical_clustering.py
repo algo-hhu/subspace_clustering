@@ -107,10 +107,10 @@ class CompleteHierarchicalClustering(InitialClustering):
             try:
                 cluster1 = clusters[int(row_idx)]
                 cluster2 = clusters[int(col_idx)]
-            except KeyError:
-                logger.error(f"Key error: {row_idx}, {col_idx}")
-                logger.error(f"Number of clusters: {total_number_of_clusters}")
-                exit()
+            except KeyError as e:
+                raise RuntimeError(
+                    f"Merge target missing at indices ({row_idx}, {col_idx}); "
+                    f"{total_number_of_clusters} clusters remaining") from e
             # remove the two clusters from the dict of clusters use the smaller id as the id of the merged cluster
             new_cluster = Cluster(id=min(cluster1.id, cluster2.id),
                                   grid_points=cluster1.grid_points + cluster2.grid_points)

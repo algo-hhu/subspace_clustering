@@ -407,11 +407,10 @@ def determine_subspace_per_cluster(cluster_grid_point_ids: [(int, int)], data: n
     pca = PCA(number_of_components)
     try:
         pca.fit(data_matrix)
-    except:
-        logger.error(f"Could not fit PCA for cluster with {len(cluster_grid_point_ids)} grid points. "
-                     f"Number of components: {number_of_components}.")
-        print(data_matrix)
-        exit(1)
+    except ValueError as e:
+        raise RuntimeError(
+            f"PCA failed for cluster with {len(cluster_grid_point_ids)} grid points and "
+            f"{number_of_components} components") from e
     explained_variance = pca.explained_variance_ratio_
     # print(explained_variance)
     # save sum of explained variance for current subspace

@@ -140,7 +140,9 @@ def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering,
             # plot clustergraph
             plot_graph_on_clustering_map(clustering, cluster_graph, grid_point_to_lat_lon, resolution, out_dir,
                                          f"{iteration_count}cluster_graph_{counter}_error", cluster_id_to_color)
-            exit()
+            raise RuntimeError(
+                f"Connectivity step failed to reduce component count at iteration {iteration_count} "
+                f"(component {smallest_connected_component.id})")
 
         # if counter % 100 == 0:
         #     print(

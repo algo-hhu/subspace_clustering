@@ -75,13 +75,14 @@ def adjust_resolution(resolution: int, resolution_path: str, sea_level_anomaly_d
     :param sea_level_anomaly_data:
     :return:
     """
-    if resolution != sea_level_anomaly_data.latitude[1] - sea_level_anomaly_data.latitude[0]:
-        if resolution < sea_level_anomaly_data.latitude[1] - sea_level_anomaly_data.latitude[0]:
-            logger.warning("The desired resolution is smaller than the current resolution. This is not supported.")
-            exit()
+    current_resolution = sea_level_anomaly_data.latitude[1] - sea_level_anomaly_data.latitude[0]
+    if resolution != current_resolution:
+        if resolution < current_resolution:
+            raise ValueError(
+                f"Requested resolution {resolution}° is finer than the data's {float(current_resolution)}°; "
+                f"upsampling is not supported.")
         if resolution < 1:
-            logger.warning("The desired resolution is smaller than 1 degree. This is not supported.")
-            exit()
+            raise ValueError(f"Resolution must be >= 1 degree, got {resolution}.")
         resolution = int(resolution)
         resolution_path = resolution_path + f"_{resolution}_degree.nc"
         # interpolate the data to the desired resolution

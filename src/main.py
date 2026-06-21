@@ -178,4 +178,8 @@ def change_clustering_resolution(sea_level_data: xarray.Dataset, clustering_data
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (ValueError, RuntimeError) as e:
+        logger.error(f"Run failed: {e}")
+        raise SystemExit(1)

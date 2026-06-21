@@ -11,6 +11,7 @@ import pandas as pd
 import shapely
 import xarray
 import xarray as xr
+from loguru import logger
 from shapely.geometry import MultiPolygon, Polygon
 from shapely.geometry.point import Point
 from shapely.ops import transform, unary_union
@@ -98,10 +99,10 @@ def shift_all_longitudes(geom):
                     result = shifted_west.union(east_half)
                     if result.is_valid:
                         return result
-                except:
-                    pass  # If union fails, fall back to simple transformation
-            except:
-                pass  # If splitting fails, fall back to simple transformation
+                except Exception:
+                    logger.debug("Geometry union failed; falling back to simple transform")
+            except Exception:
+                logger.debug("Geometry split failed; falling back to simple transform")
 
     # Fall back to simple transformation for all other cases
     try:
@@ -110,8 +111,9 @@ def shift_all_longitudes(geom):
             return result
         else:
             return result.buffer(0)
-    except:
+    except Exception:
         # If all else fails, return the original geometry
+        logger.debug("Geometry transform failed; returning original geometry")
         return geom
 
 
