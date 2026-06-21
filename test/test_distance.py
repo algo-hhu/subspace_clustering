@@ -64,30 +64,21 @@ class TestSubspaceTimeseriesDistance(unittest.TestCase):
         subspace = np.array([[1.0, 0.0, 0.0]])  # span of e1
         mean = np.array([0.0, 0.0, 0.0])
         current = np.array([5.0, 0.0, 0.0])  # lies in the subspace
-        self.assertAlmostEqual(subspace_timeseries_distance_calculation([], current, mean, subspace), 0.0)
+        self.assertAlmostEqual(subspace_timeseries_distance_calculation(current, mean, subspace), 0.0)
 
     def test_orthogonal_vector_distance_equals_squared_norm(self):
         subspace = np.array([[1.0, 0.0, 0.0]])  # span of e1
         mean = np.array([0.0, 0.0, 0.0])
         current = np.array([0.0, 3.0, 4.0])  # orthogonal to the subspace
         # residual is the whole vector -> 3^2 + 4^2 = 25
-        self.assertAlmostEqual(subspace_timeseries_distance_calculation([], current, mean, subspace), 25.0)
+        self.assertAlmostEqual(subspace_timeseries_distance_calculation(current, mean, subspace), 25.0)
 
     def test_mean_is_subtracted_before_projection(self):
         subspace = np.array([[0.0, 1.0, 0.0]])  # span of e2
         mean = np.array([5.0, 0.0, 0.0])
         current = np.array([5.0, 1.0, 1.0])
         # centered = [0, 1, 1], projection onto e2 = [0, 1, 0], residual = [0, 0, 1] -> 1
-        self.assertAlmostEqual(subspace_timeseries_distance_calculation([], current, mean, subspace), 1.0)
-
-    def test_distance_is_appended_to_all_distances(self):
-        subspace = np.array([[1.0, 0.0, 0.0]])
-        mean = np.array([0.0, 0.0, 0.0])
-        current = np.array([0.0, 3.0, 4.0])
-        all_distances = []
-        distance = subspace_timeseries_distance_calculation(all_distances, current, mean, subspace)
-        self.assertEqual(len(all_distances), 1)
-        self.assertAlmostEqual(all_distances[0], distance)
+        self.assertAlmostEqual(subspace_timeseries_distance_calculation(current, mean, subspace), 1.0)
 
 
 if __name__ == "__main__":

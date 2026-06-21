@@ -491,7 +491,8 @@ def compare_distances_to_subspaces(average_distances_to_each_subspace: dict[int,
     all_distances = []
     # iterate over all subspaces and calculate the distance to the current time series
     for cluster_id, (subspace, mean) in subspaces.items():
-        distance = subspace_timeseries_distance_calculation(all_distances, current_time_series, mean, subspace)
+        distance = subspace_timeseries_distance_calculation(current_time_series, mean, subspace)
+        all_distances.append(distance)
         if distance < min_error:
             min_error = distance
             closest_cluster = cluster_id
