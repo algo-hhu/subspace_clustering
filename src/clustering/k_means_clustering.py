@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import numpy
 import numpy as np
 import xarray
+from loguru import logger
 from sklearn.cluster import KMeans
 
 from src import plotting, helper
@@ -70,7 +71,7 @@ class KMeansClustering(InitialClustering):
                 except KeyError:
                     cluster_id_to_lat_lon[float(label)] = [index_to_lat_lon[i]]
                     cluster_to_grid_point_dict[float(label)] = [(idx, idy)]
-            print(len(cluster_to_grid_point_dict))
+            logger.debug(f"number of clusters: {len(cluster_to_grid_point_dict)}")
             plotting.plot_clustering_without_preassigned_colors(cluster_id_to_lat_lon, self.out_dir, self.resolution,
                                                                 f"clustering_before_reestablishing_connectivity_"
                                                                 f"{cluster_count}")

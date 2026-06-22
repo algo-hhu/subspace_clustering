@@ -692,14 +692,14 @@ Modify the clustering with subspaces by checking if the grid points are closer t
                 if neighbor_cluster not in subspaces.keys():
                     continue
                 subspace, mean = subspaces[int(neighbor_cluster)]
-                distance = subspace_timeseries_distance_calculation([], current_time_series, mean, subspace)
+                distance = subspace_timeseries_distance_calculation(current_time_series, mean, subspace)
                 if distance < min_distance:
                     min_distance = distance
                     closest_cluster = neighbor_cluster
                     closest_distance = distance
             # if the distance to the closest neighbor cluster is smaller than the distance to the current cluster,
             # change the cluster assignment
-            if closest_distance < subspace_timeseries_distance_calculation([], current_time_series,
+            if closest_distance < subspace_timeseries_distance_calculation(current_time_series,
                                                                            subspaces[current_cluster][1],
                                                                            subspaces[current_cluster][0]):
                 change = True
@@ -707,7 +707,7 @@ Modify the clustering with subspaces by checking if the grid points are closer t
                 summed_distances += closest_distance
             else:
                 new_cluster_to_grid_point_ids_dict[current_cluster].append((id_x, id_y))
-                distance = subspace_timeseries_distance_calculation([], current_time_series,
+                distance = subspace_timeseries_distance_calculation(current_time_series,
                                                                     subspaces[current_cluster][1],
                                                                     subspaces[current_cluster][0])
                 summed_distances += distance

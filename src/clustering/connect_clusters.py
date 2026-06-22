@@ -94,7 +94,7 @@ def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering,
                     logger.warning(f"subspace {subspace_id} not found in subspaces")
                     continue
                 subspace, mean = subspaces[subspace_id]
-                distance = subspace_timeseries_distance_calculation([], time_series, mean, subspace)
+                distance = subspace_timeseries_distance_calculation(time_series, mean, subspace)
                 if distance < min_error:
                     min_error = distance
                     closest_cluster = subspace_id
