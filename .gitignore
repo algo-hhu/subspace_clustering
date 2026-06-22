@@ -14,6 +14,7 @@
 # ignore output files
 ./output/*
 ./data/*
+data/*
 ./deleted/*
 # Ignore database files
 database/data/
