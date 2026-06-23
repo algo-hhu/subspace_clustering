@@ -17,6 +17,8 @@ from shapely.geometry import MultiPolygon, Polygon
 from shapely.geometry.point import Point
 from shapely.ops import transform, unary_union
 
+from src.helper import CLUSTERING_VARIABLE_NAME
+
 # Project root (plotting.py lives in <repo>/src). Auxiliary inputs/outputs are anchored here so they
 # resolve independently of the working directory.
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -39,7 +41,7 @@ def plot_xarray_dataset_on_map(xarray_dataset: xarray.Dataset, out_dir: str, nam
     bounds = list(cluster_colors.keys()) + [max(cluster_colors.keys()) + 1]
     norm = mcolors.BoundaryNorm(bounds, cmap.N)
 
-    data = xarray_dataset["__xarray_dataarray_variable__"]
+    data = xarray_dataset[CLUSTERING_VARIABLE_NAME]
     fig = plt.figure(figsize=(50, 25))
     ax = plt.axes(projection=ccrs.PlateCarree())
     data.plot(ax=ax, transform=ccrs.PlateCarree(), cmap=cmap, norm=norm, add_colorbar=True)
@@ -624,7 +626,7 @@ def assign_color_to_cluster(cluster_to_grid_point_ids_dict, number_of_clusters):
     cluster_id_to_color = {cluster_id: cluster_colors[int(i)] for i, cluster_id in
                            enumerate(cluster_to_grid_point_ids_dict.keys())}
     if len(cluster_id_to_color.keys()) < number_of_clusters:
-        print("adding colors")
+        logger.debug("adding colors")
         for i in range(number_of_clusters - len(cluster_id_to_color.keys())):
             cluster_id_to_color[len(cluster_id_to_color.keys()) + i] = cluster_colors[
                 len(cluster_id_to_color.keys()) + i]
@@ -874,5 +876,5 @@ def plot_gradient(out_dir, unfiltered_sea_level_anomaly_data):
     plt.title("Spatial Smoothness of SLA (Averaged Over Time)")
     plt.savefig(f"{out_dir}/sla_avg_grad_mag.jpg", dpi=600)
     plt.close()
-    print("Mean gradient magnitude over time:", np.nanmean(avg_gradient))
-    print("Median:", np.nanmedian(avg_gradient))
+    logger.debug(f"Mean gradient magnitude over time: {np.nanmean(avg_gradient)}")
+    logger.debug(f"Median: {np.nanmedian(avg_gradient)}")

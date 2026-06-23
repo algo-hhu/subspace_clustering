@@ -1,6 +1,7 @@
 import json
 import os
 import pickle
+from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,12 +14,51 @@ from src import helper, plotting
 from src.clustering.connect_clusters import reestablish_connectivity
 from src.connectivity.gauss_filter_grid_point_assignment import SphericalGaussFilterClustering
 from src.distance import subspace_timeseries_distance_calculation
-from src.helper import extract_clusters_from_xarray_dataset, save_clustering
+from src.helper import CLUSTERING_VARIABLE_NAME, extract_clusters_from_xarray_dataset, save_clustering
 from src.plotting import plot_clustering, assign_color_to_cluster
 
-OUT_DIR = None
 # Seed for PCA's randomized SVD solver; set from GlobalSettings.random_seed in main() for reproducibility.
 PCA_RANDOM_STATE = 42
+
+
+@dataclass
+class _ConnectivityStrategy:
+    """
+    One of the connectivity strategies evaluated during subspace clustering (paper Sec. 3.3). Each runs
+    the Lloyd-style subspace clustering and (re)establishes connectivity in a different way.
+    """
+    subdir: str  # output subdirectory name
+    header: str  # line written to the collect-output file for this strategy
+    log_message: str  # logged when the strategy starts
+    make_connected_every_round: bool = False  # IterMerge: merge after every iteration
+    filter_grid_point_assignment: bool = False  # SmoothMerge: Gaussian-filter the labels every iteration
+    establish_connectivity_afterwards: bool = False  # PostMerge: merge only once, at the end
+    writes_initial_cost: bool = False  # only the first strategy records the initial (pre-clustering) cost
+
+
+def _connectivity_strategies() -> list[_ConnectivityStrategy]:
+    """The three connectivity strategies run for each number of components (IterMerge, PostMerge, SmoothMerge)."""
+    return [
+        _ConnectivityStrategy(
+            subdir="establish_connectivity_every_iteration",
+            header="merging every iteration: \n",
+            log_message="Establishing connectivity every iteration",
+            make_connected_every_round=True,
+            writes_initial_cost=True,
+        ),
+        _ConnectivityStrategy(
+            subdir="establish_connectivity_once",
+            header="merging once after clustering: \n",
+            log_message="Establishing connectivity once after clustering",
+            establish_connectivity_afterwards=True,
+        ),
+        _ConnectivityStrategy(
+            subdir="filter_every_round_connectivity_once",
+            header="filtering every iteration, merging once after clustering: \n",
+            log_message="Filtering every round and establishing connectivity once after clustering",
+            filter_grid_point_assignment=True,
+        ),
+    ]
 
 
 def plot_explained_variance_per_iteration(explained_variance_per_iteration: dict[int: dict[int: float]],
@@ -70,41 +110,22 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
     # profiler = cProfile.Profile()
     # profiler.enable()
 
-    global OUT_DIR
-    print(f"number of components: {components}")
+    logger.info(f"number of components: {components}")
     min_lat = clustering_dataset.latitude.values.min()
     min_lon = clustering_dataset.longitude.values.min()
     resolution = float(clustering_dataset.latitude.values[1]) - float(clustering_dataset.latitude.values[0])
     # plot first time step
     # plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, original_out_dir, "sla", name="input_data")
     sla_data = sea_level_anomaly_data["sla"].values
-    cluster_data = clustering_dataset.__xarray_dataarray_variable__.values
-    # perform the subspace clustering for each set number of components three times, once with filtering, once with
-    # connectivity after the clustering and once with connectivity every iteration
-    establish_connectivity_afterwards, filter_grid_point_assignment, make_connected_every_round = False, False, False
-    for i in range(3):
-        # set the output directory according to the settings
-        if i == 0:
-            (establish_connectivity_afterwards, filter_grid_point_assignment, make_connected_every_round,
-             out_dir) = settings_for_connectivity_every_iteration(
-                original_out_dir)
-            with open(collect_output_file_path, "a") as f:
-                f.write(
-                    f"merging every iteration: \n"
-                )
-
-        elif i == 1:
-            (establish_connectivity_afterwards, filter_grid_point_assignment, make_connected_every_round,
-             out_dir) = settings_for_connectivity_once(
-                original_out_dir)
-            with open(collect_output_file_path, "a") as f:
-                f.write(f"merging once after clustering: \n")
-        elif i == 2:
-            (establish_connectivity_afterwards, filter_grid_point_assignment, make_connected_every_round,
-             out_dir) = settings_for_filtering_for_connectivity(
-                original_out_dir)
-            with open(collect_output_file_path, "a") as f:
-                f.write(f"filtering every iteration, merging once after clustering: \n")
+    cluster_data = clustering_dataset[CLUSTERING_VARIABLE_NAME].values
+    # perform the subspace clustering for each number of components once per connectivity strategy
+    # (merge every iteration, merge once at the end, filter every iteration then merge once)
+    for strategy in _connectivity_strategies():
+        out_dir = os.path.join(original_out_dir, strategy.subdir)
+        os.makedirs(out_dir, exist_ok=True)
+        logger.info(strategy.log_message)
+        with open(collect_output_file_path, "a") as f:
+            f.write(strategy.header)
 
         for number_of_components in components:
             # check if this has already been done
@@ -121,13 +142,12 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
 
             # create output directory for current number of components
             current_out_dir = f"{out_dir}/components_{number_of_components}/"
-            OUT_DIR = current_out_dir
 
             # evaluate start-clustering
             start_sum_of_distances, start_explained_variance_per_cluster = evaluate_distances_to_subspaces(
                 cluster_to_grid_point_ids_dict, sla_data, number_of_components,
                 current_out_dir)
-            if i == 0:
+            if strategy.writes_initial_cost:
                 with open(collect_output_file_path, "a") as f:
                     f.write(f"initial; {number_of_components}; {round(start_sum_of_distances, 5)} \\\\ \n")
             name = f"initial_clustering_{number_of_components}"
@@ -150,7 +170,7 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
             best_iteration = 0
             explained_variance_per_iteration = {}
             while change:
-                print(".", end="")
+                logger.debug(f"iteration {counter} for {number_of_components} components")
                 # for each cluster, determine its subspace
                 subspaces, explained_variance_per_cluster = calculate_subspaces_for_clusters(
                     cluster_to_grid_point_ids_dict, number_of_components,
@@ -173,7 +193,7 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
 
                 cluster_map = create_cluster_map(cluster_data, cluster_to_grid_point_ids_dict)
 
-                if filter_grid_point_assignment:
+                if strategy.filter_grid_point_assignment:
                     half_width = 200  # in km
                     current_filter = SphericalGaussFilterClustering(clustering_dataset.latitude.values,
                                                                     clustering_dataset.longitude.values, half_width)
@@ -182,11 +202,12 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
                                                                     resolution)
                     name = f"filtered_{counter}"
                     # plot_clustering(cluster_to_lat_lon, current_out_dir, resolution, name, cluster_id_to_color)
-                elif make_connected_every_round:
+                elif strategy.make_connected_every_round:
                     cluster_to_grid_point_ids_dict = reestablish_connectivity(sea_level_anomaly_data,
                                                                               grid_point_assignment_lat_lon,
                                                                               subspaces,
-                                                                              counter, OUT_DIR, cluster_id_to_color,
+                                                                              counter, current_out_dir,
+                                                                              cluster_id_to_color,
                                                                               number_of_clusters)
 
                     # plot filtered data
@@ -220,13 +241,13 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
             # if connectivity has not been established in every iteration, do it now.
             # reconnect the best clustering (the one that gets saved), using its own subspaces,
             # and treat the reconnected result as the new best clustering.
-            if establish_connectivity_afterwards == True or filter_grid_point_assignment == True:
+            if strategy.establish_connectivity_afterwards or strategy.filter_grid_point_assignment:
                 best_subspaces, _ = calculate_subspaces_for_clusters(
                     best_grid_point_assignment, number_of_components, sla_data)
                 best_grid_point_assignment = reestablish_connectivity(sea_level_anomaly_data,
                                                                       best_solution,
                                                                       best_subspaces,
-                                                                      counter, OUT_DIR, cluster_id_to_color,
+                                                                      counter, current_out_dir, cluster_id_to_color,
                                                                       number_of_clusters)
                 best_solution = convert_idx_idy_to_lat_lon(best_grid_point_assignment, min_lat, min_lon,
                                                            resolution)
@@ -277,54 +298,6 @@ def start_subspace_clustering(sea_level_anomaly_data: xarray.Dataset, clustering
                 # A & B \\ in latex table inside table
                 f.write(f"; {number_of_components:} ; {round(best_distances_to_subspaces, 5)} \\\\ \n")
     return
-
-
-def settings_for_filtering_for_connectivity(original_out_dir):
-    """
-    Settings for filtering every round and establishing connectivity once after clustering
-    :param original_out_dir:
-    :return:
-    """
-    filter_grid_point_assignment = True
-    make_connected_every_round = False
-    establish_connectivity_afterwards = False
-    out_dir = f"{original_out_dir}/filter_every_round_connectivity_once/"
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-    logger.info("Filtering every round and establishing connectivity once after clustering")
-    return establish_connectivity_afterwards, filter_grid_point_assignment, make_connected_every_round, out_dir
-
-
-def settings_for_connectivity_once(original_out_dir):
-    """
-    Settings for establishing connectivity once after clustering
-    :param original_out_dir:
-    :return:
-    """
-    filter_grid_point_assignment = False
-    make_connected_every_round = False
-    establish_connectivity_afterwards = True
-    out_dir = f"{original_out_dir}/establish_connectivity_once/"
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-    logger.info("Establishing connectivity once after clustering")
-    return establish_connectivity_afterwards, filter_grid_point_assignment, make_connected_every_round, out_dir
-
-
-def settings_for_connectivity_every_iteration(original_out_dir):
-    """
-    Settings for establishing connectivity every iteration
-    :param original_out_dir:
-    :return:
-    """
-    filter_grid_point_assignment = False
-    make_connected_every_round = True
-    establish_connectivity_afterwards = False
-    out_dir = f"{original_out_dir}/establish_connectivity_every_iteration/"
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-    logger.info("Establishing connectivity every iteration")
-    return establish_connectivity_afterwards, filter_grid_point_assignment, make_connected_every_round, out_dir
 
 
 def create_cluster_map(cluster_data, cluster_to_grid_point_ids_dict):
@@ -729,15 +702,13 @@ def start_subspace_clustering_with_integrated_connectivity(sea_level_anomaly_dat
     :return:
     """
 
-    global OUT_DIR
-    OUT_DIR = out_dir
     logger.info("Starting subspace clustering with integrated connectivity")
     # adjust resolution, such that it is the same for the sea level anomaly data as it is for the clustering
     min_lat = sea_level_anomaly_data.latitude.values[0]
     min_lon = sea_level_anomaly_data.longitude.values[0]
     # plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, "sla", name="input_data")
     sla_data = sea_level_anomaly_data["sla"].values
-    cluster_data = initial_clustering["__xarray_dataarray_variable__"].values
+    cluster_data = initial_clustering[CLUSTERING_VARIABLE_NAME].values
     with open(collect_output_file_path, "a") as f:
         f.write(f"subspace_clustering_integrated_connectivity\n")
     for current_number_of_components in number_of_components:
@@ -767,8 +738,8 @@ def start_subspace_clustering_with_integrated_connectivity(sea_level_anomaly_dat
         logger.info(f"Subspace clustering with {current_number_of_components} components started")
         while change:
             change = False
-            print(".", end=" ")
             iteration_counter += 1
+            logger.debug(f"integrated-connectivity iteration {iteration_counter}")
             subspaces, explained_variance_per_cluster = calculate_subspaces_for_clusters(cluster_to_grid_point_ids_dict,
                                                                                          current_number_of_components,
                                                                                          sla_data)
@@ -838,7 +809,7 @@ def calculate_subspace_clustering(global_settings, out_dir: str,
         current_out_dir = f"{out_dir}/subspace_clustering_{subspace_clustering_settings.number_of_clusters}"
         if not os.path.exists(current_out_dir):
             os.makedirs(current_out_dir)
-        print(f"output directory: {current_out_dir}")
+        logger.info(f"output directory: {current_out_dir}")
 
         start_subspace_clustering(unfiltered_sea_level_anomaly_data, initial_clustering,
                                   f"{current_out_dir}",
@@ -849,7 +820,7 @@ def calculate_subspace_clustering(global_settings, out_dir: str,
         if not subspace_clustering_settings.do_subspace_clustering:
             current_out_dir = f"{out_dir}/subspace_clustering_{subspace_clustering_settings.number_of_clusters}"
         current_out_dir = f"{current_out_dir}/integrated_connectivity"
-        print(f"output directory: {current_out_dir}")
+        logger.info(f"output directory: {current_out_dir}")
         if not os.path.exists(current_out_dir):
             os.makedirs(current_out_dir)
         start_subspace_clustering_with_integrated_connectivity(

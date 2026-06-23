@@ -6,6 +6,10 @@ import xarray
 import xarray as xr
 from loguru import logger
 
+# Variable name used for the cluster labels in all saved/loaded clustering NetCDF files. It is the
+# default name xarray assigns to an unnamed DataArray, kept explicit here as the single source of truth.
+CLUSTERING_VARIABLE_NAME = "__xarray_dataarray_variable__"
+
 
 def index_to_lat_lon(x, y, lat_min, lon_min, resolution) -> (float, float):
     """
@@ -112,8 +116,8 @@ def extract_clusters_from_xarray_dataset(clustering: xarray.Dataset, min_lat: fl
     """
     # nan mask
     non_nan_mask = ~np.isnan(sla_data).any(axis=0)
-    # apply nan mask to clustering data
-    cluster_data = clustering["__xarray_dataarray_variable__"].values
+    # apply nan mask to clustering data (copy first so we don't mutate the input dataset in place)
+    cluster_data = clustering[CLUSTERING_VARIABLE_NAME].values.copy()
     # assign nans where there are all nans in the cluster data
     cluster_data[~non_nan_mask] = np.nan
     unique_numbers, counts = np.unique(cluster_data, return_counts=True)
@@ -161,7 +165,7 @@ def save_clustering(clustering_dict: dict[int, list[tuple[float, float]]], out_d
             long_index = numpy.where(sea_level_anomaly_data.longitude.values == grid_point[1])[0][0]
             cluster_data[lat_index, long_index] = cluster_number
         cluster_number += 1
-    cluster_data = xarray.DataArray(cluster_data, dims=["latitude", "longitude"])
+    cluster_data = xarray.DataArray(cluster_data, dims=["latitude", "longitude"], name=CLUSTERING_VARIABLE_NAME)
     cluster_data = cluster_data.assign_coords(latitude=sea_level_anomaly_data.latitude,
                                               longitude=sea_level_anomaly_data.longitude)
     cluster_data.to_netcdf(f"{out_dir}/{filename}.nc")

@@ -180,7 +180,7 @@ class CompleteHierarchicalClustering(InitialClustering):
                 current_cluster = Cluster(id=cluster_id, grid_points=[current_grid_point])
                 cluster_id += 1
                 clusters[current_cluster.id] = current_cluster
-        print(f"len grid points: {len(grid_points)}")
+        logger.debug(f"len grid points: {len(grid_points)}")
 
         # calculate distances between all pairs of clusters
         # save the distances in matrix form - the cluster ids are the indices

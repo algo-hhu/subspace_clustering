@@ -80,7 +80,8 @@ def prepare_output_file(global_settings, initial_clustering_settings, subspace_c
                                 f"{subspace_clustering_settings.number_of_clusters}_clusters.csv")
     if not os.path.exists(global_settings.output_path):
         os.makedirs(global_settings.output_path)
-    with open(collect_output_file_path, "a") as f:
+    # truncate any stale results from a previous run; the subspace-clustering steps append to this file afterwards
+    with open(collect_output_file_path, "w") as f:
         f.write(
             f"Distances from clusters to subspaces for {subspace_clustering_settings.number_of_clusters} clusters:\n")
         if global_settings.filtering_sla:
@@ -111,7 +112,7 @@ def calculate_initial_clustering(initial_clustering_settings, out_dir: str,
         f"{initial_clustering_settings.distance_function.__name__}")
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
-    print(f"output directory: {out_dir}")
+    logger.info(f"output directory: {out_dir}")
     # plot used data
     plotting.plot_sla_for_point_in_time(sea_level_anomaly_data, out_dir, "sla", "used_data")
     # check if clustering has already been calculated

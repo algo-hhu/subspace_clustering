@@ -58,17 +58,17 @@ class NeighborhoodClustering(InitialClustering):
         lat_lon_to_clusters = {value[0]: key for key, value in clusters.items()}
         # for each cluster, find out which clusters are neighbors (direct and diagonal)
         neighbors, unique_pairs_with_timeseries = self.find_neighbors(lat_lon_to_clusters, nan_mask)
-        print(f"len grid points: {len(neighbors)}")
-        print(f"avg number of neighbors: {np.mean([len(value) for value in neighbors.values()])}")
+        logger.debug(f"len grid points: {len(neighbors)}")
+        logger.debug(f"avg number of neighbors: {np.mean([len(value) for value in neighbors.values()])}")
         # calculate initial distances between neighbors
         distances = self.calculate_initial_distances(unique_pairs_with_timeseries, lat_lon_to_clusters)
-        print(f"number of distances: {len(distances)}")
+        logger.debug(f"number of distances: {len(distances)}")
         counter = 0
 
         for key, dist in distances.items():
             if np.isnan(dist):
                 counter += 1
-        print(f"number of nan distances: {counter}")
+        logger.debug(f"number of nan distances: {counter}")
         logger.info(
             f"min distance: {min(distances.items(), key=lambda x: x[1])}, max distance: {max(distances.items(), key=lambda x: x[1])}, number of grid points: {len(clusters.keys())}")
         # hierarchical neighbor clustering
@@ -267,8 +267,8 @@ class NeighborhoodClustering(InitialClustering):
         first_longitude, last_longitude, lat_for_first_longitude, lat_for_last_longitude = find_first_last_longitude(
             lat_range, long_range, nan_mask)
 
-        print(f"first longitude: {first_longitude}, last longitude: {last_longitude}")
-        print(
+        logger.debug(f"first longitude: {first_longitude}, last longitude: {last_longitude}")
+        logger.debug(
             f"first long {latitudes[lat_for_first_longitude], longitudes[first_longitude]}, last long {latitudes[lat_for_last_longitude], longitudes[last_longitude]}")
 
         # extract all unique pairs of grid points that are neighbors with their time series

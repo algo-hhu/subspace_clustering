@@ -143,7 +143,7 @@ def evaluate_clustering(evaluation_settings, out_dir: str,
                                         f"{evaluation_settings.number_of_clusters}.nc")
                 if not os.path.exists(current_out_dir):
                     os.makedirs(current_out_dir)
-                print(f"output directory: {current_out_dir}")
+                logger.info(f"output directory: {current_out_dir}")
                 if not os.path.exists(eval_clustering_path):
                     logger.warning(f"Clustering file {eval_clustering_path} does not exist. Skipping evaluation.")
                     continue

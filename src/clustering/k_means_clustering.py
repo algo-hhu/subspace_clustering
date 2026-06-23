@@ -10,6 +10,7 @@ from src import plotting, helper
 from src.clustering import subspace_clustering
 from src.clustering.cluster_entities.initial_clustering import InitialClustering
 from src.clustering.subspace_clustering import create_cluster_map
+from src.helper import CLUSTERING_VARIABLE_NAME
 
 
 @dataclass
@@ -77,7 +78,7 @@ class KMeansClustering(InitialClustering):
                                                                 f"{cluster_count}")
             clustering_data = xarray.Dataset(
                 {
-                    "__xarray_dataarray_variable__": (["latitude", "longitude"], clustering_data_array)
+                    CLUSTERING_VARIABLE_NAME: (["latitude", "longitude"], clustering_data_array)
                 },
                 coords={
                     "latitude": self.sea_level_anomaly_data.latitude,
@@ -91,10 +92,10 @@ class KMeansClustering(InitialClustering):
                 cluster_to_grid_point_dict, 1, self.data_array)
 
             if subspaces.keys() != cluster_to_grid_point_dict.keys():
-                print(sorted(subspaces.keys()))
-                print(sorted(cluster_to_grid_point_dict.keys()))
+                logger.debug(f"subspace keys: {sorted(subspaces.keys())}")
+                logger.debug(f"cluster keys: {sorted(cluster_to_grid_point_dict.keys())}")
             else:
-                print("Subspaces and cluster_to_grid_point_dict keys match.")
+                logger.debug("Subspaces and cluster_to_grid_point_dict keys match.")
             cluster_map = create_cluster_map(clustering_data_array, cluster_to_grid_point_dict)
             cluster_id_to_color = plotting.assign_color_to_cluster(cluster_to_grid_point_dict, self.number_of_clusters)
             cluster_id_to_grid_point_id_reconnected = subspace_clustering.reestablish_connectivity(
@@ -114,7 +115,7 @@ class KMeansClustering(InitialClustering):
                     final_clustering_data_array[idx, idy] = cluster_id
             clustering_data = xarray.Dataset(
                 {
-                    "__xarray_dataarray_variable__": (["latitude", "longitude"], final_clustering_data_array)
+                    CLUSTERING_VARIABLE_NAME: (["latitude", "longitude"], final_clustering_data_array)
                 },
                 coords={
                     "latitude": self.sea_level_anomaly_data.latitude,

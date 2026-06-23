@@ -7,6 +7,7 @@ from sklearn.cluster import AgglomerativeClustering
 
 from src import plotting
 from src.clustering.cluster_entities.initial_clustering import InitialClustering
+from src.helper import CLUSTERING_VARIABLE_NAME
 
 
 @dataclass
@@ -100,7 +101,7 @@ class WardsMethodConnected(InitialClustering):
                     clustering_array[grid_point[0], grid_point[1]] = cluster
             clustering_dataset = xarray.Dataset(
                 {
-                    "__xarray_dataarray_variable__": (["latitude", "longitude"], clustering_array)
+                    CLUSTERING_VARIABLE_NAME: (["latitude", "longitude"], clustering_array)
                 },
                 coords={
                     "latitude": self.sea_level_anomaly_data.latitude,

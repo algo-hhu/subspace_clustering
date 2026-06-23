@@ -129,10 +129,10 @@ def reestablish_connectivity(sea_level_anomaly_data: xarray.Dataset, clustering,
         if not len(connected_components) < current_number_of_components and counter > 1:
             logger.warning(f"did not reduce number of components")
             # plot edges that smallest component has to neighbors
-            print(f"neighbors of smallest connected component: {smallest_connected_component.id} - {neighbors}")
-            print(f"nodes of smallest connected component: {smallest_connected_component.nodes}")
+            logger.debug(f"neighbors of smallest connected component: {smallest_connected_component.id} - {neighbors}")
+            logger.debug(f"nodes of smallest connected component: {smallest_connected_component.nodes}")
             for neighbor in neighbors:
-                print(f"neighbor nodes: {connected_components[neighbor].nodes}")
+                logger.debug(f"neighbor nodes: {connected_components[neighbor].nodes}")
             plot_with_highlighting_of_component(clustering, smallest_connected_component, neighbors, out_dir,
                                                 f"{iteration_count}smallest_component_{counter}_error", resolution,
                                                 connected_components,
