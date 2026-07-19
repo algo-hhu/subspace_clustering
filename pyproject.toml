@@ -2,8 +2,7 @@
 name = "subspaceclustering"
 version = "0.1.0"
 description = ""
-authors = ["Johanna Hillebrand <Johanna.Hillebrand@hhu.de>"
-]
+authors = ["anonymous"]
 packages = [
     { include = "src" }]
 readme = "README.md"
