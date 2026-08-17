@@ -1,6 +1,7 @@
 # Connected Subspace Clustering
 
-This repository accompanies the paper **_Connected Subspace Clustering with an Application in Sea Level Geodesy_**.
+This repository accompanies the paper **_Connected Subspace Clustering: Hardness, a Scalable Heuristic, and an
+Application to Sea Level Geodesy_**.
 It implements the *Connected Subspace Clustering* (Conn-Subspace) algorithm (Alg. 1 in the paper), the
 initial-clustering methods, and the connectivity subroutines (Algs. 2 and 3), and applies them to global
 sea level anomaly (SLA) data from satellite altimetry.
